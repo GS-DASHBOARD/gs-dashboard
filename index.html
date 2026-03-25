@@ -402,7 +402,10 @@ function parseCSVLine(line) {
 function parseNum(val) {
   if (!val || val === '') return 0;
   if (typeof val === 'number') return val;
-  const clean = String(val).replace(/\$/g,'').replace(/\s/g,'').replace(/\./g,'').replace(',','.');
+  const clean = String(val)
+    .replace(/\$/g,'')
+    .replace(/\s/g,'')
+    .replace(/,/g,'.');   // ← dejamos el punto decimal intacto
   return parseFloat(clean) || 0;
 }
 

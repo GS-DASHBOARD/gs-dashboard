@@ -420,12 +420,8 @@ function parseDate(val) {
 }
 
 function fmtMoney(n) {
-  if (n === null || n === undefined) return '—';
-  const abs = Math.abs(Math.round(n));
-  const str = abs.toLocaleString('es-AR');
-  if (abs >= 1000000) return (n<0?'−':'') + '$' + (Math.abs(n)/1000000).toFixed(1) + 'M';
-  if (abs >= 1000) return (n<0?'−':'') + '$' + (Math.abs(n)/1000).toFixed(0) + 'K';
-  return (n<0?'−':'') + '$' + str;
+  if (n === null || n === undefined) return '-';
+  return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('es-AR');
 }
 
 function fmtFecha(d) {

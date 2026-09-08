@@ -232,7 +232,9 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
     <button class="nav-item" onclick="nav(this,'activos')"><span class="nav-pip"></span>Activos</button>
     <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
-    <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Compras</button>
+    <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Compras (cheques)</button>
+    <button class="nav-item" onclick="nav(this,'oc')"><span class="nav-pip"></span>Órdenes de Compra</button>
+    <button class="nav-item" onclick="nav(this,'op')"><span class="nav-pip"></span>Órdenes de Pago</button>
     <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
     <div class="nav-section">Inteligencia</div>
     <button class="nav-item" onclick="nav(this,'prediccion')"><span class="nav-pip"></span>Predicción & alertas IA</button>
@@ -445,9 +447,10 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Estado</label><select id="mov-estado"><option>CANCELADO</option><option>PENDIENTE</option><option>PROYECTADO</option></select></div>
       <div class="field" style="grid-column:1/-1"><label>Concepto</label><input id="mov-concepto"></div>
     </div>
-    <button class="btn" onclick="crearMovimiento()">Guardar</button>
+    <button class="btn" id="mov-btn-guardar" onclick="crearMovimiento()">Guardar</button>
+    <button class="btn ghost" id="mov-btn-cancelar" onclick="cancelarEdicionMovimiento()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Concepto</th><th>Estado</th><th>Importe</th></tr></thead><tbody id="tbl-movimientos"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Concepto</th><th>Estado</th><th>Importe</th><th></th></tr></thead><tbody id="tbl-movimientos"></tbody></table></div></div>
 </div>
 
 <!-- PRESUPUESTOS -->
@@ -519,9 +522,10 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Estado</label><select id="fac-estado"><option>Emitida</option><option>Cobrada</option><option>Vencida</option><option>Anulada</option></select></div>
       <div class="field"><label>Concepto</label><input id="fac-concepto"></div>
     </div>
-    <button class="btn" onclick="crearFactura()">Guardar</button>
+    <button class="btn" id="fac-btn-guardar" onclick="crearFactura()">Guardar</button>
+    <button class="btn ghost" id="fac-btn-cancelar" onclick="cancelarEdicionFactura()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Proyecto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Proyecto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
 </div>
 
 <!-- ACTIVOS -->
@@ -571,10 +575,53 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Beneficiario</label><input id="chq-benef"></div>
       <div class="field"><label>Fecha de pago</label><input type="date" id="chq-fecha"></div>
       <div class="field"><label>Importe</label><input type="number" step="0.01" id="chq-importe"></div>
+      <div class="field"><label>Estado</label><select id="chq-estado"><option>Pendiente</option><option>Aceptado</option><option>Rechazado</option></select></div>
     </div>
-    <button class="btn" onclick="crearCheque()">Guardar</button>
+    <button class="btn" id="compras-btn-guardar" onclick="crearCheque()">Guardar</button>
+    <button class="btn ghost" id="compras-btn-cancelar" onclick="cancelarEdicionCheque()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha de pago</th><th>Beneficiario</th><th>Importe</th><th>Estado</th></tr></thead><tbody id="tbl-compras"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha de pago</th><th>Beneficiario</th><th>Importe</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-compras"></tbody></table></div></div>
+</div>
+
+<!-- ÓRDENES DE COMPRA -->
+<div class="page" id="page-oc">
+  <div class="ph"><div><h1>Órdenes de Compra</h1><p>Pedidos a proveedores</p></div></div>
+  <div class="row-actions" id="oc-actions" style="display:none"><button class="btn" onclick="toggleForm('oc')">+ Nueva OC</button></div>
+  <div class="card" id="oc-form" style="display:none">
+    <div id="oc-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Proveedor</label><input id="oc-proveedor" placeholder="Nombre del proveedor"></div>
+      <div class="field"><label>Proyecto</label><select id="oc-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Fecha</label><input type="date" id="oc-fecha"></div>
+      <div class="field"><label>Monto estimado</label><input type="number" step="0.01" id="oc-monto"></div>
+      <div class="field"><label>Estado</label><select id="oc-estado"><option>Pendiente</option><option>Aprobada</option><option>Recibida</option><option>Cerrada</option><option>Anulada</option></select></div>
+      <div class="field" style="grid-column:1/-1"><label>Concepto</label><input id="oc-concepto"></div>
+    </div>
+    <button class="btn" id="oc-btn-guardar" onclick="crearOC()">Guardar</button>
+    <button class="btn ghost" id="oc-btn-cancelar" onclick="cancelarEdicionOC()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Proyecto</th><th>Fecha</th><th>Monto est.</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-oc"></tbody></table></div></div>
+</div>
+
+<!-- ÓRDENES DE PAGO -->
+<div class="page" id="page-op">
+  <div class="ph"><div><h1>Órdenes de Pago</h1><p>Autorización de pagos a proveedores</p></div></div>
+  <div class="row-actions" id="op-actions" style="display:none"><button class="btn" onclick="toggleForm('op')">+ Nueva OP</button></div>
+  <div class="card" id="op-form" style="display:none">
+    <div id="op-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Proveedor</label><input id="op-proveedor" placeholder="Nombre del proveedor"></div>
+      <div class="field"><label>OC relacionada</label><select id="op-oc"><option value="">—</option></select></div>
+      <div class="field"><label>Fecha</label><input type="date" id="op-fecha"></div>
+      <div class="field"><label>Monto</label><input type="number" step="0.01" id="op-monto"></div>
+      <div class="field"><label>Medio</label><select id="op-medio"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option></select></div>
+      <div class="field"><label>Estado</label><select id="op-estado"><option>Pendiente</option><option>Aprobada</option><option>Pagada</option><option>Anulada</option></select></div>
+      <div class="field" style="grid-column:1/-1"><label>Concepto</label><input id="op-concepto"></div>
+    </div>
+    <button class="btn" id="op-btn-guardar" onclick="crearOP()">Guardar</button>
+    <button class="btn ghost" id="op-btn-cancelar" onclick="cancelarEdicionOP()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Concepto</th><th>Monto</th><th>Medio</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-op"></tbody></table></div></div>
 </div>
 
 <!-- CALIDAD -->
@@ -630,6 +677,8 @@ const PUEDE_EDITAR = {
   movimientos: r => r === 'gonzalo',
   facturas: r => r === 'gonzalo',
   presupuestos: r => r === 'sebastian' || r === 'ezequiel',
+  ordenes_compra: r => r === 'gonzalo',
+  ordenes_pago: r => r === 'gonzalo',
 };
 
 document.getElementById('hoy').textContent =
@@ -681,6 +730,8 @@ function aplicarPermisosUI() {
   document.getElementById('movimientos-actions').style.display = PUEDE_EDITAR.movimientos(ROL) ? 'flex' : 'none';
   document.getElementById('presupuestos-actions').style.display = PUEDE_EDITAR.presupuestos(ROL) ? 'flex' : 'none';
   document.getElementById('facturas-actions').style.display = PUEDE_EDITAR.facturas(ROL) ? 'flex' : 'none';
+  document.getElementById('oc-actions').style.display = PUEDE_EDITAR.ordenes_compra(ROL) ? 'flex' : 'none';
+  document.getElementById('op-actions').style.display = PUEDE_EDITAR.ordenes_pago(ROL) ? 'flex' : 'none';
 }
 
 (async function initAuth() {
@@ -1280,6 +1331,37 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     </tr>`).join('');
   }
 
+  // Órdenes de Compra
+  const { data: ocs } = await sb.from('ordenes_compra').select('*, proveedores(nombre)').order('numero',{ascending:false});
+  window.OC_CACHE = {}; (ocs||[]).forEach(o => window.OC_CACHE[o.id] = o);
+  const puedeEditarOC = PUEDE_EDITAR.ordenes_compra(ROL);
+  const estadoOCTag = { Pendiente:'w', Aprobada:'ok', Recibida:'ok', Cerrada:'muted', Anulada:'d' };
+  document.getElementById('tbl-oc').innerHTML = (ocs||[]).map(o => {
+    const proy = o.proyecto_id ? (proyectoInfo[o.proyecto_id] ? proyectoInfo[o.proyecto_id].nombre : o.proyecto_id) : '—';
+    return `<tr>
+      <td>${o.numero}</td><td>${o.proveedores ? o.proveedores.nombre : '—'}</td><td>${proy}</td>
+      <td style="font-family:var(--mono)">${o.fecha||'—'}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(o.monto_estimado))}</td>
+      <td><span class="tag ${estadoOCTag[o.estado]||'muted'}">${o.estado}</span></td>
+      <td>${puedeEditarOC ? `<button class="btn ghost" onclick="editarOC(window.OC_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOC('${o.id}')">✕</button>` : ''}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de compra</td></tr>';
+  const ocOpts = '<option value="">—</option>' + (ocs||[]).map(o => `<option value="${o.id}">OC-${o.numero} · ${o.proveedores ? o.proveedores.nombre : ''}</option>`).join('');
+  const ocSelectOP = document.getElementById('op-oc'); if (ocSelectOP) ocSelectOP.innerHTML = ocOpts;
+
+  // Órdenes de Pago
+  const { data: ops } = await sb.from('ordenes_pago').select('*, proveedores(nombre)').order('numero',{ascending:false});
+  window.OP_CACHE = {}; (ops||[]).forEach(o => window.OP_CACHE[o.id] = o);
+  const puedeEditarOP = PUEDE_EDITAR.ordenes_pago(ROL);
+  const estadoOPTag = { Pendiente:'w', Aprobada:'w', Pagada:'ok', Anulada:'d' };
+  document.getElementById('tbl-op').innerHTML = (ops||[]).map(o => `<tr>
+      <td>${o.numero}</td><td>${o.proveedores ? o.proveedores.nombre : '—'}</td><td>${o.concepto||'—'}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(o.monto))}</td>
+      <td>${o.medio||'—'}</td>
+      <td><span class="tag ${estadoOPTag[o.estado]||'muted'}">${o.estado}</span></td>
+      <td>${puedeEditarOP ? `${o.estado!=='Pagada' ? `<button class="btn ghost" onclick="marcarOPPagada('${o.id}')">Marcar pagada</button> ` : ''}<button class="btn ghost" onclick="editarOP(window.OP_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOP('${o.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de pago</td></tr>';
+
   // No conformidades
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});
   if (ncs && ncs.length > 0) {
@@ -1292,17 +1374,21 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   }
 
   // Compras (cheques, con detalle completo)
-  document.getElementById('tbl-compras').innerHTML = DATA.banco.slice().sort((a,b)=>new Date(a[4])-new Date(b[4])).map(row => {
-    const fecha = parseDate(row[4]);
-    return `<tr>
-      <td>${fmtFecha(fecha)}</td><td>${row[1]||'—'}</td>
-      <td style="font-family:var(--mono)">${fmtMoney(row[38])}</td>
-      <td><span class="tag ok">Aceptado</span></td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin cheques</td></tr>';
+  const { data: cheques } = await sb.from('cheques').select('*').order('fecha_pago',{ascending:true});
+  window.CHEQUES_CACHE = {}; (cheques||[]).forEach(c => window.CHEQUES_CACHE[c.id] = c);
+  const puedeEditarChq = PUEDE_EDITAR.cheques(ROL);
+  const estadoChqTag = { Aceptado:'ok', Pendiente:'w', Rechazado:'d' };
+  document.getElementById('tbl-compras').innerHTML = (cheques||[]).map(c => `<tr>
+      <td style="font-family:var(--mono)">${c.fecha_pago||'—'}</td><td>${c.beneficiario||'—'}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(c.importe))}</td>
+      <td><span class="tag ${estadoChqTag[c.estado]||'muted'}">${c.estado}</span></td>
+      <td>${puedeEditarChq ? `<button class="btn ghost" onclick="editarCheque(window.CHEQUES_CACHE['${c.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarCheque('${c.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin cheques</td></tr>';
 
   // Movimientos (libro de caja completo, orden más reciente primero)
   const { data: movsTabla } = await sb.from('movimientos').select('*').order('fecha',{ascending:false});
+  window.MOVS_CACHE = {}; (movsTabla||[]).forEach(m => window.MOVS_CACHE[m.id] = m);
+  const puedeEditarMov = PUEDE_EDITAR.movimientos(ROL);
   const estadoMovTag = { CANCELADO:'ok', PENDIENTE:'w', PROYECTADO:'muted' };
   document.getElementById('tbl-movimientos').innerHTML = (movsTabla||[]).map(m => {
     const color = m.tipo === 'INGRESO' ? 'color:var(--good)' : 'color:var(--danger)';
@@ -1313,11 +1399,14 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${m.concepto||m.categoria||'—'}</td>
       <td><span class="tag ${estadoMovTag[m.estado]||'muted'}">${m.estado}</span></td>
       <td style="font-family:var(--mono);${color}">${m.tipo==='INGRESO'?'+':'-'}${fmtMoney(Math.abs(Number(m.monto)))}</td>
+      <td>${puedeEditarMov ? `<button class="btn ghost" onclick="editarMovimiento(window.MOVS_CACHE['${m.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarMovimiento('${m.id}')">✕</button>` : ''}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
 
   // Facturas
   const { data: facturas } = await sb.from('facturas').select('*').order('fecha_vencimiento',{ascending:true});
+  window.FACS_CACHE = {}; (facturas||[]).forEach(f => window.FACS_CACHE[f.id] = f);
+  const puedeEditarFac = PUEDE_EDITAR.facturas(ROL);
   const estadoFacTag = { Emitida:'w', Cobrada:'ok', Vencida:'d', Anulada:'muted' };
   document.getElementById('tbl-facturas').innerHTML = (facturas||[]).map(f => {
     const cli = f.cliente_id ? (clienteNombre[f.cliente_id]||f.cliente_id) : '—';
@@ -1328,8 +1417,9 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="font-family:var(--mono)">${f.fecha_vencimiento||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(f.monto))}</td>
       <td><span class="tag ${estadoFacTag[f.estado]||'muted'}">${f.estado}</span></td>
+      <td>${puedeEditarFac ? `${f.estado!=='Cobrada' ? `<button class="btn ghost" onclick="marcarFacturaCobrada('${f.id}')">Marcar cobrada</button> ` : ''}<button class="btn ghost" onclick="editarFactura(window.FACS_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFactura('${f.id}')">✕</button>` : ''}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
 
   // Panel de Socios
   const otTotal = (ots||[]).length, otCerradas = (ots||[]).filter(o=>o.estado==='CERRADA').length;
@@ -1361,7 +1451,7 @@ function poblarSelectsClientesProyectos() {
     const el = document.getElementById(id);
     if (el) el.innerHTML = clienteOpts;
   });
-  ['mov-proyecto','pre-proyecto','fac-proyecto'].forEach(id => {
+  ['mov-proyecto','pre-proyecto','fac-proyecto','oc-proyecto'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = proyectoOpts;
   });
@@ -1395,14 +1485,189 @@ async function crearOT() {
   location.reload();
 }
 
+let EDITANDO_CHQ_ID = null;
+
 async function crearCheque() {
   const numero_cheque = document.getElementById('chq-num').value.trim();
   const beneficiario = document.getElementById('chq-benef').value.trim();
   const fecha_pago = document.getElementById('chq-fecha').value;
   const importe = Number(document.getElementById('chq-importe').value);
-  const id = 'CHQ-' + (numero_cheque || Date.now());
-  const { error } = await sb.from('cheques').insert({ id, numero_cheque: numero_cheque||null, beneficiario, fecha_pago: fecha_pago||null, importe, estado:'Aceptado' });
-  if (error) return showErr('compras', error.message);
+  const estado = document.getElementById('chq-estado').value;
+  const payload = { numero_cheque: numero_cheque||null, beneficiario, fecha_pago: fecha_pago||null, importe, estado };
+  if (EDITANDO_CHQ_ID) {
+    const { error } = await sb.from('cheques').update(payload).eq('id', EDITANDO_CHQ_ID);
+    if (error) return showErr('compras', error.message);
+  } else {
+    const id = 'CHQ-' + (numero_cheque || Date.now());
+    const { error } = await sb.from('cheques').insert({ id, ...payload });
+    if (error) return showErr('compras', error.message);
+  }
+  location.reload();
+}
+
+function editarCheque(c) {
+  EDITANDO_CHQ_ID = c.id;
+  document.getElementById('chq-num').value = c.numero_cheque || '';
+  document.getElementById('chq-benef').value = c.beneficiario || '';
+  document.getElementById('chq-fecha').value = c.fecha_pago || '';
+  document.getElementById('chq-importe').value = c.importe || '';
+  document.getElementById('chq-estado').value = c.estado || 'Pendiente';
+  document.getElementById('compras-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('compras-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('compras-form').style.display = 'block';
+  document.getElementById('compras-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionCheque() {
+  EDITANDO_CHQ_ID = null;
+  document.getElementById('compras-btn-guardar').textContent = 'Guardar';
+  document.getElementById('compras-btn-cancelar').style.display = 'none';
+  document.getElementById('compras-form').style.display = 'none';
+}
+
+async function eliminarCheque(id) {
+  if (!confirm('¿Eliminar este cheque? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('cheques').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// PROVEEDORES (helper: busca por nombre o crea)
+// ═══════════════════════════════════════════════
+async function obtenerOCrearProveedor(nombre) {
+  nombre = (nombre || '').trim();
+  if (!nombre) return null;
+  const { data: existente } = await sb.from('proveedores').select('id').ilike('nombre', nombre).limit(1).maybeSingle();
+  if (existente) return existente.id;
+  const id = 'PRV-' + Date.now();
+  const { error } = await sb.from('proveedores').insert({ id, nombre });
+  if (error) { console.error(error); return null; }
+  return id;
+}
+
+// ═══════════════════════════════════════════════
+// ÓRDENES DE COMPRA
+// ═══════════════════════════════════════════════
+let EDITANDO_OC_ID = null;
+
+async function crearOC() {
+  const proveedorNombre = document.getElementById('oc-proveedor').value.trim();
+  const proyecto_id = document.getElementById('oc-proyecto').value || null;
+  const fecha = document.getElementById('oc-fecha').value || null;
+  const monto_estimado = Number(document.getElementById('oc-monto').value) || 0;
+  const estado = document.getElementById('oc-estado').value;
+  const concepto = document.getElementById('oc-concepto').value.trim();
+  if (!proveedorNombre) return showErr('oc', 'El proveedor es obligatorio.');
+  const proveedor_id = await obtenerOCrearProveedor(proveedorNombre);
+  const payload = { proveedor_id, proyecto_id, fecha: fecha||undefined, monto_estimado, estado, concepto: concepto||null };
+  if (EDITANDO_OC_ID) {
+    const { error } = await sb.from('ordenes_compra').update(payload).eq('id', EDITANDO_OC_ID);
+    if (error) return showErr('oc', error.message);
+  } else {
+    const id = 'OC-' + Date.now();
+    const { error } = await sb.from('ordenes_compra').insert({ id, ...payload });
+    if (error) return showErr('oc', error.message);
+  }
+  location.reload();
+}
+
+function editarOC(o) {
+  EDITANDO_OC_ID = o.id;
+  document.getElementById('oc-proveedor').value = o.proveedores ? o.proveedores.nombre : '';
+  document.getElementById('oc-proyecto').value = o.proyecto_id || '';
+  document.getElementById('oc-fecha').value = o.fecha || '';
+  document.getElementById('oc-monto').value = o.monto_estimado || '';
+  document.getElementById('oc-estado').value = o.estado || 'Pendiente';
+  document.getElementById('oc-concepto').value = o.concepto || '';
+  document.getElementById('oc-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('oc-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('oc-form').style.display = 'block';
+  document.getElementById('oc-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionOC() {
+  EDITANDO_OC_ID = null;
+  document.getElementById('oc-btn-guardar').textContent = 'Guardar';
+  document.getElementById('oc-btn-cancelar').style.display = 'none';
+  document.getElementById('oc-form').style.display = 'none';
+}
+
+async function eliminarOC(id) {
+  if (!confirm('¿Eliminar esta orden de compra? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('ordenes_compra').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// ÓRDENES DE PAGO
+// ═══════════════════════════════════════════════
+let EDITANDO_OP_ID = null;
+
+async function crearOP() {
+  const proveedorNombre = document.getElementById('op-proveedor').value.trim();
+  const oc_id = document.getElementById('op-oc').value || null;
+  const fecha = document.getElementById('op-fecha').value || null;
+  const monto = Number(document.getElementById('op-monto').value);
+  const medio = document.getElementById('op-medio').value;
+  const estado = document.getElementById('op-estado').value;
+  const concepto = document.getElementById('op-concepto').value.trim();
+  if (!proveedorNombre || !monto) return showErr('op', 'Proveedor y monto son obligatorios.');
+  const proveedor_id = await obtenerOCrearProveedor(proveedorNombre);
+  const payload = { proveedor_id, oc_id, fecha: fecha||undefined, monto, medio, estado, concepto: concepto||null };
+  if (EDITANDO_OP_ID) {
+    const { error } = await sb.from('ordenes_pago').update(payload).eq('id', EDITANDO_OP_ID);
+    if (error) return showErr('op', error.message);
+  } else {
+    const id = 'OP-' + Date.now();
+    const { error } = await sb.from('ordenes_pago').insert({ id, ...payload });
+    if (error) return showErr('op', error.message);
+  }
+  location.reload();
+}
+
+function editarOP(o) {
+  EDITANDO_OP_ID = o.id;
+  document.getElementById('op-proveedor').value = o.proveedores ? o.proveedores.nombre : '';
+  document.getElementById('op-oc').value = o.oc_id || '';
+  document.getElementById('op-fecha').value = o.fecha || '';
+  document.getElementById('op-monto').value = o.monto || '';
+  document.getElementById('op-medio').value = o.medio || 'Transferencia';
+  document.getElementById('op-estado').value = o.estado || 'Pendiente';
+  document.getElementById('op-concepto').value = o.concepto || '';
+  document.getElementById('op-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('op-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('op-form').style.display = 'block';
+  document.getElementById('op-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionOP() {
+  EDITANDO_OP_ID = null;
+  document.getElementById('op-btn-guardar').textContent = 'Guardar';
+  document.getElementById('op-btn-cancelar').style.display = 'none';
+  document.getElementById('op-form').style.display = 'none';
+}
+
+async function eliminarOP(id) {
+  if (!confirm('¿Eliminar esta orden de pago? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('ordenes_pago').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+async function marcarOPPagada(id) {
+  const o = window.OP_CACHE[id];
+  if (!o) return;
+  const movId = 'MOV-' + Date.now();
+  const { error: errMov } = await sb.from('movimientos').insert({
+    id: movId, fecha: new Date().toISOString().slice(0,10), tipo: 'EGRESO', categoria: 'Pago a proveedor',
+    concepto: (o.concepto || 'Pago') + (o.proveedores ? ' - ' + o.proveedores.nombre : ''),
+    medio: o.medio, monto: o.monto, estado: 'CANCELADO', fuente: 'Portal GS OS',
+  });
+  if (errMov) return alert('No se pudo crear el movimiento: ' + errMov.message);
+  const { error } = await sb.from('ordenes_pago').update({ estado: 'Pagada', movimiento_id: movId }).eq('id', id);
+  if (error) return alert('No se pudo actualizar la OP: ' + error.message);
   location.reload();
 }
 
@@ -1435,6 +1700,8 @@ async function actualizarEstadoProyecto(id, estado) {
   location.reload();
 }
 
+let EDITANDO_MOV_ID = null;
+
 async function crearMovimiento() {
   const fecha = document.getElementById('mov-fecha').value;
   const tipo = document.getElementById('mov-tipo').value;
@@ -1446,9 +1713,46 @@ async function crearMovimiento() {
   const estado = document.getElementById('mov-estado').value;
   const concepto = document.getElementById('mov-concepto').value.trim();
   if (!fecha || !monto) return showErr('movimientos', 'Fecha y monto son obligatorios.');
-  const id = 'MOV-' + Date.now();
-  const { error } = await sb.from('movimientos').insert({ id, fecha, tipo, categoria: categoria||null, cliente_id, proyecto_id, medio: medio||null, monto, estado, concepto: concepto||null, fuente:'Portal GS OS' });
-  if (error) return showErr('movimientos', error.message);
+  const payload = { fecha, tipo, categoria: categoria||null, cliente_id, proyecto_id, medio: medio||null, monto, estado, concepto: concepto||null };
+  if (EDITANDO_MOV_ID) {
+    const { error } = await sb.from('movimientos').update(payload).eq('id', EDITANDO_MOV_ID);
+    if (error) return showErr('movimientos', error.message);
+  } else {
+    const id = 'MOV-' + Date.now();
+    const { error } = await sb.from('movimientos').insert({ id, ...payload, fuente:'Portal GS OS' });
+    if (error) return showErr('movimientos', error.message);
+  }
+  location.reload();
+}
+
+function editarMovimiento(m) {
+  EDITANDO_MOV_ID = m.id;
+  document.getElementById('mov-fecha').value = m.fecha || '';
+  document.getElementById('mov-tipo').value = m.tipo || 'INGRESO';
+  document.getElementById('mov-categoria').value = m.categoria || '';
+  document.getElementById('mov-cliente').value = m.cliente_id || '';
+  document.getElementById('mov-proyecto').value = m.proyecto_id || '';
+  document.getElementById('mov-medio').value = m.medio || '';
+  document.getElementById('mov-monto').value = m.monto || '';
+  document.getElementById('mov-estado').value = m.estado || 'CANCELADO';
+  document.getElementById('mov-concepto').value = m.concepto || '';
+  document.getElementById('mov-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('mov-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('movimientos-form').style.display = 'block';
+  document.getElementById('movimientos-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionMovimiento() {
+  EDITANDO_MOV_ID = null;
+  document.getElementById('mov-btn-guardar').textContent = 'Guardar';
+  document.getElementById('mov-btn-cancelar').style.display = 'none';
+  document.getElementById('movimientos-form').style.display = 'none';
+}
+
+async function eliminarMovimiento(id) {
+  if (!confirm('¿Eliminar este movimiento? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('movimientos').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
   location.reload();
 }
 
@@ -1736,6 +2040,8 @@ function fmtMoneyPlain(n) {
   return Math.round(Number(n) || 0).toLocaleString('es-AR');
 }
 
+let EDITANDO_FAC_ID = null;
+
 async function crearFactura() {
   const numero = document.getElementById('fac-numero').value.trim();
   const cliente_id = document.getElementById('fac-cliente').value || null;
@@ -1746,9 +2052,66 @@ async function crearFactura() {
   const estado = document.getElementById('fac-estado').value;
   const concepto = document.getElementById('fac-concepto').value.trim();
   if (!monto) return showErr('facturas', 'El monto es obligatorio.');
-  const id = 'FAC-' + Date.now();
-  const { error } = await sb.from('facturas').insert({ id, numero: numero||null, cliente_id, proyecto_id, fecha_emision: fecha_emision||undefined, fecha_vencimiento, monto, estado, concepto: concepto||null });
-  if (error) return showErr('facturas', error.message);
+  const payload = { numero: numero||null, cliente_id, proyecto_id, fecha_emision: fecha_emision||undefined, fecha_vencimiento, monto, estado, concepto: concepto||null };
+  if (EDITANDO_FAC_ID) {
+    const { error } = await sb.from('facturas').update(payload).eq('id', EDITANDO_FAC_ID);
+    if (error) return showErr('facturas', error.message);
+  } else {
+    const id = 'FAC-' + Date.now();
+    const { error } = await sb.from('facturas').insert({ id, ...payload });
+    if (error) return showErr('facturas', error.message);
+  }
+  location.reload();
+}
+
+function editarFactura(f) {
+  EDITANDO_FAC_ID = f.id;
+  document.getElementById('fac-numero').value = f.numero || '';
+  document.getElementById('fac-cliente').value = f.cliente_id || '';
+  document.getElementById('fac-proyecto').value = f.proyecto_id || '';
+  document.getElementById('fac-emision').value = f.fecha_emision || '';
+  document.getElementById('fac-vencimiento').value = f.fecha_vencimiento || '';
+  document.getElementById('fac-monto').value = f.monto || '';
+  document.getElementById('fac-estado').value = f.estado || 'Emitida';
+  document.getElementById('fac-concepto').value = f.concepto || '';
+  document.getElementById('fac-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('fac-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('facturas-form').style.display = 'block';
+  document.getElementById('facturas-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionFactura() {
+  EDITANDO_FAC_ID = null;
+  document.getElementById('fac-btn-guardar').textContent = 'Guardar';
+  document.getElementById('fac-btn-cancelar').style.display = 'none';
+  document.getElementById('facturas-form').style.display = 'none';
+}
+
+async function eliminarFactura(id) {
+  if (!confirm('¿Eliminar esta factura? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('facturas').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+async function marcarFacturaCobrada(id) {
+  const f = window.FACS_CACHE[id];
+  if (!f) return;
+  if (f.movimiento_id) {
+    const { error: errMov } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: new Date().toISOString().slice(0,10) }).eq('id', f.movimiento_id);
+    if (errMov) return alert('No se pudo actualizar el movimiento: ' + errMov.message);
+  } else {
+    const movId = 'MOV-' + Date.now();
+    const { error: errIns } = await sb.from('movimientos').insert({
+      id: movId, fecha: new Date().toISOString().slice(0,10), tipo: 'INGRESO', categoria: 'Cobranza',
+      cliente_id: f.cliente_id, proyecto_id: f.proyecto_id, concepto: 'Cobro factura ' + (f.numero||''),
+      monto: f.monto, estado: 'CANCELADO', fuente: 'Portal GS OS',
+    });
+    if (errIns) return alert('No se pudo crear el movimiento: ' + errIns.message);
+    await sb.from('facturas').update({ movimiento_id: movId }).eq('id', id);
+  }
+  const { error } = await sb.from('facturas').update({ estado: 'Cobrada' }).eq('id', id);
+  if (error) return alert('No se pudo actualizar la factura: ' + error.message);
   location.reload();
 }
 

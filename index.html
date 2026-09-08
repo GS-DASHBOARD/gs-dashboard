@@ -452,23 +452,55 @@ tr:hover td{background:var(--bg)}
 
 <!-- PRESUPUESTOS -->
 <div class="page" id="page-presupuestos">
-  <div class="ph"><div><h1>Presupuestos</h1><p>Cotizaciones por proyecto · falta costo real en la mayoría</p></div></div>
-  <div class="row-actions" id="presupuestos-actions" style="display:none"><button class="btn" onclick="toggleForm('presupuestos')">+ Nuevo presupuesto</button></div>
-  <div class="card" id="presupuestos-form" style="display:none">
+  <div class="ph"><div><h1>Presupuestos</h1><p>Cotizador por rubros e ítems · genera el documento en el formato de GS</p></div></div>
+  <div class="row-actions" id="presupuestos-actions" style="display:none"><button class="btn" onclick="abrirBuilderPresupuesto()">+ Nuevo presupuesto</button></div>
+
+  <div class="card" id="presupuestos-builder" style="display:none">
     <div id="presupuestos-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
+      <div class="field"><label>Fecha</label><input type="date" id="pre-fecha"></div>
+      <div class="field"><label>N° (automático al guardar)</label><input value="—" disabled></div>
       <div class="field"><label>Cliente</label><select id="pre-cliente"><option value="">—</option></select></div>
       <div class="field"><label>Proyecto</label><select id="pre-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Asunto</label><input id="pre-asunto" placeholder="TABIQUES, CALDERA..."></div>
       <div class="field"><label>Unidad de negocio</label><input id="pre-unidad" placeholder="Obras, Termomecánica..."></div>
-      <div class="field"><label>Monto cotizado neto</label><input type="number" step="0.01" id="pre-monto"></div>
-      <div class="field"><label>Costo total neto</label><input type="number" step="0.01" id="pre-costo" placeholder="si lo sabés, para calcular margen"></div>
-      <div class="field"><label>Estado</label><select id="pre-estado"><option>Borrador</option><option>Enviado</option><option>Aprobado</option><option>Rechazado</option><option>Sin datos</option></select></div>
-      <div class="field"><label>Responsable</label><input id="pre-responsable"></div>
-      <div class="field"><label>Tipo de proyecto</label><input id="pre-tipo"></div>
+      <div class="field"><label>Destinatario — cargo</label><input id="pre-dest-cargo" placeholder="Arquitecto"></div>
+      <div class="field"><label>Destinatario — nombre</label><input id="pre-dest-nombre"></div>
+      <div class="field"><label>Destinatario — empresa / referencia</label><input id="pre-dest-empresa"></div>
+      <div class="field"><label>Margen bruto previsto (%)</label><input type="number" step="0.1" id="pre-margen" value="32" oninput="renderBuilder()"></div>
+      <div class="field"><label>Anticipo (%)</label><input type="number" step="1" id="pre-anticipo" value="30"></div>
+      <div class="field"><label>Tiempo de ejecución</label><input id="pre-tiempo" value="A convenir"></div>
+      <div class="field"><label>Validez (días)</label><input type="number" id="pre-validez" value="15"></div>
+      <div class="field"><label>Forma de pago</label><input id="pre-forma-pago" value="30% de anticipo y saldo con certificaciones sobre avance de obra."></div>
+      <div class="field"><label>Firma</label>
+        <select id="pre-firmante">
+          <option value="sebastian">Sebastián Olivares</option>
+          <option value="gonzalo">Gonzalo Marsa</option>
+          <option value="ezequiel">Ezequiel Romano</option>
+        </select>
+      </div>
     </div>
-    <button class="btn" onclick="crearPresupuesto()">Guardar</button>
+
+    <div class="card-ttl" style="margin-top:8px">Rubros e ítems</div>
+    <div id="rubros-container"></div>
+    <button class="btn ghost" onclick="agregarRubro()">+ Rubro</button>
+
+    <div class="cgrid c2" style="margin-top:18px">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-ttl">Resumen</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span>Total (venta al cliente)</span><strong id="resumen-total">$0</strong></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--muted)"><span>Costo real (M.O. + materiales)</span><span id="resumen-costo">$0</span></div>
+        <div style="display:flex;justify-content:space-between;color:var(--good)"><span>Ganancia estimada</span><strong id="resumen-ganancia">$0</strong></div>
+      </div>
+      <div class="card" style="margin-bottom:0;display:flex;flex-direction:column;gap:8px;justify-content:center">
+        <button class="btn" onclick="guardarPresupuesto('Aprobado')">Guardar y Aprobar</button>
+        <button class="btn ghost" onclick="guardarPresupuesto('Borrador')">Guardar como Borrador</button>
+        <button class="btn ghost" onclick="cerrarBuilderPresupuesto()">Cancelar</button>
+      </div>
+    </div>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Proyecto</th><th>Unidad de negocio</th><th>Monto cotizado</th><th>Margen</th><th>Estado</th></tr></thead><tbody id="tbl-presupuestos"></tbody></table></div></div>
+
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Asunto</th><th>Total venta</th><th>Margen</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-presupuestos"></tbody></table></div></div>
 </div>
 
 <!-- FACTURAS -->
@@ -1205,18 +1237,18 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin proyectos</td></tr>';
 
   // Presupuestos
-  const { data: presupuestos } = await sb.from('presupuestos').select('*');
+  const { data: presupuestos } = await sb.from('presupuestos').select('*').order('numero',{ascending:false});
   const estadoTag = { Aprobado:'ok', Enviado:'w', Borrador:'muted', 'Sin datos':'muted', Rechazado:'d' };
   document.getElementById('tbl-presupuestos').innerHTML = (presupuestos||[]).map(p => {
     const cli = p.cliente_id ? (clienteNombre[p.cliente_id] || p.cliente_id) : '—';
-    const proy = p.proyecto_id ? (proyectoInfo[p.proyecto_id] ? proyectoInfo[p.proyecto_id].nombre : p.proyecto_id) : '—';
-    const margen = p.margen_pct !== null ? p.margen_pct + '%' : (p.costo_total_neto === null ? 'sin costo cargado' : '—');
+    const margen = p.margen_pct !== null ? p.margen_pct + '%' : '—';
     return `<tr>
-      <td>${cli}</td><td>${proy}</td><td>${p.unidad_negocio||'—'}</td>
+      <td>${p.numero ?? '—'}</td><td>${cli}</td><td>${p.asunto||p.unidad_negocio||'—'}</td>
       <td>${fmtMoney(p.monto_cotizado_neto)}</td><td>${margen}</td>
       <td><span class="tag ${estadoTag[p.estado]||'muted'}">${p.estado}</span></td>
+      <td><button class="btn ghost" onclick="verDocumentoPresupuesto('${p.id}')">Ver documento</button></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin presupuestos</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin presupuestos</td></tr>';
 
   // Activos
   const { data: activos } = await sb.from('activos').select('*');
@@ -1407,23 +1439,291 @@ async function crearMovimiento() {
   location.reload();
 }
 
-async function crearPresupuesto() {
+// ═══════════════════════════════════════════════
+// COTIZADOR DE PRESUPUESTOS (rubros + ítems)
+// ═══════════════════════════════════════════════
+const FIRMANTES = {
+  sebastian: { nombre: 'Sebastián Olivares', cargo: 'GERENTE DE OPERACIONES', cel: '11 6484-8200', email: 'sebastian.olivares@greenservicesg.com' },
+  gonzalo:   { nombre: 'Gonzalo Marsa', cargo: 'DIRECCIÓN ADMINISTRATIVA Y FINANCIERA', cel: '', email: 'gonzalo.marsa@greenservicesg.com' },
+  ezequiel:  { nombre: 'Ezequiel Romano', cargo: 'DIRECCIÓN COMERCIAL Y OPERACIONES', cel: '', email: 'ezequiel.romano@greenservicesg.com' },
+};
+
+let RUBROS_BUILDER = [];
+
+function abrirBuilderPresupuesto() {
+  RUBROS_BUILDER = [];
+  document.getElementById('pre-fecha').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('presupuestos-builder').style.display = 'block';
+  agregarRubro();
+}
+function cerrarBuilderPresupuesto() {
+  document.getElementById('presupuestos-builder').style.display = 'none';
+}
+
+function agregarRubro() {
+  RUBROS_BUILDER.push({ id: 'RUB-' + Date.now() + Math.floor(Math.random()*1000), nombre: 'GENERAL', items: [] });
+  agregarItem(RUBROS_BUILDER[RUBROS_BUILDER.length - 1].id);
+}
+function eliminarRubro(rubroId) {
+  RUBROS_BUILDER = RUBROS_BUILDER.filter(r => r.id !== rubroId);
+  renderBuilder();
+}
+function agregarItem(rubroId) {
+  const rubro = RUBROS_BUILDER.find(r => r.id === rubroId);
+  rubro.items.push({ id: 'ITM-' + Date.now() + Math.floor(Math.random()*1000), descripcion: '', unidad: 'GL', cantidad: 1, mo: 0, mat: 0 });
+  renderBuilder();
+}
+function eliminarItem(rubroId, itemId) {
+  const rubro = RUBROS_BUILDER.find(r => r.id === rubroId);
+  rubro.items = rubro.items.filter(i => i.id !== itemId);
+  renderBuilder();
+}
+function actualizarRubroNombre(rubroId, valor) {
+  RUBROS_BUILDER.find(r => r.id === rubroId).nombre = valor;
+}
+function actualizarItem(rubroId, itemId, campo, valor) {
+  const item = RUBROS_BUILDER.find(r => r.id === rubroId).items.find(i => i.id === itemId);
+  item[campo] = (campo === 'descripcion' || campo === 'unidad') ? valor : Number(valor) || 0;
+  const celda = document.getElementById('venta-' + itemId);
+  if (celda) celda.textContent = fmtMoney(ventaUnit(item.mo, item.mat) * item.cantidad);
+  renderResumen();
+}
+
+function ventaUnit(mo, mat) {
+  const margen = Number(document.getElementById('pre-margen').value) || 0;
+  const costo = Number(mo) + Number(mat);
+  return margen > 0 && margen < 100 ? costo / (1 - margen / 100) : costo;
+}
+
+function renderBuilder() {
+  const cont = document.getElementById('rubros-container');
+  cont.innerHTML = RUBROS_BUILDER.map(r => `
+    <div class="card" style="background:var(--s2)">
+      <div class="form-grid" style="margin-bottom:8px">
+        <div class="field" style="grid-column:1/-1">
+          <label>Nombre del rubro</label>
+          <div style="display:flex;gap:8px">
+            <input value="${r.nombre}" oninput="actualizarRubroNombre('${r.id}', this.value)">
+            <button class="btn ghost" onclick="eliminarRubro('${r.id}')">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Descripción</th><th>Uni.</th><th class="num">Cant.</th><th class="num">M. Obra</th><th class="num">Materiales</th><th class="num">$ Venta</th><th></th></tr></thead>
+        <tbody>
+          ${r.items.map(it => `
+            <tr>
+              <td><input value="${it.descripcion}" oninput="actualizarItem('${r.id}','${it.id}','descripcion',this.value)" style="width:100%;border:1px solid var(--b2);border-radius:5px;padding:5px 7px"></td>
+              <td><input value="${it.unidad}" oninput="actualizarItem('${r.id}','${it.id}','unidad',this.value)" style="width:55px;border:1px solid var(--b2);border-radius:5px;padding:5px 7px"></td>
+              <td><input type="number" value="${it.cantidad}" oninput="actualizarItem('${r.id}','${it.id}','cantidad',this.value)" style="width:65px;border:1px solid var(--b2);border-radius:5px;padding:5px 7px"></td>
+              <td><input type="number" value="${it.mo}" oninput="actualizarItem('${r.id}','${it.id}','mo',this.value)" style="width:90px;border:1px solid var(--b2);border-radius:5px;padding:5px 7px"></td>
+              <td><input type="number" value="${it.mat}" oninput="actualizarItem('${r.id}','${it.id}','mat',this.value)" style="width:90px;border:1px solid var(--b2);border-radius:5px;padding:5px 7px"></td>
+              <td class="num" id="venta-${it.id}" style="font-family:var(--mono)">${fmtMoney(ventaUnit(it.mo, it.mat) * it.cantidad)}</td>
+              <td><button class="btn ghost" onclick="eliminarItem('${r.id}','${it.id}')">✕</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>
+      <button class="btn ghost" style="margin-top:8px" onclick="agregarItem('${r.id}')">+ Ítem</button>
+    </div>
+  `).join('');
+  renderResumen();
+}
+
+function renderResumen() {
+  let totalVenta = 0, totalCosto = 0;
+  RUBROS_BUILDER.forEach(r => r.items.forEach(it => {
+    const costo = (Number(it.mo) + Number(it.mat)) * Number(it.cantidad);
+    totalCosto += costo;
+    totalVenta += ventaUnit(it.mo, it.mat) * Number(it.cantidad);
+  }));
+  document.getElementById('resumen-total').textContent = fmtMoney(totalVenta);
+  document.getElementById('resumen-costo').textContent = fmtMoney(totalCosto);
+  document.getElementById('resumen-ganancia').textContent = fmtMoney(totalVenta - totalCosto);
+}
+
+async function guardarPresupuesto(estadoFinal) {
+  if (estadoFinal !== 'Borrador' && ROL === 'ezequiel') {
+    return showErr('presupuestos', 'Como Ezequiel solo podés guardar presupuestos como Borrador.');
+  }
   const cliente_id = document.getElementById('pre-cliente').value || null;
   const proyecto_id = document.getElementById('pre-proyecto').value || null;
-  const unidad_negocio = document.getElementById('pre-unidad').value.trim();
-  const monto_cotizado_neto = document.getElementById('pre-monto').value ? Number(document.getElementById('pre-monto').value) : null;
-  const costo_total_neto = document.getElementById('pre-costo').value ? Number(document.getElementById('pre-costo').value) : null;
-  let estado = document.getElementById('pre-estado').value;
-  const responsable = document.getElementById('pre-responsable').value.trim();
-  const tipo_proyecto = document.getElementById('pre-tipo').value.trim();
-  if (ROL === 'ezequiel' && estado !== 'Borrador') {
-    return showErr('presupuestos', 'Como Ezequiel solo podés crear presupuestos en estado Borrador.');
-  }
-  const margen_pct = (monto_cotizado_neto && costo_total_neto) ? Number((((monto_cotizado_neto-costo_total_neto)/monto_cotizado_neto)*100).toFixed(1)) : null;
+  let totalVenta = 0, totalCosto = 0;
+  RUBROS_BUILDER.forEach(r => r.items.forEach(it => {
+    totalCosto += (Number(it.mo) + Number(it.mat)) * Number(it.cantidad);
+    totalVenta += ventaUnit(it.mo, it.mat) * Number(it.cantidad);
+  }));
+  const margen_pct = totalVenta > 0 ? Number((((totalVenta - totalCosto) / totalVenta) * 100).toFixed(1)) : null;
+
   const id = 'PRE-' + Date.now();
-  const { error } = await sb.from('presupuestos').insert({ id, cliente_id, proyecto_id, unidad_negocio: unidad_negocio||null, monto_cotizado_neto, costo_total_neto, margen_pct, estado, responsable: responsable||null, tipo_proyecto: tipo_proyecto||null, moneda:'ARS' });
+  const { data: presuData, error } = await sb.from('presupuestos').insert({
+    id, cliente_id, proyecto_id, estado: estadoFinal,
+    unidad_negocio: document.getElementById('pre-unidad').value.trim() || null,
+    asunto: document.getElementById('pre-asunto').value.trim() || null,
+    destinatario_cargo: document.getElementById('pre-dest-cargo').value.trim() || null,
+    destinatario_nombre: document.getElementById('pre-dest-nombre').value.trim() || null,
+    destinatario_empresa: document.getElementById('pre-dest-empresa').value.trim() || null,
+    anticipo_pct: Number(document.getElementById('pre-anticipo').value) || null,
+    tiempo_ejecucion: document.getElementById('pre-tiempo').value.trim() || 'A convenir',
+    validez_dias: Number(document.getElementById('pre-validez').value) || 15,
+    forma_pago: document.getElementById('pre-forma-pago').value.trim(),
+    monto_cotizado_neto: totalVenta, costo_total_neto: totalCosto, margen_pct,
+    moneda: 'ARS',
+  }).select().single();
   if (error) return showErr('presupuestos', error.message);
+
+  for (const r of RUBROS_BUILDER) {
+    const { error: errRubro } = await sb.from('presupuesto_rubros').insert({ id: r.id, presupuesto_id: id, nombre: r.nombre, orden: RUBROS_BUILDER.indexOf(r) + 1 });
+    if (errRubro) return showErr('presupuestos', errRubro.message);
+    const itemsPayload = r.items.map((it, idx) => ({
+      id: it.id, rubro_id: r.id, orden: idx + 1, descripcion: it.descripcion || '(sin descripción)',
+      unidad: it.unidad, cantidad: it.cantidad, precio_mano_obra: it.mo, precio_materiales: it.mat,
+    }));
+    if (itemsPayload.length) {
+      const { error: errItems } = await sb.from('presupuesto_items').insert(itemsPayload);
+      if (errItems) return showErr('presupuestos', errItems.message);
+    }
+  }
+
+  localStorage.setItem('gsos_ultimo_firmante', document.getElementById('pre-firmante').value);
   location.reload();
+}
+
+async function verDocumentoPresupuesto(presupuestoId) {
+  const { data: presu } = await sb.from('presupuestos').select('*, clientes(nombre)').eq('id', presupuestoId).single();
+  const { data: rubros } = await sb.from('presupuesto_rubros').select('*, presupuesto_items(*)').eq('presupuesto_id', presupuestoId).order('orden');
+  const firmanteKey = localStorage.getItem('gsos_ultimo_firmante') || 'sebastian';
+  const html = generarHTMLDocumento(presu, rubros || [], FIRMANTES[firmanteKey]);
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+}
+
+function generarHTMLDocumento(presu, rubros, firmante) {
+  const fechaTxt = new Date(presu.fecha_emision || presu.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' }).replace(/^0/, '');
+  let filas = '', granTotal = 0, itNum = 0;
+  rubros.forEach((r, ri) => {
+    itNum = 0;
+    filas += `<tr class="rubro-row"><td colspan="6">${ri + 1}&nbsp;&nbsp;${r.nombre}</td></tr>`;
+    let subtotal = 0;
+    (r.presupuesto_items || []).sort((a,b)=>a.orden-b.orden).forEach(it => {
+      itNum++;
+      const venta = (Number(it.precio_mano_obra) + Number(it.precio_materiales)) / (1 - (Number(presu.margen_pct)||0)/100 > 0 && (Number(presu.margen_pct)||0) < 100 ? 1 - (Number(presu.margen_pct)||0)/100 : 1);
+      const totalItem = venta * Number(it.cantidad);
+      subtotal += totalItem;
+      filas += `<tr>
+        <td class="it">${ri+1}.${itNum}</td>
+        <td>${it.descripcion}</td>
+        <td class="ctr">${it.unidad||''}</td>
+        <td class="ctr">${it.cantidad}</td>
+        <td class="num">$ ${fmtMoneyPlain(venta)}</td>
+        <td class="num">$ ${fmtMoneyPlain(totalItem)}</td>
+      </tr>`;
+    });
+    granTotal += subtotal;
+    filas += `<tr class="subtotal-row"><td colspan="5">SUBTOTAL</td><td class="num">$ ${fmtMoneyPlain(subtotal)}</td></tr>`;
+  });
+
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Presupuesto N ${presu.numero}</title>
+  <style>
+    @page { margin: 18mm 16mm; }
+    * { box-sizing:border-box; font-family:Arial,Helvetica,sans-serif; }
+    body { color:#1a1916; font-size:12px; margin:0; }
+    .doc { max-width:900px; margin:0 auto; padding:20px; }
+    .head { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #ccc; padding-bottom:10px; margin-bottom:18px; }
+    .logo-gs { display:flex; align-items:center; gap:8px; }
+    .logo-gs svg { width:34px; height:34px; }
+    .logo-gs .word { font-size:20px; font-weight:800; letter-spacing:-0.02em; }
+    .logo-gs .word span { color:#9a9890; font-weight:400; }
+    .logo-gs .tag { font-size:7px; letter-spacing:0.15em; color:#7a786f; margin-top:-2px; }
+    .logo-ge { display:flex; align-items:center; gap:8px; }
+    .logo-ge .word { font-size:16px; font-weight:700; color:#2c3e50; letter-spacing:0.02em; }
+    .logo-ge .word b { font-weight:800; }
+    .logo-ge .tag { font-size:7px; letter-spacing:0.2em; color:#9aa5b1; margin-top:-2px; }
+    .fecha { text-align:right; margin-bottom:16px; }
+    .info-row { display:flex; justify-content:space-between; margin-bottom:14px; }
+    .info-row .ref { text-align:right; }
+    table.pres { width:100%; border-collapse:collapse; margin:14px 0; }
+    table.pres th { background:#1a1916; color:#fff; font-size:10px; text-transform:uppercase; padding:6px 8px; text-align:left; }
+    table.pres td { padding:6px 8px; border-bottom:1px solid #eee; font-size:11px; }
+    table.pres td.num { text-align:right; font-variant-numeric:tabular-nums; }
+    table.pres td.ctr { text-align:center; }
+    table.pres td.it { color:#7a786f; }
+    tr.rubro-row td { background:#eee; font-weight:700; }
+    tr.subtotal-row td { background:#f5f4f1; font-weight:600; text-transform:uppercase; font-size:10px; }
+    tr.total-row td { background:#1a1916; color:#fff; font-weight:800; font-size:13px; padding:9px 8px; text-transform:uppercase; }
+    .terms p { margin:4px 0; }
+    .firma { display:flex; align-items:center; gap:14px; margin-top:50px; }
+    .firma .sep { width:1px; height:38px; background:#ccc; }
+    .firma .nombre { font-weight:700; }
+    .firma .cargo { font-size:9px; letter-spacing:0.08em; color:#7a786f; }
+    .firma .datos { font-size:9px; color:#7a786f; }
+    .footer { position:fixed; bottom:0; left:0; right:0; background:#3a3a3a; color:#fff; padding:10px 24px; display:flex; justify-content:space-between; font-size:10px; }
+    .footer div { display:flex; align-items:center; gap:6px; }
+    @media print { .no-print { display:none; } }
+  </style></head>
+  <body>
+  <div class="doc">
+    <div class="head">
+      <div class="logo-gs">
+        <svg viewBox="0 0 40 40"><path d="M2 30 L8 22 L14 28 L20 18 L26 26 L32 16 L38 24" stroke="#8a8880" stroke-width="2.5" fill="none"/></svg>
+        <div><div class="word">GS <span>GROUP</span></div><div class="tag">FACILITY MANAGEMENT</div></div>
+      </div>
+      <div class="logo-ge">
+        <svg viewBox="0 0 30 30" width="26" height="26"><path d="M4 4 H24 V10 H10 V13 H22 V17 H10 V20 H24 V26 H4 Z" fill="#2c3e50"/></svg>
+        <div><div class="word"><b>GRUPO</b> EMDEGYS</div><div class="tag">INVERSIONES</div></div>
+      </div>
+    </div>
+    <div class="fecha">${presu.ciudad || 'Tigre'}, ${fechaTxt}</div>
+    <div class="info-row">
+      <div>
+        ${presu.destinatario_cargo ? `<div>${presu.destinatario_cargo}</div>` : ''}
+        ${presu.destinatario_nombre ? `<div style="font-weight:700">${presu.destinatario_nombre}</div>` : ''}
+        ${presu.destinatario_empresa ? `<div style="text-decoration:underline">${presu.destinatario_empresa}</div>` : (presu.clientes ? `<div style="text-decoration:underline">${presu.clientes.nombre}</div>` : '')}
+      </div>
+      <div class="ref">
+        <div><b>Ref.:</b> Presupuesto N&deg; ${presu.numero}</div>
+        <div style="font-weight:700">${presu.asunto || ''}</div>
+      </div>
+    </div>
+    <p>De mi mayor consideración:</p>
+    <p>Me dirijo a Ud. con el objeto de elevarle nuestro presupuesto por los servicios detallados a continuación:</p>
+    <h3 style="text-align:center">PRESUPUESTO</h3>
+    <table class="pres">
+      <thead><tr><th>IT</th><th>Descripción</th><th class="ctr">Uni</th><th class="ctr">Cant</th><th class="num">$ Unit</th><th class="num">$ Total</th></tr></thead>
+      <tbody>
+        ${filas}
+        <tr class="total-row"><td colspan="5">TOTAL</td><td class="num">$ ${fmtMoneyPlain(granTotal)}</td></tr>
+      </tbody>
+    </table>
+    <div class="terms">
+      <p>Los valores <b>NO</b> incluyen <b>IVA</b></p>
+      <p><b>Forma de pago:</b> ${presu.forma_pago || ''}</p>
+      <p><b>Tiempo de ejecución:</b> ${presu.tiempo_ejecucion || 'A convenir'}</p>
+      <p><b>Validez del presupuesto:</b> ${presu.validez_dias || 15} días</p>
+    </div>
+    <p style="margin-top:24px">Sin otro particular, lo saludo atentamente.</p>
+    <div class="firma">
+      <div class="logo-gs"><svg viewBox="0 0 40 40" width="28" height="28"><path d="M2 30 L8 22 L14 28 L20 18 L26 26 L32 16 L38 24" stroke="#8a8880" stroke-width="2.5" fill="none"/></svg></div>
+      <div class="sep"></div>
+      <div>
+        <div class="nombre">${firmante.nombre}</div>
+        <div class="cargo">${firmante.cargo}</div>
+        <div class="datos">${firmante.cel ? 'Cel. ' + firmante.cel + ' · ' : ''}${firmante.email}</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <div>📞 +54 9 116707-2724 / +54 9 116484-8200</div>
+    <div>✉ info@greenservicesg.com</div>
+    <div>🌐 www.greenservicesg.com</div>
+    <div>📍 Av. Agustín M. García 8051, Rincón de Milberg - Tigre</div>
+  </div>
+  <script>window.onload = () => window.print();<\/script>
+  </body></html>`;
+}
+
+function fmtMoneyPlain(n) {
+  return Math.round(Number(n) || 0).toLocaleString('es-AR');
 }
 
 async function crearFactura() {

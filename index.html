@@ -227,7 +227,9 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'socios')"><span class="nav-pip"></span>Panel de Socios</button>
     <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
     <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
+    <button class="nav-item" onclick="nav(this,'movimientos')"><span class="nav-pip"></span>Movimientos</button>
     <button class="nav-item" onclick="nav(this,'presupuestos')"><span class="nav-pip"></span>Presupuestos</button>
+    <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
     <button class="nav-item" onclick="nav(this,'activos')"><span class="nav-pip"></span>Activos</button>
     <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
     <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Compras</button>
@@ -410,13 +412,84 @@ tr:hover td{background:var(--bg)}
 <!-- PROYECTOS -->
 <div class="page" id="page-proyectos">
   <div class="ph"><div><h1>Proyectos</h1><p>Obras, mantenimiento y energía</p></div></div>
+  <div class="row-actions" id="proyectos-actions" style="display:none"><button class="btn" onclick="toggleForm('proyectos')">+ Nuevo proyecto</button></div>
+  <div class="card" id="proyectos-form" style="display:none">
+    <div id="proyectos-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Nombre</label><input id="proy-nombre"></div>
+      <div class="field"><label>Cliente</label><select id="proy-cliente"></select></div>
+      <div class="field"><label>Área</label><select id="proy-area"><option>Obras</option><option>Mantenimiento</option><option>Energía</option></select></div>
+      <div class="field"><label>Estado</label><select id="proy-estado"><option>ACTIVO</option><option>EN_PAUSA</option><option>CERRADO</option></select></div>
+      <div class="field"><label>Fecha inicio</label><input type="date" id="proy-inicio"></div>
+      <div class="field"><label>Fecha cierre estimada</label><input type="date" id="proy-cierre"></div>
+    </div>
+    <button class="btn" onclick="crearProyecto()">Guardar</button>
+  </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Área</th><th>Estado</th></tr></thead><tbody id="tbl-proyectos"></tbody></table></div></div>
+</div>
+
+<!-- MOVIMIENTOS -->
+<div class="page" id="page-movimientos">
+  <div class="ph"><div><h1>Movimientos</h1><p>Libro de caja — cobros y pagos</p></div></div>
+  <div class="row-actions" id="movimientos-actions" style="display:none"><button class="btn" onclick="toggleForm('movimientos')">+ Nuevo movimiento</button></div>
+  <div class="card" id="movimientos-form" style="display:none">
+    <div id="movimientos-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Fecha</label><input type="date" id="mov-fecha"></div>
+      <div class="field"><label>Tipo</label><select id="mov-tipo"><option value="INGRESO">Ingreso</option><option value="EGRESO">Egreso</option></select></div>
+      <div class="field"><label>Categoría</label><input id="mov-categoria" placeholder="Cobro, Sueldo, Cheque..."></div>
+      <div class="field"><label>Cliente</label><select id="mov-cliente"><option value="">—</option></select></div>
+      <div class="field"><label>Proyecto</label><select id="mov-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Medio</label><input id="mov-medio" placeholder="Transferencia, Cheque..."></div>
+      <div class="field"><label>Monto</label><input type="number" step="0.01" id="mov-monto"></div>
+      <div class="field"><label>Estado</label><select id="mov-estado"><option>CANCELADO</option><option>PENDIENTE</option><option>PROYECTADO</option></select></div>
+      <div class="field" style="grid-column:1/-1"><label>Concepto</label><input id="mov-concepto"></div>
+    </div>
+    <button class="btn" onclick="crearMovimiento()">Guardar</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Concepto</th><th>Estado</th><th>Importe</th></tr></thead><tbody id="tbl-movimientos"></tbody></table></div></div>
 </div>
 
 <!-- PRESUPUESTOS -->
 <div class="page" id="page-presupuestos">
   <div class="ph"><div><h1>Presupuestos</h1><p>Cotizaciones por proyecto · falta costo real en la mayoría</p></div></div>
+  <div class="row-actions" id="presupuestos-actions" style="display:none"><button class="btn" onclick="toggleForm('presupuestos')">+ Nuevo presupuesto</button></div>
+  <div class="card" id="presupuestos-form" style="display:none">
+    <div id="presupuestos-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Cliente</label><select id="pre-cliente"><option value="">—</option></select></div>
+      <div class="field"><label>Proyecto</label><select id="pre-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Unidad de negocio</label><input id="pre-unidad" placeholder="Obras, Termomecánica..."></div>
+      <div class="field"><label>Monto cotizado neto</label><input type="number" step="0.01" id="pre-monto"></div>
+      <div class="field"><label>Costo total neto</label><input type="number" step="0.01" id="pre-costo" placeholder="si lo sabés, para calcular margen"></div>
+      <div class="field"><label>Estado</label><select id="pre-estado"><option>Borrador</option><option>Enviado</option><option>Aprobado</option><option>Rechazado</option><option>Sin datos</option></select></div>
+      <div class="field"><label>Responsable</label><input id="pre-responsable"></div>
+      <div class="field"><label>Tipo de proyecto</label><input id="pre-tipo"></div>
+    </div>
+    <button class="btn" onclick="crearPresupuesto()">Guardar</button>
+  </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Proyecto</th><th>Unidad de negocio</th><th>Monto cotizado</th><th>Margen</th><th>Estado</th></tr></thead><tbody id="tbl-presupuestos"></tbody></table></div></div>
+</div>
+
+<!-- FACTURAS -->
+<div class="page" id="page-facturas">
+  <div class="ph"><div><h1>Facturas</h1><p>Emisión y estado de cobro</p></div></div>
+  <div class="row-actions" id="facturas-actions" style="display:none"><button class="btn" onclick="toggleForm('facturas')">+ Nueva factura</button></div>
+  <div class="card" id="facturas-form" style="display:none">
+    <div id="facturas-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>N° factura</label><input id="fac-numero"></div>
+      <div class="field"><label>Cliente</label><select id="fac-cliente"><option value="">—</option></select></div>
+      <div class="field"><label>Proyecto</label><select id="fac-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Fecha de emisión</label><input type="date" id="fac-emision"></div>
+      <div class="field"><label>Fecha de vencimiento</label><input type="date" id="fac-vencimiento"></div>
+      <div class="field"><label>Monto</label><input type="number" step="0.01" id="fac-monto"></div>
+      <div class="field"><label>Estado</label><select id="fac-estado"><option>Emitida</option><option>Cobrada</option><option>Vencida</option><option>Anulada</option></select></div>
+      <div class="field"><label>Concepto</label><input id="fac-concepto"></div>
+    </div>
+    <button class="btn" onclick="crearFactura()">Guardar</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Proyecto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
 </div>
 
 <!-- ACTIVOS -->
@@ -522,6 +595,9 @@ const PUEDE_EDITAR = {
   ordenes_trabajo: r => r === 'ezequiel',
   no_conformidades: r => r === 'ezequiel',
   cheques: r => r === 'gonzalo',
+  movimientos: r => r === 'gonzalo',
+  facturas: r => r === 'gonzalo',
+  presupuestos: r => r === 'sebastian' || r === 'ezequiel',
 };
 
 document.getElementById('hoy').textContent =
@@ -569,6 +645,10 @@ function aplicarPermisosUI() {
   document.getElementById('ot-actions').style.display = PUEDE_EDITAR.ordenes_trabajo(ROL) ? 'flex' : 'none';
   document.getElementById('compras-actions').style.display = PUEDE_EDITAR.cheques(ROL) ? 'flex' : 'none';
   document.getElementById('calidad-actions').style.display = PUEDE_EDITAR.no_conformidades(ROL) ? 'flex' : 'none';
+  document.getElementById('proyectos-actions').style.display = PUEDE_EDITAR.proyectos(ROL) ? 'flex' : 'none';
+  document.getElementById('movimientos-actions').style.display = PUEDE_EDITAR.movimientos(ROL) ? 'flex' : 'none';
+  document.getElementById('presupuestos-actions').style.display = PUEDE_EDITAR.presupuestos(ROL) ? 'flex' : 'none';
+  document.getElementById('facturas-actions').style.display = PUEDE_EDITAR.facturas(ROL) ? 'flex' : 'none';
 }
 
 (async function initAuth() {
@@ -1106,6 +1186,10 @@ function renderPrediccion(k) {
 // Activos, OT, Compras, Calidad, Panel de Socios)
 // ═══════════════════════════════════════════════
 async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNombre) {
+  window.CLIENTES = clientes;
+  window.PROYECTOS = proyectos;
+  poblarSelectsClientesProyectos();
+
   // Clientes + conteo de proyectos activos
   const conteoProy = {};
   proyectos.forEach(p => { if (p.estado === 'ACTIVO' && p.cliente_id) conteoProy[p.cliente_id] = (conteoProy[p.cliente_id]||0)+1; });
@@ -1179,6 +1263,36 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     </tr>`;
   }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin cheques</td></tr>';
 
+  // Movimientos (libro de caja completo, orden más reciente primero)
+  const { data: movsTabla } = await sb.from('movimientos').select('*').order('fecha',{ascending:false});
+  const estadoMovTag = { CANCELADO:'ok', PENDIENTE:'w', PROYECTADO:'muted' };
+  document.getElementById('tbl-movimientos').innerHTML = (movsTabla||[]).map(m => {
+    const color = m.tipo === 'INGRESO' ? 'color:var(--good)' : 'color:var(--danger)';
+    const cli = m.cliente_id ? (clienteNombre[m.cliente_id]||m.cliente_id) : '—';
+    const proy = m.proyecto_id ? (proyectoInfo[m.proyecto_id] ? proyectoInfo[m.proyecto_id].nombre : m.proyecto_id) : '—';
+    return `<tr>
+      <td style="font-family:var(--mono)">${m.fecha}</td><td>${m.tipo}</td><td>${cli}</td><td>${proy}</td>
+      <td>${m.concepto||m.categoria||'—'}</td>
+      <td><span class="tag ${estadoMovTag[m.estado]||'muted'}">${m.estado}</span></td>
+      <td style="font-family:var(--mono);${color}">${m.tipo==='INGRESO'?'+':'-'}${fmtMoney(Math.abs(Number(m.monto)))}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
+
+  // Facturas
+  const { data: facturas } = await sb.from('facturas').select('*').order('fecha_vencimiento',{ascending:true});
+  const estadoFacTag = { Emitida:'w', Cobrada:'ok', Vencida:'d', Anulada:'muted' };
+  document.getElementById('tbl-facturas').innerHTML = (facturas||[]).map(f => {
+    const cli = f.cliente_id ? (clienteNombre[f.cliente_id]||f.cliente_id) : '—';
+    const proy = f.proyecto_id ? (proyectoInfo[f.proyecto_id] ? proyectoInfo[f.proyecto_id].nombre : f.proyecto_id) : '—';
+    return `<tr>
+      <td>${f.numero||'—'}</td><td>${cli}</td><td>${proy}</td>
+      <td style="font-family:var(--mono)">${f.fecha_emision||'—'}</td>
+      <td style="font-family:var(--mono)">${f.fecha_vencimiento||'—'}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(f.monto))}</td>
+      <td><span class="tag ${estadoFacTag[f.estado]||'muted'}">${f.estado}</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
+
   // Panel de Socios
   const otTotal = (ots||[]).length, otCerradas = (ots||[]).filter(o=>o.estado==='CERRADA').length;
   const ncAbiertas = (ncs||[]).filter(n=>n.estado==='ABIERTA').length;
@@ -1200,6 +1314,19 @@ function toggleForm(mod) {
 function showErr(mod, msg) {
   const el = document.getElementById(mod+'-err');
   el.textContent = msg; el.style.display = 'block';
+}
+
+function poblarSelectsClientesProyectos() {
+  const clienteOpts = '<option value="">—</option>' + (window.CLIENTES||[]).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  const proyectoOpts = '<option value="">—</option>' + (window.PROYECTOS||[]).map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+  ['mov-cliente','pre-cliente','fac-cliente','proy-cliente'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = clienteOpts;
+  });
+  ['mov-proyecto','pre-proyecto','fac-proyecto'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = proyectoOpts;
+  });
 }
 
 async function crearCliente() {
@@ -1247,6 +1374,71 @@ async function crearNC() {
   const id = 'NC-' + Date.now();
   const { error } = await sb.from('no_conformidades').insert({ id, area: area||null, descripcion, estado:'ABIERTA' });
   if (error) return showErr('calidad', error.message);
+  location.reload();
+}
+
+async function crearProyecto() {
+  const nombre = document.getElementById('proy-nombre').value.trim();
+  const cliente_id = document.getElementById('proy-cliente').value || null;
+  const area = document.getElementById('proy-area').value;
+  const estado = document.getElementById('proy-estado').value;
+  const fecha_inicio = document.getElementById('proy-inicio').value || null;
+  const fecha_cierre_estimada = document.getElementById('proy-cierre').value || null;
+  const id = 'PRO-' + Date.now();
+  const { error } = await sb.from('proyectos').insert({ id, nombre, cliente_id, area, estado, fecha_inicio, fecha_cierre_estimada });
+  if (error) return showErr('proyectos', error.message);
+  location.reload();
+}
+
+async function crearMovimiento() {
+  const fecha = document.getElementById('mov-fecha').value;
+  const tipo = document.getElementById('mov-tipo').value;
+  const categoria = document.getElementById('mov-categoria').value.trim();
+  const cliente_id = document.getElementById('mov-cliente').value || null;
+  const proyecto_id = document.getElementById('mov-proyecto').value || null;
+  const medio = document.getElementById('mov-medio').value.trim();
+  const monto = Number(document.getElementById('mov-monto').value);
+  const estado = document.getElementById('mov-estado').value;
+  const concepto = document.getElementById('mov-concepto').value.trim();
+  if (!fecha || !monto) return showErr('movimientos', 'Fecha y monto son obligatorios.');
+  const id = 'MOV-' + Date.now();
+  const { error } = await sb.from('movimientos').insert({ id, fecha, tipo, categoria: categoria||null, cliente_id, proyecto_id, medio: medio||null, monto, estado, concepto: concepto||null, fuente:'Portal GS OS' });
+  if (error) return showErr('movimientos', error.message);
+  location.reload();
+}
+
+async function crearPresupuesto() {
+  const cliente_id = document.getElementById('pre-cliente').value || null;
+  const proyecto_id = document.getElementById('pre-proyecto').value || null;
+  const unidad_negocio = document.getElementById('pre-unidad').value.trim();
+  const monto_cotizado_neto = document.getElementById('pre-monto').value ? Number(document.getElementById('pre-monto').value) : null;
+  const costo_total_neto = document.getElementById('pre-costo').value ? Number(document.getElementById('pre-costo').value) : null;
+  let estado = document.getElementById('pre-estado').value;
+  const responsable = document.getElementById('pre-responsable').value.trim();
+  const tipo_proyecto = document.getElementById('pre-tipo').value.trim();
+  if (ROL === 'ezequiel' && estado !== 'Borrador') {
+    return showErr('presupuestos', 'Como Ezequiel solo podés crear presupuestos en estado Borrador.');
+  }
+  const margen_pct = (monto_cotizado_neto && costo_total_neto) ? Number((((monto_cotizado_neto-costo_total_neto)/monto_cotizado_neto)*100).toFixed(1)) : null;
+  const id = 'PRE-' + Date.now();
+  const { error } = await sb.from('presupuestos').insert({ id, cliente_id, proyecto_id, unidad_negocio: unidad_negocio||null, monto_cotizado_neto, costo_total_neto, margen_pct, estado, responsable: responsable||null, tipo_proyecto: tipo_proyecto||null, moneda:'ARS' });
+  if (error) return showErr('presupuestos', error.message);
+  location.reload();
+}
+
+async function crearFactura() {
+  const numero = document.getElementById('fac-numero').value.trim();
+  const cliente_id = document.getElementById('fac-cliente').value || null;
+  const proyecto_id = document.getElementById('fac-proyecto').value || null;
+  const fecha_emision = document.getElementById('fac-emision').value || null;
+  const fecha_vencimiento = document.getElementById('fac-vencimiento').value || null;
+  const monto = Number(document.getElementById('fac-monto').value);
+  const estado = document.getElementById('fac-estado').value;
+  const concepto = document.getElementById('fac-concepto').value.trim();
+  if (!monto) return showErr('facturas', 'El monto es obligatorio.');
+  const id = 'FAC-' + Date.now();
+  const { error } = await sb.from('facturas').insert({ id, numero: numero||null, cliente_id, proyecto_id, fecha_emision: fecha_emision||undefined, fecha_vencimiento, monto, estado, concepto: concepto||null });
+  if (error) return showErr('facturas', error.message);
   location.reload();
 }
 

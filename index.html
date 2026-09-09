@@ -550,7 +550,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Fecha de emisión</label><input type="date" id="fac-emision"></div>
       <div class="field"><label>Fecha de vencimiento</label><input type="date" id="fac-vencimiento"></div>
       <div class="field"><label>Monto</label><input type="number" step="0.01" id="fac-monto"></div>
-      <div class="field"><label>Estado</label><select id="fac-estado"><option>Emitida</option><option>Cobrada</option><option>Vencida</option><option>Anulada</option></select></div>
+      <div class="field"><label>Estado</label><select id="fac-estado"><option>Pendiente de emitir</option><option>Emitida</option><option>Cobrada</option><option>Vencida</option><option>Anulada</option></select></div>
       <div class="field"><label>Concepto</label><input id="fac-concepto"></div>
     </div>
     <button class="btn" id="fac-btn-guardar" onclick="crearFactura()">Guardar</button>
@@ -1392,7 +1392,8 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     const margen = p.margen_pct !== null ? p.margen_pct + '%' : '—';
     const acciones = [`<button class="btn ghost" onclick="verDocumentoPresupuesto('${p.id}')">Ver documento</button>`];
     if (puedeDecidirPresu && (p.estado === 'Borrador' || p.estado === 'Enviado')) {
-      acciones.push(`<button class="btn ghost" onclick="marcarEstadoPresupuesto('${p.id}','Enviado')">Marcar enviado</button>`);
+      if (p.estado === 'Borrador') acciones.push(`<button class="btn ghost" onclick="marcarEstadoPresupuesto('${p.id}','Enviado')">Marcar enviado</button>`);
+      acciones.push(`<button class="btn" onclick="aprobarPresupuestoDesdeLista('${p.id}')">Marcar aprobado</button>`);
       acciones.push(`<button class="btn ghost" onclick="marcarEstadoPresupuesto('${p.id}','Rechazado')">Marcar rechazado</button>`);
     }
     return `<tr>
@@ -1543,7 +1544,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   const { data: facturas } = await sb.from('facturas').select('*').order('fecha_vencimiento',{ascending:true});
   window.FACS_CACHE = {}; (facturas||[]).forEach(f => window.FACS_CACHE[f.id] = f);
   const puedeEditarFac = PUEDE_EDITAR.facturas(ROL);
-  const estadoFacTag = { Emitida:'w', Cobrada:'ok', Vencida:'d', Anulada:'muted' };
+  const estadoFacTag = { 'Pendiente de emitir':'muted', Emitida:'w', Cobrada:'ok', Vencida:'d', Anulada:'muted' };
   document.getElementById('tbl-facturas').innerHTML = (facturas||[]).map(f => {
     const cli = f.cliente_id ? (clienteNombre[f.cliente_id]||f.cliente_id) : '—';
     const proy = f.proyecto_id ? (proyectoInfo[f.proyecto_id] ? proyectoInfo[f.proyecto_id].nombre : f.proyecto_id) : '—';
@@ -1553,7 +1554,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="font-family:var(--mono)">${f.fecha_vencimiento||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(f.monto))}</td>
       <td><span class="tag ${estadoFacTag[f.estado]||'muted'}">${f.estado}</span></td>
-      <td>${puedeEditarFac ? `${f.estado!=='Cobrada' ? `<button class="btn ghost" onclick="marcarFacturaCobrada('${f.id}')">Marcar cobrada</button> ` : ''}<button class="btn ghost" onclick="editarFactura(window.FACS_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFactura('${f.id}')">✕</button>` : ''}</td>
+      <td>${puedeEditarFac ? `${f.estado==='Pendiente de emitir' ? `<button class="btn" onclick="registrarEmisionFactura(window.FACS_CACHE['${f.id}'])">Registrar emisión</button> ` : ''}${f.estado!=='Cobrada' && f.estado!=='Pendiente de emitir' ? `<button class="btn ghost" onclick="marcarFacturaCobrada('${f.id}')">Marcar cobrada</button> ` : ''}<button class="btn ghost" onclick="editarFactura(window.FACS_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFactura('${f.id}')">✕</button>` : ''}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
 
@@ -2360,6 +2361,13 @@ async function marcarEstadoPresupuesto(id, estado) {
   location.reload();
 }
 
+async function aprobarPresupuestoDesdeLista(id) {
+  if (!confirm('¿Aprobar este presupuesto? Se creará el proyecto asociado automáticamente si todavía no existe.')) return;
+  const { error } = await sb.rpc('aprobar_presupuesto', { p_presupuesto_id: id });
+  if (error) return alert('No se pudo aprobar: ' + error.message);
+  location.reload();
+}
+
 async function verDocumentoPresupuesto(presupuestoId) {
   const { data: presu } = await sb.from('presupuestos').select('*, clientes(nombre)').eq('id', presupuestoId).single();
   const { data: rubros } = await sb.from('presupuesto_rubros').select('*, presupuesto_items(*)').eq('presupuesto_id', presupuestoId).order('orden');
@@ -2528,6 +2536,13 @@ function editarFactura(f) {
   document.getElementById('fac-btn-cancelar').style.display = 'inline-block';
   document.getElementById('facturas-form').style.display = 'block';
   document.getElementById('facturas-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function registrarEmisionFactura(f) {
+  editarFactura(f);
+  document.getElementById('fac-estado').value = 'Emitida';
+  document.getElementById('fac-emision').value = new Date().toISOString().slice(0,10);
+  document.getElementById('fac-btn-guardar').textContent = 'Registrar emisión';
 }
 
 function cancelarEdicionFactura() {

@@ -228,6 +228,7 @@ tr:hover td{background:var(--bg)}
     <div class="nav-section">Financiero</div>
     <button class="nav-item" onclick="nav(this,'movimientos')"><span class="nav-pip"></span>Movimientos</button>
     <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Cheques</button>
+    <button class="nav-item" onclick="nav(this,'gastos')"><span class="nav-pip"></span>Gastos fijos</button>
     <button class="nav-item" onclick="nav(this,'cashflow')"><span class="nav-pip"></span>Liquidez & Cash Flow</button>
     <button class="nav-item" onclick="nav(this,'rigidez')"><span class="nav-pip"></span>Rigidez de estructura</button>
     <button class="nav-item" onclick="nav(this,'cobranzas')"><span class="nav-pip"></span>Cobranzas & DSO</button>
@@ -437,6 +438,14 @@ tr:hover td{background:var(--bg)}
 <!-- MOVIMIENTOS -->
 <div class="page" id="page-movimientos">
   <div class="ph"><div><h1>Movimientos</h1><p>Libro de caja — cobros y pagos</p></div></div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-ttl">Saldo bancario actual</div>
+    <div class="card-sub">calculado en vivo, suma de movimientos confirmados</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:8px">
+      <div style="font-size:28px;font-weight:800" id="mov-saldo-actual">—</div>
+      <button class="btn ghost" id="mov-btn-ajustar-saldo" onclick="abrirAjusteSaldo()" style="display:none">Ajustar saldo bancario</button>
+    </div>
+  </div>
   <div class="row-actions" id="movimientos-actions" style="display:none"><button class="btn" onclick="toggleForm('movimientos')">+ Nuevo movimiento</button></div>
   <div class="card" id="movimientos-form" style="display:none">
     <div id="movimientos-err" class="form-err" style="display:none"></div>
@@ -672,6 +681,27 @@ tr:hover td{background:var(--bg)}
   </div>
 </div>
 
+<!-- GASTOS FIJOS -->
+<div class="page" id="page-gastos">
+  <div class="ph"><div><h1>Gastos <span>fijos</span></h1><p>Sueldos, alquiler, servicios — costo fijo mensual</p></div></div>
+  <div class="row-actions" id="gastos-actions" style="display:none"><button class="btn" onclick="toggleForm('gastos')">+ Nuevo gasto fijo</button></div>
+  <div class="card" id="gastos-form" style="display:none">
+    <div id="gastos-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Concepto</label><input id="gto-concepto" placeholder="Sueldos administración, Alquiler oficina..."></div>
+      <div class="field"><label>Fuente / origen</label><input id="gto-fuente" placeholder="De dónde sale la plata, referencia interna..."></div>
+      <div class="field"><label>Naturaleza</label><select id="gto-naturaleza"><option>Fijo</option><option>Variable</option></select></div>
+      <div class="field"><label>Monto mensual</label><input type="number" step="0.01" id="gto-monto"></div>
+      <div class="field"><label>Día de pago</label><input type="number" min="1" max="31" id="gto-dia"></div>
+      <div class="field"><label>Estado</label><select id="gto-activo"><option value="true">Activo</option><option value="false">Dado de baja</option></select></div>
+    </div>
+    <button class="btn" id="gastos-btn-guardar" onclick="crearGastoFijo()">Guardar</button>
+    <button class="btn ghost" id="gastos-btn-cancelar" onclick="cancelarEdicionGastoFijo()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="card-ttl">Total mensual activo</div><div style="font-size:22px;font-weight:800" id="gto-total">—</div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Concepto</th><th>Fuente</th><th>Naturaleza</th><th>Monto</th><th>Día de pago</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-gastos"></tbody></table></div></div>
+</div>
+
 <!-- ÓRDENES DE COMPRA -->
 <div class="page" id="page-oc">
   <div class="ph"><div><h1>Órdenes de Compra</h1><p>Pedidos a proveedores</p></div></div>
@@ -768,6 +798,7 @@ const PUEDE_EDITAR = {
   no_conformidades: r => r === 'ezequiel',
   cheques: r => r === 'gonzalo',
   cheques_recibidos: r => r === 'gonzalo',
+  costos_fijos: r => r === 'gonzalo',
   movimientos: r => r === 'gonzalo',
   facturas: r => r === 'gonzalo',
   presupuestos: r => r === 'sebastian' || r === 'ezequiel',
@@ -822,9 +853,11 @@ function aplicarPermisosUI() {
   document.getElementById('ot-actions').style.display = PUEDE_EDITAR.ordenes_trabajo(ROL) ? 'flex' : 'none';
   document.getElementById('compras-actions').style.display = PUEDE_EDITAR.cheques(ROL) ? 'flex' : 'none';
   document.getElementById('chqr-actions').style.display = PUEDE_EDITAR.cheques_recibidos(ROL) ? 'flex' : 'none';
+  document.getElementById('gastos-actions').style.display = PUEDE_EDITAR.costos_fijos(ROL) ? 'flex' : 'none';
   document.getElementById('calidad-actions').style.display = PUEDE_EDITAR.no_conformidades(ROL) ? 'flex' : 'none';
   document.getElementById('proyectos-actions').style.display = PUEDE_EDITAR.proyectos(ROL) ? 'flex' : 'none';
   document.getElementById('movimientos-actions').style.display = PUEDE_EDITAR.movimientos(ROL) ? 'flex' : 'none';
+  document.getElementById('mov-btn-ajustar-saldo').style.display = PUEDE_EDITAR.movimientos(ROL) ? 'inline-block' : 'none';
   document.getElementById('presupuestos-actions').style.display = PUEDE_EDITAR.presupuestos(ROL) ? 'flex' : 'none';
   document.getElementById('facturas-actions').style.display = PUEDE_EDITAR.facturas(ROL) ? 'flex' : 'none';
   document.getElementById('oc-actions').style.display = PUEDE_EDITAR.ordenes_compra(ROL) ? 'flex' : 'none';
@@ -1073,6 +1106,8 @@ function renderOverview(k) {
   sv.className = 'k-val ' + (k.saldoBanco < 0 ? 'd' : 'g');
   document.getElementById('kpi-saldo-sub').innerHTML =
     `<span class="badge ${k.saldoBanco < 0 ? 'dn':'up'}">${k.saldoBanco < 0 ? '▼ negativo':'▲ positivo'}</span>`;
+  const movSaldoEl = document.getElementById('mov-saldo-actual');
+  if (movSaldoEl) { movSaldoEl.textContent = fmtMoney(k.saldoBanco); movSaldoEl.style.color = k.saldoBanco < 0 ? 'var(--danger)' : 'var(--good)'; }
 
   const rv = document.getElementById('kpi-rigidez');
   rv.textContent = k.rigidez > 0 ? k.rigidez.toFixed(1) + '%' : '—';
@@ -1598,6 +1633,20 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${acciones.join(' ')}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin cheques recibidos</td></tr>';
+
+  // Gastos fijos (sueldos, alquiler, servicios)
+  const { data: gastosFijos } = await sb.from('costos_fijos').select('*').order('concepto');
+  window.GASTOS_CACHE = {}; (gastosFijos||[]).forEach(g => window.GASTOS_CACHE[g.id] = g);
+  const puedeEditarGto = PUEDE_EDITAR.costos_fijos(ROL);
+  const totalGastosActivos = (gastosFijos||[]).filter(g=>g.activo).reduce((s,g)=>s+Number(g.monto),0);
+  document.getElementById('gto-total').textContent = fmtMoney(totalGastosActivos);
+  document.getElementById('tbl-gastos').innerHTML = (gastosFijos||[]).map(g => `<tr>
+      <td>${g.concepto}</td><td>${g.fuente||'—'}</td><td>${g.naturaleza||'—'}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(g.monto))}</td>
+      <td style="font-family:var(--mono)">${g.dia_pago||'—'}</td>
+      <td><span class="tag ${g.activo?'ok':'muted'}">${g.activo?'Activo':'Dado de baja'}</span></td>
+      <td>${puedeEditarGto ? `<button class="btn ghost" onclick="editarGastoFijo(window.GASTOS_CACHE['${g.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarGastoFijo('${g.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin gastos fijos cargados</td></tr>';
 
   // Movimientos (libro de caja completo, orden más reciente primero)
   const { data: movsTabla } = await sb.from('movimientos').select('*').order('fecha',{ascending:false});
@@ -2570,6 +2619,78 @@ async function conciliarMovimiento(id) {
   location.reload();
 }
 
+async function abrirAjusteSaldo() {
+  const saldoActual = DATA.dashboard[0] ? Number(DATA.dashboard[0][1]) : 0;
+  const saldoRealStr = prompt(`Saldo calculado en el sistema: ${fmtMoney(saldoActual)}\n\nIngresá el saldo real según el resumen bancario:`, saldoActual);
+  if (saldoRealStr === null) return;
+  const saldoReal = Number(saldoRealStr);
+  if (isNaN(saldoReal)) return alert('Monto inválido.');
+  const dif = saldoReal - saldoActual;
+  if (Math.abs(dif) < 1) return alert('El saldo ya coincide, no hace falta ajustar.');
+  const tipo = dif > 0 ? 'INGRESO' : 'EGRESO';
+  if (!confirm(`Se va a crear un movimiento de ${tipo} por ${fmtMoney(Math.abs(dif))} para que el saldo del sistema (${fmtMoney(saldoActual)}) coincida con el real (${fmtMoney(saldoReal)}).\n\n¿Confirmás?`)) return;
+  const id = 'MOV-' + Date.now();
+  const { error } = await sb.from('movimientos').insert({
+    id, fecha: new Date().toISOString().slice(0,10), tipo, categoria: 'Ajuste de saldo bancario',
+    concepto: 'Ajuste de saldo bancario', monto: Math.abs(dif), estado: 'CANCELADO', fuente: 'Portal GS OS',
+  });
+  if (error) return alert('No se pudo ajustar: ' + error.message);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// GASTOS FIJOS (sueldos, alquiler, servicios)
+// ═══════════════════════════════════════════════
+let EDITANDO_GTO_ID = null;
+
+async function crearGastoFijo() {
+  const concepto = document.getElementById('gto-concepto').value.trim();
+  const fuente = document.getElementById('gto-fuente').value.trim();
+  const naturaleza = document.getElementById('gto-naturaleza').value;
+  const monto = Number(document.getElementById('gto-monto').value);
+  const dia_pago = Number(document.getElementById('gto-dia').value) || null;
+  const activo = document.getElementById('gto-activo').value === 'true';
+  if (!concepto || !monto) return showErr('gastos', 'Concepto y monto son obligatorios.');
+  const payload = { concepto, fuente: fuente||null, naturaleza, monto, dia_pago, activo };
+  if (EDITANDO_GTO_ID) {
+    const { error } = await sb.from('costos_fijos').update(payload).eq('id', EDITANDO_GTO_ID);
+    if (error) return showErr('gastos', error.message);
+  } else {
+    const id = 'GTO-' + Date.now();
+    const { error } = await sb.from('costos_fijos').insert({ id, ...payload });
+    if (error) return showErr('gastos', error.message);
+  }
+  location.reload();
+}
+
+function editarGastoFijo(g) {
+  EDITANDO_GTO_ID = g.id;
+  document.getElementById('gto-concepto').value = g.concepto || '';
+  document.getElementById('gto-fuente').value = g.fuente || '';
+  document.getElementById('gto-naturaleza').value = g.naturaleza || 'Fijo';
+  document.getElementById('gto-monto').value = g.monto || '';
+  document.getElementById('gto-dia').value = g.dia_pago || '';
+  document.getElementById('gto-activo').value = g.activo ? 'true' : 'false';
+  document.getElementById('gastos-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('gastos-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('gastos-form').style.display = 'block';
+  document.getElementById('gastos-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionGastoFijo() {
+  EDITANDO_GTO_ID = null;
+  document.getElementById('gastos-btn-guardar').textContent = 'Guardar';
+  document.getElementById('gastos-btn-cancelar').style.display = 'none';
+  document.getElementById('gastos-form').style.display = 'none';
+}
+
+async function eliminarGastoFijo(id) {
+  if (!confirm('¿Eliminar este gasto fijo? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('costos_fijos').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
 // ═══════════════════════════════════════════════
 // COTIZADOR DE PRESUPUESTOS (rubros + ítems)
 // ═══════════════════════════════════════════════
@@ -2883,6 +3004,18 @@ async function crearFactura() {
   if (EDITANDO_FAC_ID) {
     const { error } = await sb.from('facturas').update(payload).eq('id', EDITANDO_FAC_ID);
     if (error) return showErr('facturas', error.message);
+    // Si la factura tiene un movimiento proyectado vinculado (generado al cerrar
+    // el proyecto) y todavía no se confirmó contra el banco, lo actualizamos con
+    // la fecha y el monto reales recién cargados en vez de dejarlo con el
+    // placeholder de +30 días — así el forecast de cobro queda al día apenas se
+    // conoce la factura real.
+    const facturaPrevia = window.FACS_CACHE ? window.FACS_CACHE[EDITANDO_FAC_ID] : null;
+    if (facturaPrevia && facturaPrevia.movimiento_id) {
+      await sb.from('movimientos')
+        .update({ fecha: fecha_vencimiento || fecha_emision, monto })
+        .eq('id', facturaPrevia.movimiento_id)
+        .neq('estado', 'CANCELADO');
+    }
   } else {
     const id = 'FAC-' + Date.now();
     const { error } = await sb.from('facturas').insert({ id, ...payload });

@@ -288,6 +288,11 @@ tr:hover td{background:var(--bg)}
     <div class="kcard" style="--ka:var(--warn)"><div class="k-lbl">Cheques a pagar 30d</div><div class="k-val w" id="cf-cheques30">—</div><div class="k-sub"><span class="badge eq">cheques</span></div></div>
   </div>
   <div class="card"><div class="card-ttl">Saldo proyectado — próximos 45 días</div><div class="card-sub">basado en movimientos cargados</div><canvas id="ch-saldo" height="190"></canvas></div>
+  <div class="card" id="cf-aguinaldo-card" style="display:none">
+    <div class="card-ttl">Próximo aguinaldo</div>
+    <div class="card-sub">costos periódicos (fuera de la ventana de 45 días de arriba)</div>
+    <div id="cf-aguinaldo-body"></div>
+  </div>
   <div class="cgrid c2">
     <div class="card"><div class="card-ttl">Próximos cheques a pagar</div><div class="card-sub">ordenado por fecha</div>
       <div class="timeline" id="tl-cheques"></div>
@@ -679,13 +684,14 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Naturaleza</label><select id="gto-naturaleza"><option>Fijo</option><option>Variable</option></select></div>
       <div class="field"><label>Monto mensual</label><input type="number" step="0.01" id="gto-monto"></div>
       <div class="field"><label>Día de pago</label><input type="number" min="1" max="31" id="gto-dia"></div>
+      <div class="field"><label>Meses (opcional)</label><input id="gto-meses" placeholder="Ej: 6,12 — vacío = todos los meses"></div>
       <div class="field"><label>Estado</label><select id="gto-activo"><option value="true">Activo</option><option value="false">Dado de baja</option></select></div>
     </div>
     <button class="btn" id="gastos-btn-guardar" onclick="crearGastoFijo()">Guardar</button>
     <button class="btn ghost" id="gastos-btn-cancelar" onclick="cancelarEdicionGastoFijo()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="card-ttl">Total mensual activo</div><div style="font-size:22px;font-weight:800" id="gto-total">—</div></div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Concepto</th><th>Fuente</th><th>Naturaleza</th><th>Monto</th><th>Día de pago</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-gastos-fijos"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Concepto</th><th>Fuente</th><th>Naturaleza</th><th>Monto</th><th>Día de pago</th><th>Meses</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-gastos-fijos"></tbody></table></div></div>
 </div>
 
 <!-- ÓRDENES DE COMPRA -->
@@ -937,7 +943,7 @@ async function cargarTodo() {
 
     setMsg('Leyendo costos fijos...');
     const { data: gastos } = await sb.from('costos_fijos').select('*').eq('activo', true);
-    DATA.gastos = (gastos || []).map(g => [g.concepto, Number(g.monto), g.dia_pago, g.fuente]);
+    DATA.gastos = (gastos || []).map(g => [g.concepto, Number(g.monto), g.dia_pago, g.fuente, g.meses]);
 
     setMsg('Leyendo saldo de caja...');
     const { data: caja } = await sb.from('caja_diaria').select('*').order('fecha', { ascending:false }).limit(1);
@@ -1049,14 +1055,23 @@ function calcKPIs() {
     if (diff !== null && diff >= 0 && diff <= 7) k.cheques7d += imp;
   });
 
+  const mesActual = hoy.getMonth() + 1;
+  const mesAplica = (meses, mes) => !meses || !meses.length || meses.includes(mes);
+  k.periodicos = [];
   DATA.gastos.forEach(row => {
     if (!row[0]) return;
     const monto = parseNum(row[1]);
+    const meses = row[4];
+    if (meses && meses.length) {
+      k.periodicos.push({concepto:row[0], monto, dia:row[2]||1, meses});
+    }
+    if (!mesAplica(meses, mesActual)) return;
     k.costosFijos += monto;
     k.gastosList.push({concepto:row[0], monto, dia:row[2]||'', obs:row[3]||''});
   });
 
   k.rigidez = k.cobros30d > 0 ? (k.costosFijos / k.cobros30d * 100) : 0;
+  k.sinCobros30d = k.costosFijos > 0 && k.cobros30d <= 0;
 
   let saldoAcum = k.saldoBanco;
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1079,7 +1094,7 @@ function calcKPIs() {
         }
       });
       DATA.gastos.forEach(row => {
-        if (parseInt(row[2]) === dia.getDate()) saldoAcum -= parseNum(row[1]);
+        if (parseInt(row[2]) === dia.getDate() && mesAplica(row[4], dia.getMonth()+1)) saldoAcum -= parseNum(row[1]);
       });
     }
     k.saldosProyectados.push({dia, saldo: saldoAcum});
@@ -1098,10 +1113,15 @@ function renderOverview(k) {
   if (movSaldoEl) { movSaldoEl.textContent = fmtMoney(k.saldoBanco); movSaldoEl.style.color = k.saldoBanco < 0 ? 'var(--danger)' : 'var(--good)'; }
 
   const rv = document.getElementById('kpi-rigidez');
-  rv.textContent = k.rigidez > 0 ? k.rigidez.toFixed(1) + '%' : '—';
-  rv.className = 'k-val ' + (k.rigidez > 70 ? 'd' : k.rigidez > 50 ? 'w' : 'g');
+  if (k.sinCobros30d) {
+    rv.textContent = 'Sin cobros';
+    rv.className = 'k-val d';
+  } else {
+    rv.textContent = k.rigidez > 0 ? k.rigidez.toFixed(1) + '%' : '—';
+    rv.className = 'k-val ' + (k.rigidez > 70 ? 'd' : k.rigidez > 50 ? 'w' : 'g');
+  }
   document.getElementById('kpi-rigidez-sub').innerHTML =
-    `<span class="badge ${k.rigidez > 50 ? 'dn':'up'}">meta &lt;50%</span>`;
+    `<span class="badge ${k.sinCobros30d || k.rigidez > 50 ? 'dn':'up'}">meta &lt;50%</span>`;
 
   document.getElementById('kpi-cobros').textContent = fmtMoney(k.cobros30d);
   document.getElementById('kpi-cobros').className = 'k-val g';
@@ -1119,7 +1139,9 @@ function renderOverview(k) {
   if (k.vencidoCount > 0) {
     cont.innerHTML += `<div class="alert d"><span class="alert-ico">▲</span><div><div class="alert-ttl">Cobros vencidos sin registrar</div><div class="alert-msg"><strong>${k.vencidoCount} movimiento(s)</strong> con fecha pasada e importe positivo: <strong>${fmtMoney(k.vencido)}</strong>.</div></div></div>`;
   }
-  if (k.rigidez > 50 && k.rigidez > 0) {
+  if (k.sinCobros30d) {
+    cont.innerHTML += `<div class="alert d"><span class="alert-ico">▲</span><div><div class="alert-ttl">Rigidez estructural crítica — sin cobros proyectados</div><div class="alert-msg">Costos fijos: <strong>${fmtMoney(k.costosFijos)}</strong> con <strong>$0</strong> de cobros en los próximos 30 días. No hay facturación cubriendo la estructura.</div></div></div>`;
+  } else if (k.rigidez > 50 && k.rigidez > 0) {
     cont.innerHTML += `<div class="alert w"><span class="alert-ico">◈</span><div><div class="alert-ttl">Rigidez estructural fuera de umbral</div><div class="alert-msg">CF/Facturación: <strong>${k.rigidez.toFixed(1)}%</strong> — meta: &lt;50%. Necesitás facturar <strong>${fmtMoney(k.costosFijos * 2 - k.cobros30d)}</strong> adicionales para normalizar.</div></div></div>`;
   }
   if (cont.innerHTML === '') {
@@ -1172,6 +1194,23 @@ function renderOverview(k) {
   });
 }
 
+function proximosPeriodicos(periodicos) {
+  if (!periodicos || !periodicos.length) return [];
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const porFecha = {};
+  periodicos.forEach(p => {
+    p.meses.forEach(mes => {
+      let fecha = new Date(hoy.getFullYear(), mes - 1, p.dia || 1);
+      if (fecha < hoy) fecha = new Date(hoy.getFullYear() + 1, mes - 1, p.dia || 1);
+      const key = fecha.toISOString().slice(0,10);
+      if (!porFecha[key]) porFecha[key] = { fecha, monto: 0, items: [] };
+      porFecha[key].monto += p.monto;
+      porFecha[key].items.push(p.concepto);
+    });
+  });
+  return Object.values(porFecha).sort((a,b) => a.fecha - b.fecha);
+}
+
 function renderCashflow(k) {
   const sv = document.getElementById('cf-saldo');
   sv.textContent = fmtMoney(k.saldoBanco);
@@ -1179,6 +1218,25 @@ function renderCashflow(k) {
   document.getElementById('cf-pagos7').textContent   = fmtMoney(k.pagos7d);
   document.getElementById('cf-cobros30').textContent = fmtMoney(k.cobros30d);
   document.getElementById('cf-cheques30').textContent = fmtMoney(k.cheques30d);
+
+  const aguinaldoCard = document.getElementById('cf-aguinaldo-card');
+  const proximos = proximosPeriodicos(k.periodicos).slice(0, 4);
+  if (proximos.length) {
+    aguinaldoCard.style.display = 'block';
+    document.getElementById('cf-aguinaldo-body').innerHTML = proximos.map(p => {
+      const dias = diffDias(p.fecha);
+      return `<div class="hito">
+        <span class="hito-fecha">${fmtFecha(p.fecha)}</span>
+        <span class="hito-dot ${dias <= 45 ? 'prox' : 'futuro'}"></span>
+        <div class="hito-content">
+          <span class="hito-name">${p.items.length} pago(s) — ${dias}d</span>
+          <span class="hito-monto" style="color:var(--warn)">${fmtMoney(p.monto)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    aguinaldoCard.style.display = 'none';
+  }
 
   const labels = k.saldosProyectados.map(s=>`${s.dia.getDate()}/${s.dia.getMonth()+1}`);
   const datos  = k.saldosProyectados.map(s=>s.saldo);
@@ -1237,8 +1295,11 @@ function renderCashflow(k) {
 
 function renderRigidez(k) {
   const rv = document.getElementById('rig-global');
-  rv.textContent = k.rigidez > 0 ? k.rigidez.toFixed(1)+'%' : '—';
-  rv.className = 'k-val ' + (k.rigidez>70?'d':k.rigidez>50?'w':'g');
+  if (k.sinCobros30d) { rv.textContent = 'Sin cobros'; rv.className = 'k-val d'; }
+  else {
+    rv.textContent = k.rigidez > 0 ? k.rigidez.toFixed(1)+'%' : '—';
+    rv.className = 'k-val ' + (k.rigidez>70?'d':k.rigidez>50?'w':'g');
+  }
 
   document.getElementById('rig-cf').textContent    = fmtMoney(k.costosFijos);
   document.getElementById('rig-fact').textContent  = fmtMoney(k.cobros30d);
@@ -1247,16 +1308,16 @@ function renderRigidez(k) {
   nEl.textContent = necesita > 0 ? '+' + fmtMoney(necesita) : '✓ OK';
   nEl.className   = 'k-val ' + (necesita > 0 ? 'w' : 'g');
 
-  const pct = Math.min(k.rigidez, 100);
+  const pct = k.sinCobros30d ? 100 : Math.min(k.rigidez, 100);
   const offset = 251 - (251 * pct / 100);
   document.getElementById('gauge-fill').setAttribute('stroke-dashoffset', offset);
   const gtxt = document.getElementById('gauge-txt');
-  gtxt.textContent = k.rigidez > 0 ? k.rigidez.toFixed(1)+'%' : '—';
-  gtxt.setAttribute('fill', k.rigidez>70?'#c42a3a':k.rigidez>50?'#c48a1a':'#2a9e5a');
+  gtxt.textContent = k.sinCobros30d ? 'Sin cobros' : (k.rigidez > 0 ? k.rigidez.toFixed(1)+'%' : '—');
+  gtxt.setAttribute('fill', k.sinCobros30d || k.rigidez>70?'#c42a3a':k.rigidez>50?'#c48a1a':'#2a9e5a');
 
   const items = document.getElementById('semaf-rig').querySelectorAll('.semaf-item');
   items.forEach(i=>i.className='semaf-item');
-  if (k.rigidez > 70) items[2].className='semaf-item on-d';
+  if (k.sinCobros30d || k.rigidez > 70) items[2].className='semaf-item on-d';
   else if (k.rigidez > 50) items[1].className='semaf-item on-w';
   else if (k.rigidez > 0) items[0].className='semaf-item on-g';
 
@@ -1319,7 +1380,8 @@ function renderPrediccion(k) {
   if (k.saldoBanco < 0) acciones.push(`Saldo negativo <strong>${fmtMoney(k.saldoBanco)}</strong> — gestionar cobros urgentes.`);
   if (k.vencidoCount > 0) acciones.push(`<strong>${k.vencidoCount}</strong> movimiento(s) vencido(s) por <strong>${fmtMoney(k.vencido)}</strong> sin procesar.`);
   if (k.cheques7d > 0) acciones.push(`Cheques por <strong>${fmtMoney(k.cheques7d)}</strong> vencen en los próximos 7 días.`);
-  if (k.rigidez > 50) acciones.push(`Rigidez <strong>${k.rigidez.toFixed(1)}%</strong> — necesitás +<strong>${fmtMoney(k.costosFijos*2 - k.cobros30d)}</strong> de facturación para normalizar.`);
+  if (k.sinCobros30d) acciones.push(`Rigidez crítica — costos fijos de <strong>${fmtMoney(k.costosFijos)}</strong> sin ningún cobro proyectado en 30 días.`);
+  else if (k.rigidez > 50) acciones.push(`Rigidez <strong>${k.rigidez.toFixed(1)}%</strong> — necesitás +<strong>${fmtMoney(k.costosFijos*2 - k.cobros30d)}</strong> de facturación para normalizar.`);
 
   const tipo = k.saldoBanco < -500000 || k.vencidoCount > 0 ? 'w' : 'g';
   document.getElementById('pred-analisis').className = 'alert ' + tipo;
@@ -1593,15 +1655,19 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   const { data: gastosFijos } = await sb.from('costos_fijos').select('*').order('concepto');
   window.GASTOS_CACHE = {}; (gastosFijos||[]).forEach(g => window.GASTOS_CACHE[g.id] = g);
   const puedeEditarGto = PUEDE_EDITAR.costos_fijos(ROL);
-  const totalGastosActivos = (gastosFijos||[]).filter(g=>g.activo).reduce((s,g)=>s+Number(g.monto),0);
+  const MESES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const fmtMeses = meses => (!meses || !meses.length) ? 'Todos' : meses.map(m=>MESES_ABR[m-1]).join(', ');
+  const mesActualHoy = new Date().getMonth() + 1;
+  const totalGastosActivos = (gastosFijos||[]).filter(g=>g.activo && (!g.meses || !g.meses.length || g.meses.includes(mesActualHoy))).reduce((s,g)=>s+Number(g.monto),0);
   document.getElementById('gto-total').textContent = fmtMoney(totalGastosActivos);
   document.getElementById('tbl-gastos-fijos').innerHTML = (gastosFijos||[]).map(g => `<tr>
       <td>${g.concepto}</td><td>${g.fuente||'—'}</td><td>${g.naturaleza||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(g.monto))}</td>
       <td style="font-family:var(--mono)">${g.dia_pago||'—'}</td>
+      <td>${fmtMeses(g.meses)}</td>
       <td><span class="tag ${g.activo?'ok':'muted'}">${g.activo?'Activo':'Dado de baja'}</span></td>
       <td>${puedeEditarGto ? `<button class="btn ghost" onclick="editarGastoFijo(window.GASTOS_CACHE['${g.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarGastoFijo('${g.id}')">✕</button>` : ''}</td>
-    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin gastos fijos cargados</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin gastos fijos cargados</td></tr>';
 
   // Movimientos (libro de caja completo, orden más reciente primero)
   const { data: movsTabla } = await sb.from('movimientos').select('*').order('fecha',{ascending:false});
@@ -2632,9 +2698,11 @@ async function crearGastoFijo() {
   const naturaleza = document.getElementById('gto-naturaleza').value;
   const monto = Number(document.getElementById('gto-monto').value);
   const dia_pago = Number(document.getElementById('gto-dia').value) || null;
+  const mesesRaw = document.getElementById('gto-meses').value.trim();
+  const meses = mesesRaw ? mesesRaw.split(',').map(s=>parseInt(s.trim())).filter(n=>n>=1 && n<=12) : null;
   const activo = document.getElementById('gto-activo').value === 'true';
   if (!concepto || !monto) return showErr('gastos', 'Concepto y monto son obligatorios.');
-  const payload = { concepto, fuente: fuente||null, naturaleza, monto, dia_pago, activo };
+  const payload = { concepto, fuente: fuente||null, naturaleza, monto, dia_pago, activo, meses: (meses && meses.length) ? meses : null };
   if (EDITANDO_GTO_ID) {
     const { error } = await sb.from('costos_fijos').update(payload).eq('id', EDITANDO_GTO_ID);
     if (error) return showErr('gastos', error.message);
@@ -2653,6 +2721,7 @@ function editarGastoFijo(g) {
   document.getElementById('gto-naturaleza').value = g.naturaleza || 'Fijo';
   document.getElementById('gto-monto').value = g.monto || '';
   document.getElementById('gto-dia').value = g.dia_pago || '';
+  document.getElementById('gto-meses').value = (g.meses && g.meses.length) ? g.meses.join(',') : '';
   document.getElementById('gto-activo').value = g.activo ? 'true' : 'false';
   document.getElementById('gastos-btn-guardar').textContent = 'Guardar cambios';
   document.getElementById('gastos-btn-cancelar').style.display = 'inline-block';

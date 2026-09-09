@@ -513,7 +513,7 @@ tr:hover td{background:var(--bg)}
     </div>
   </div>
 
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Asunto</th><th>Total venta</th><th>Margen</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-presupuestos"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Asunto</th><th>Total venta</th><th>Margen</th><th>Costo real</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-presupuestos"></tbody></table></div></div>
 </div>
 
 <!-- FACTURAS -->
@@ -535,7 +535,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="fac-btn-guardar" onclick="crearFactura()">Guardar</button>
     <button class="btn ghost" id="fac-btn-cancelar" onclick="cancelarEdicionFactura()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Proyecto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Proyecto</th><th>Presupuesto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
 </div>
 
 <!-- ACTIVOS -->
@@ -602,6 +602,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Prioridad</label><select id="ot-prioridad"><option>Alta</option><option selected>Media</option><option>Baja</option></select></div>
       <div class="field"><label>Técnico asignado</label><input id="ot-tecnico"></div>
       <div class="field"><label>Fecha de apertura</label><input type="date" id="ot-fecha-apertura"></div>
+      <div class="field"><label>Fecha de vencimiento</label><input type="date" id="ot-fecha-vencimiento"></div>
       <div class="field"><label>Tiempo estimado (horas)</label><input type="number" step="0.5" id="ot-horas"></div>
       <div class="field" style="grid-column:1/-1"><label>Descripción</label><textarea id="ot-desc"></textarea></div>
     </div>
@@ -609,7 +610,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="ot-btn-cancelar" onclick="cancelarEdicionOT()" style="display:none">Cancelar edición</button>
   </div>
   <div id="ot-empty" class="empty"><b>Sin órdenes de trabajo registradas.</b>Se generan a partir de un activo o de un reclamo entrante.</div>
-  <div class="card" id="ot-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Activo</th><th>Tipo</th><th>Prioridad</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-ot"></tbody></table></div></div>
+  <div class="card" id="ot-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Activo</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Vencimiento</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-ot"></tbody></table></div></div>
 </div>
 
 <!-- COMPRAS -->
@@ -687,12 +688,14 @@ tr:hover td{background:var(--bg)}
     <div id="calidad-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Área</label><input id="nc-area"></div>
+      <div class="field"><label>Responsable</label><input id="nc-responsable"></div>
+      <div class="field"><label>Fecha de vencimiento</label><input type="date" id="nc-fecha-vencimiento"></div>
       <div class="field" style="grid-column:1/-1"><label>Descripción</label><textarea id="nc-desc"></textarea></div>
     </div>
     <button class="btn" onclick="crearNC()">Guardar</button>
   </div>
   <div id="calidad-empty" class="empty"><b>Sin no conformidades registradas todavía.</b>Se carga cuando un cliente o técnico reporta un desvío.</div>
-  <div class="card" id="calidad-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Área</th><th>Descripción</th><th>Estado</th></tr></thead><tbody id="tbl-calidad"></tbody></table></div></div>
+  <div class="card" id="calidad-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Área</th><th>Descripción</th><th>Responsable</th><th>Vencimiento</th><th>Estado</th></tr></thead><tbody id="tbl-calidad"></tbody></table></div></div>
 </div>
 
 <!-- PREDICCIÓN -->
@@ -1368,6 +1371,8 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   // Presupuestos
   const { data: presupuestos } = await sb.from('presupuestos').select('*').order('numero',{ascending:false});
   window.PRESUPUESTOS_CACHE = {}; (presupuestos||[]).forEach(p => window.PRESUPUESTOS_CACHE[p.id] = p);
+  const { data: costosReales } = await sb.from('costo_real_por_proyecto').select('*');
+  const costoRealPorProyecto = {}; (costosReales||[]).forEach(c => costoRealPorProyecto[c.proyecto_id] = c);
   const estadoTag = { Aprobado:'ok', Enviado:'w', Borrador:'muted', 'Sin datos':'muted', Rechazado:'d' };
   const puedeDecidirPresu = ROL === 'sebastian';
   let preTotal = 0, preAprobado = 0, preRechazado = 0;
@@ -1391,13 +1396,18 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       acciones.push(`<button class="btn" onclick="aprobarPresupuestoDesdeLista('${p.id}')">Marcar aprobado</button>`);
       acciones.push(`<button class="btn ghost" onclick="marcarEstadoPresupuesto('${p.id}','Rechazado')">Marcar rechazado</button>`);
     }
+    const cr = p.proyecto_id ? costoRealPorProyecto[p.proyecto_id] : null;
+    const costoRealTxt = cr
+      ? `${fmtMoney(cr.costo_real_pagado)}${cr.comprometido_oc > 0 ? `<div style="font-size:10px;color:var(--muted)">+${fmtMoney(cr.comprometido_oc)} comprometido</div>` : ''}`
+      : '—';
     return `<tr>
       <td>${p.numero ?? '—'}</td><td>${cli}</td><td>${p.asunto||p.unidad_negocio||'—'}</td>
       <td>${fmtMoney(p.monto_cotizado_neto)}</td><td>${margen}</td>
+      <td>${costoRealTxt}</td>
       <td><span class="tag ${estadoTag[p.estado]||'muted'}">${p.estado}</span></td>
       <td>${acciones.join(' ')}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin presupuestos</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin presupuestos</td></tr>';
 
   // Activos
   const { data: activos } = await sb.from('activos').select('*').order('nombre');
@@ -1439,12 +1449,18 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   if (ots && ots.length > 0) {
     document.getElementById('ot-empty').style.display = 'none';
     document.getElementById('ot-card').style.display = 'block';
-    document.getElementById('tbl-ot').innerHTML = ots.map(o => `<tr>
+    const hoyStr = new Date().toISOString().slice(0,10);
+    document.getElementById('tbl-ot').innerHTML = ots.map(o => {
+      const vencida = o.fecha_vencimiento && o.fecha_vencimiento < hoyStr && o.estado !== 'CERRADA' && o.estado !== 'CANCELADA';
+      return `<tr>
       <td>${o.fecha_apertura}</td><td>${o.activos ? o.activos.nombre : '—'}</td><td>${o.tipo}</td>
       <td><span class="tag ${o.prioridad==='Alta'?'d':o.prioridad==='Media'?'w':'muted'}">${o.prioridad||'—'}</span></td>
+      <td>${o.tecnico_asignado||'—'}</td>
+      <td style="${vencida?'color:var(--danger);font-weight:600':''}">${o.fecha_vencimiento||'—'}${vencida?' ⚠':''}</td>
       <td><span class="tag ${o.estado==='CERRADA'?'ok':'w'}">${o.estado}</span></td>
       <td>${puedeEditarOT ? `${o.estado!=='CERRADA' ? `<button class="btn ghost" onclick="cerrarOT('${o.id}')">Cerrar</button> ` : ''}<button class="btn ghost" onclick="editarOT(window.OT_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOT('${o.id}')">✕</button>` : ''}</td>
-    </tr>`).join('');
+    </tr>`;
+    }).join('');
   }
 
   // Proveedores
@@ -1499,10 +1515,16 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   if (ncs && ncs.length > 0) {
     document.getElementById('calidad-empty').style.display = 'none';
     document.getElementById('calidad-card').style.display = 'block';
-    document.getElementById('tbl-calidad').innerHTML = ncs.map(n => `<tr>
+    const hoyNC = new Date().toISOString().slice(0,10);
+    document.getElementById('tbl-calidad').innerHTML = ncs.map(n => {
+      const vencida = n.fecha_vencimiento && n.fecha_vencimiento < hoyNC && n.estado !== 'CERRADA';
+      return `<tr>
       <td>${n.fecha}</td><td>${n.area||'—'}</td><td>${n.descripcion}</td>
+      <td>${n.responsable||'—'}</td>
+      <td style="${vencida?'color:var(--danger);font-weight:600':''}">${n.fecha_vencimiento||'—'}${vencida?' ⚠':''}</td>
       <td><span class="tag ${n.estado==='CERRADA'?'ok':'w'}">${n.estado}</span></td>
-    </tr>`).join('');
+    </tr>`;
+    }).join('');
   }
 
   // Compras (cheques, con detalle completo)
@@ -1543,15 +1565,27 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   document.getElementById('tbl-facturas').innerHTML = (facturas||[]).map(f => {
     const cli = f.cliente_id ? (clienteNombre[f.cliente_id]||f.cliente_id) : '—';
     const proy = f.proyecto_id ? (proyectoInfo[f.proyecto_id] ? proyectoInfo[f.proyecto_id].nombre : f.proyecto_id) : '—';
+    const presu = f.presupuesto_id ? window.PRESUPUESTOS_CACHE[f.presupuesto_id] : null;
+    let presuTxt = '—';
+    if (presu) {
+      presuTxt = 'N°' + (presu.numero ?? '—');
+      if (f.estado !== 'Pendiente de emitir' && presu.monto_cotizado_neto != null) {
+        const dif = Number(f.monto) - Number(presu.monto_cotizado_neto);
+        presuTxt += Math.abs(dif) < 1
+          ? ' <span class="tag ok" style="font-size:9px">✓ coincide</span>'
+          : ` <span class="tag w" style="font-size:9px">⚠ ${dif>0?'+':''}${fmtMoney(dif)}</span>`;
+      }
+    }
     return `<tr>
       <td>${f.numero||'—'}</td><td>${cli}</td><td>${proy}</td>
+      <td>${presuTxt}</td>
       <td style="font-family:var(--mono)">${f.fecha_emision||'—'}</td>
       <td style="font-family:var(--mono)">${f.fecha_vencimiento||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(f.monto))}</td>
       <td><span class="tag ${estadoFacTag[f.estado]||'muted'}">${f.estado}</span></td>
       <td>${puedeEditarFac ? `${f.estado==='Pendiente de emitir' ? `<button class="btn" onclick="registrarEmisionFactura(window.FACS_CACHE['${f.id}'])">Registrar emisión</button> ` : ''}${f.estado!=='Cobrada' && f.estado!=='Pendiente de emitir' ? `<button class="btn ghost" onclick="marcarFacturaCobrada('${f.id}')">Marcar cobrada</button> ` : ''}<button class="btn ghost" onclick="editarFactura(window.FACS_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFactura('${f.id}')">✕</button>` : ''}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
 
   // Panel de Socios
   const otTotal = (ots||[]).length, otCerradas = (ots||[]).filter(o=>o.estado==='CERRADA').length;
@@ -1825,9 +1859,10 @@ async function crearOT() {
   const prioridad = document.getElementById('ot-prioridad').value;
   const tecnico_asignado = document.getElementById('ot-tecnico').value.trim();
   const fecha_apertura = document.getElementById('ot-fecha-apertura').value || undefined;
+  const fecha_vencimiento = document.getElementById('ot-fecha-vencimiento').value || null;
   const tiempo_estimado_horas = Number(document.getElementById('ot-horas').value) || null;
   const descripcion = document.getElementById('ot-desc').value.trim();
-  const payload = { activo_id, tipo, prioridad, tecnico_asignado: tecnico_asignado||null, fecha_apertura, tiempo_estimado_horas, descripcion: descripcion||null };
+  const payload = { activo_id, tipo, prioridad, tecnico_asignado: tecnico_asignado||null, fecha_apertura, fecha_vencimiento, tiempo_estimado_horas, descripcion: descripcion||null };
   if (EDITANDO_OT_ID) {
     const { error } = await sb.from('ordenes_trabajo').update(payload).eq('id', EDITANDO_OT_ID);
     if (error) return showErr('ot', error.message);
@@ -1846,6 +1881,7 @@ function editarOT(o) {
   document.getElementById('ot-prioridad').value = o.prioridad || 'Media';
   document.getElementById('ot-tecnico').value = o.tecnico_asignado || '';
   document.getElementById('ot-fecha-apertura').value = o.fecha_apertura || '';
+  document.getElementById('ot-fecha-vencimiento').value = o.fecha_vencimiento || '';
   document.getElementById('ot-horas').value = o.tiempo_estimado_horas || '';
   document.getElementById('ot-desc').value = o.descripcion || '';
   document.getElementById('ot-btn-guardar').textContent = 'Guardar cambios';
@@ -2241,9 +2277,11 @@ async function marcarOPPagada(id) {
 
 async function crearNC() {
   const area = document.getElementById('nc-area').value.trim();
+  const responsable = document.getElementById('nc-responsable').value.trim();
+  const fecha_vencimiento = document.getElementById('nc-fecha-vencimiento').value || null;
   const descripcion = document.getElementById('nc-desc').value.trim();
   const id = 'NC-' + Date.now();
-  const { error } = await sb.from('no_conformidades').insert({ id, area: area||null, descripcion, estado:'ABIERTA' });
+  const { error } = await sb.from('no_conformidades').insert({ id, area: area||null, responsable: responsable||null, fecha_vencimiento, descripcion, estado:'ABIERTA' });
   if (error) return showErr('calidad', error.message);
   location.reload();
 }

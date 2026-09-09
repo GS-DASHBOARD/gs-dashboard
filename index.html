@@ -2097,14 +2097,20 @@ async function eliminarOP(id) {
 async function marcarOPPagada(id) {
   const o = window.OP_CACHE[id];
   if (!o) return;
-  const movId = 'MOV-' + Date.now();
-  const { error: errMov } = await sb.from('movimientos').insert({
-    id: movId, fecha: new Date().toISOString().slice(0,10), tipo: 'EGRESO', categoria: 'Pago a proveedor',
-    concepto: (o.concepto || 'Pago') + (o.proveedores ? ' - ' + o.proveedores.nombre : ''),
-    medio: o.medio, monto: o.monto, estado: 'CANCELADO', fuente: 'Portal GS OS',
-  });
-  if (errMov) return alert('No se pudo crear el movimiento: ' + errMov.message);
-  const { error } = await sb.from('ordenes_pago').update({ estado: 'Pagada', movimiento_id: movId }).eq('id', id);
+  if (o.movimiento_id) {
+    const { error: errMov } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: new Date().toISOString().slice(0,10) }).eq('id', o.movimiento_id);
+    if (errMov) return alert('No se pudo actualizar el movimiento: ' + errMov.message);
+  } else {
+    const movId = 'MOV-' + Date.now();
+    const { error: errIns } = await sb.from('movimientos').insert({
+      id: movId, fecha: new Date().toISOString().slice(0,10), tipo: 'EGRESO', categoria: 'Pago a proveedor',
+      concepto: (o.concepto || 'Pago') + (o.proveedores ? ' - ' + o.proveedores.nombre : ''),
+      medio: o.medio, monto: o.monto, estado: 'CANCELADO', fuente: 'Portal GS OS',
+    });
+    if (errIns) return alert('No se pudo crear el movimiento: ' + errIns.message);
+    await sb.from('ordenes_pago').update({ movimiento_id: movId }).eq('id', id);
+  }
+  const { error } = await sb.from('ordenes_pago').update({ estado: 'Pagada' }).eq('id', id);
   if (error) return alert('No se pudo actualizar la OP: ' + error.message);
   location.reload();
 }

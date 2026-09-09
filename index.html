@@ -223,8 +223,6 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item active" onclick="nav(this,'overview')"><span class="nav-pip"></span>Resumen ejecutivo</button>
     <button class="nav-item" onclick="nav(this,'prediccion')"><span class="nav-pip"></span>Predicción & alertas IA</button>
     <button class="nav-item" onclick="nav(this,'socios')"><span class="nav-pip"></span>Panel de Socios</button>
-    <div class="nav-section">Por área</div>
-    <button class="nav-item" onclick="nav(this,'area')"><span class="nav-pip"></span>Movimientos por área</button>
     <div class="nav-section">Financiero</div>
     <button class="nav-item" onclick="nav(this,'movimientos')"><span class="nav-pip"></span>Movimientos</button>
     <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Cheques</button>
@@ -353,25 +351,6 @@ tr:hover td{background:var(--bg)}
 </div>
 
 <!-- OBRAS -->
-<div class="page" id="page-area">
-  <div class="ph"><div><h1>Movimientos <span>por área</span></h1><p>Obras · Mantenimiento · Energía</p></div>
-    <div class="area-tabs">
-      <button class="area-badge obras active" id="area-tab-obras" onclick="cambiarAreaVista('obras')">Obras</button>
-      <button class="area-badge mant" id="area-tab-mant" onclick="cambiarAreaVista('mant')">Mantenimiento</button>
-      <button class="area-badge energia" id="area-tab-energia" onclick="cambiarAreaVista('energia')">Energía</button>
-    </div>
-  </div>
-  <div class="kgrid c4">
-    <div class="kcard" id="area-kcard-count" style="--ka:var(--obras)"><div class="k-lbl">Movimientos registrados</div><div class="k-val" id="area-count">—</div><div class="k-sub">total</div></div>
-    <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Total cobros</div><div class="k-val g" id="area-cobros">—</div><div class="k-sub">importes positivos</div></div>
-    <div class="kcard" style="--ka:var(--danger)"><div class="k-lbl">Total pagos</div><div class="k-val d" id="area-pagos">—</div><div class="k-sub">importes negativos</div></div>
-    <div class="kcard" id="area-kcard-neto" style="--ka:var(--obras)"><div class="k-lbl">Saldo neto</div><div class="k-val" id="area-neto">—</div><div class="k-sub">cobros − pagos</div></div>
-  </div>
-  <div class="card"><div class="card-ttl" id="area-card-ttl">Movimientos de Obras</div><div class="card-sub">filtrado por tipo de movimiento</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente/Prov.</th><th>Proyecto</th><th>Concepto</th><th>Importe</th></tr></thead><tbody id="tbl-area"></tbody></table></div>
-  </div>
-</div>
-
 <!-- PANEL DE SOCIOS -->
 <div class="page" id="page-socios">
   <div class="ph"><div><h1>Panel de <span>Socios</span></h1><p>Vista cruzada — visibilidad total, edición según área de cada uno</p></div><span class="area-badge all">Sebastián · Gonzalo · Ezequiel</span></div>
@@ -437,7 +416,13 @@ tr:hover td{background:var(--bg)}
 
 <!-- MOVIMIENTOS -->
 <div class="page" id="page-movimientos">
-  <div class="ph"><div><h1>Movimientos</h1><p>Libro de caja — cobros y pagos</p></div></div>
+  <div class="ph"><div><h1>Movimientos</h1><p>Libro de caja — cobros y pagos</p></div>
+    <div class="area-tabs">
+      <button class="area-badge obras" id="mov-tab-obras" onclick="filtrarMovimientosPorArea('obras')">Obras</button>
+      <button class="area-badge mant" id="mov-tab-mant" onclick="filtrarMovimientosPorArea('mant')">Mantenimiento</button>
+      <button class="area-badge energia" id="mov-tab-energia" onclick="filtrarMovimientosPorArea('energia')">Energía</button>
+    </div>
+  </div>
   <div class="card" style="margin-bottom:16px">
     <div class="card-ttl">Saldo bancario actual</div>
     <div class="card-sub">calculado en vivo, suma de movimientos confirmados</div>
@@ -995,8 +980,6 @@ function renderTodo() {
   renderCashflow(kpis);
   renderRigidez(kpis);
   renderCobranzas(kpis);
-  window.LAST_AREA_KPIS = kpis;
-  renderAreaVista(window.CURRENT_AREA || 'obras', kpis);
   renderPrediccion(kpis);
 }
 
@@ -1331,42 +1314,6 @@ function renderCobranzas(k) {
   }).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Sin cheques cargados</td></tr>';
 }
 
-function cambiarAreaVista(area) {
-  window.CURRENT_AREA = area;
-  document.querySelectorAll('.area-tabs .area-badge').forEach(b => b.classList.remove('active'));
-  document.getElementById('area-tab-'+area).classList.add('active');
-  if (window.LAST_AREA_KPIS) renderAreaVista(area, window.LAST_AREA_KPIS);
-}
-
-function renderAreaVista(area, k) {
-  const d = k[area];
-  const neto = d.cobros - d.pagos;
-  const nombre = area === 'obras' ? 'Obras' : area === 'mant' ? 'Mantenimiento' : 'Energía';
-  document.getElementById('area-kcard-count').style.setProperty('--ka', 'var(--'+area+')');
-  document.getElementById('area-kcard-neto').style.setProperty('--ka', 'var(--'+area+')');
-  document.getElementById('area-card-ttl').textContent = 'Movimientos de ' + nombre;
-  document.getElementById('area-count').textContent  = d.movs.length || '0';
-  document.getElementById('area-cobros').textContent = fmtMoney(d.cobros);
-  document.getElementById('area-pagos').textContent  = fmtMoney(d.pagos);
-  const nEl = document.getElementById('area-neto');
-  nEl.textContent = fmtMoney(neto);
-  nEl.className   = 'k-val ' + (neto>=0?'g':'d');
-
-  document.getElementById('tbl-area').innerHTML = d.movs.length > 0
-    ? d.movs.sort((a,b)=>b.fecha-a.fecha).slice(0,15).map(m => {
-        const color = m.imp>0?'color:var(--good)':'color:var(--danger)';
-        return `<tr>
-          <td style="font-family:var(--mono)">${fmtFecha(m.fecha)}</td>
-          <td>${m.tipo||'—'}</td>
-          <td>${(m.cliente||'—').substring(0,22)}</td>
-          <td>${(m.proyecto||'—').substring(0,18)}</td>
-          <td>${(m.concepto||'—').substring(0,20)}</td>
-          <td style="font-family:var(--mono);${color}">${m.imp>0?'+':''}${fmtMoney(m.imp)}</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Sin movimientos clasificados como ${area}.</td></tr>`;
-}
-
 function renderPrediccion(k) {
   let acciones = [];
   if (k.saldoBanco < 0) acciones.push(`Saldo negativo <strong>${fmtMoney(k.saldoBanco)}</strong> — gestionar cobros urgentes.`);
@@ -1659,20 +1606,10 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   // Movimientos (libro de caja completo, orden más reciente primero)
   const { data: movsTabla } = await sb.from('movimientos').select('*').order('fecha',{ascending:false});
   window.MOVS_CACHE = {}; (movsTabla||[]).forEach(m => window.MOVS_CACHE[m.id] = m);
-  const puedeEditarMov = PUEDE_EDITAR.movimientos(ROL);
-  const estadoMovTag = { CANCELADO:'ok', PENDIENTE:'w', PROYECTADO:'muted' };
-  document.getElementById('tbl-movimientos').innerHTML = (movsTabla||[]).map(m => {
-    const color = m.tipo === 'INGRESO' ? 'color:var(--good)' : 'color:var(--danger)';
-    const cli = m.cliente_id ? (clienteNombre[m.cliente_id]||m.cliente_id) : '—';
-    const proy = m.proyecto_id ? (proyectoInfo[m.proyecto_id] ? proyectoInfo[m.proyecto_id].nombre : m.proyecto_id) : '—';
-    return `<tr>
-      <td style="font-family:var(--mono)">${m.fecha}</td><td>${m.tipo}</td><td>${cli}</td><td>${proy}</td>
-      <td>${m.concepto||m.categoria||'—'}</td>
-      <td><span class="tag ${estadoMovTag[m.estado]||'muted'}">${m.estado}</span></td>
-      <td style="font-family:var(--mono);${color}">${m.tipo==='INGRESO'?'+':'-'}${fmtMoney(Math.abs(Number(m.monto)))}</td>
-      <td>${puedeEditarMov ? `${m.estado!=='CANCELADO' ? `<button class="btn" onclick="conciliarMovimiento('${m.id}')">Conciliar</button> ` : ''}<button class="btn ghost" onclick="editarMovimiento(window.MOVS_CACHE['${m.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarMovimiento('${m.id}')">✕</button>` : ''}</td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
+  window.MOVS_TABLA_CACHE = movsTabla || [];
+  window.CLIENTE_NOMBRE_CACHE = clienteNombre;
+  window.PROYECTO_INFO_CACHE = proyectoInfo;
+  renderTablaMovimientos();
 
   // Facturas
   const { data: facturas } = await sb.from('facturas').select('*').order('fecha_vencimiento',{ascending:true});
@@ -2611,6 +2548,44 @@ async function eliminarMovimiento(id) {
   const { error } = await sb.from('movimientos').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
   location.reload();
+}
+
+function clasificarAreaMovimiento(m, proyectoInfo) {
+  const info = m.proyecto_id ? proyectoInfo[m.proyecto_id] : null;
+  const proy = info ? info.nombre + (info.area ? ' (' + info.area + ')' : '') : '';
+  const tipoArea = (m.tipo || '').toLowerCase() + ' ' + proy.toLowerCase();
+  if (tipoArea.includes('mantenimiento') || tipoArea.includes('mant')) return 'mant';
+  if (tipoArea.includes('energi') || tipoArea.includes('solar') || tipoArea.includes('ge ')) return 'energia';
+  return 'obras';
+}
+
+function filtrarMovimientosPorArea(area) {
+  window.MOV_AREA_FILTER = (window.MOV_AREA_FILTER === area) ? null : area;
+  document.querySelectorAll('#page-movimientos .area-tabs .area-badge').forEach(b => b.classList.remove('active'));
+  if (window.MOV_AREA_FILTER) document.getElementById('mov-tab-' + window.MOV_AREA_FILTER).classList.add('active');
+  renderTablaMovimientos();
+}
+
+function renderTablaMovimientos() {
+  const movsTabla = window.MOVS_TABLA_CACHE || [];
+  const clienteNombre = window.CLIENTE_NOMBRE_CACHE || {};
+  const proyectoInfo = window.PROYECTO_INFO_CACHE || {};
+  const puedeEditarMov = PUEDE_EDITAR.movimientos(ROL);
+  const estadoMovTag = { CANCELADO:'ok', PENDIENTE:'w', PROYECTADO:'muted' };
+  const filtro = window.MOV_AREA_FILTER;
+  const filas = filtro ? movsTabla.filter(m => clasificarAreaMovimiento(m, proyectoInfo) === filtro) : movsTabla;
+  document.getElementById('tbl-movimientos').innerHTML = filas.map(m => {
+    const color = m.tipo === 'INGRESO' ? 'color:var(--good)' : 'color:var(--danger)';
+    const cli = m.cliente_id ? (clienteNombre[m.cliente_id]||m.cliente_id) : '—';
+    const proy = m.proyecto_id ? (proyectoInfo[m.proyecto_id] ? proyectoInfo[m.proyecto_id].nombre : m.proyecto_id) : '—';
+    return `<tr>
+      <td style="font-family:var(--mono)">${m.fecha}</td><td>${m.tipo}</td><td>${cli}</td><td>${proy}</td>
+      <td>${m.concepto||m.categoria||'—'}</td>
+      <td><span class="tag ${estadoMovTag[m.estado]||'muted'}">${m.estado}</span></td>
+      <td style="font-family:var(--mono);${color}">${m.tipo==='INGRESO'?'+':'-'}${fmtMoney(Math.abs(Number(m.monto)))}</td>
+      <td>${puedeEditarMov ? `${m.estado!=='CANCELADO' ? `<button class="btn" onclick="conciliarMovimiento('${m.id}')">Conciliar</button> ` : ''}<button class="btn ghost" onclick="editarMovimiento(window.MOVS_CACHE['${m.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarMovimiento('${m.id}')">✕</button>` : ''}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos${filtro?' en esta área':''}</td></tr>`;
 }
 
 async function conciliarMovimiento(id) {

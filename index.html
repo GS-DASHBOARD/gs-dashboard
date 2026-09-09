@@ -615,27 +615,61 @@ tr:hover td{background:var(--bg)}
 
 <!-- COMPRAS -->
 <div class="page" id="page-compras">
-  <div class="ph"><div><h1>Cheques</h1><p>Cheques diferidos emitidos</p></div></div>
-  <div class="row-actions" id="compras-actions" style="display:none">
-    <button class="btn" onclick="toggleForm('compras')">+ Nuevo cheque</button>
-    <button class="btn ghost" onclick="document.getElementById('chq-csv-input').click()">Importar CSV</button>
-    <input type="file" id="chq-csv-input" accept=".csv" style="display:none" onchange="importarChequesCSV(event)">
-  </div>
-  <div id="chq-csv-msg" style="display:none;margin-bottom:12px"></div>
-  <div class="card" id="compras-form" style="display:none">
-    <div id="compras-err" class="form-err" style="display:none"></div>
-    <div class="form-grid">
-      <div class="field"><label>N° cheque</label><input id="chq-num"></div>
-      <div class="field"><label>Beneficiario</label><input id="chq-benef"></div>
-      <div class="field"><label>Proyecto</label><select id="chq-proyecto"><option value="">—</option></select></div>
-      <div class="field"><label>Fecha de pago</label><input type="date" id="chq-fecha"></div>
-      <div class="field"><label>Importe</label><input type="number" step="0.01" id="chq-importe"></div>
-      <div class="field"><label>Estado</label><select id="chq-estado"><option>Pendiente</option><option>Aceptado</option><option>Rechazado</option></select></div>
+  <div class="ph"><div><h1>Cheques</h1><p>Diferidos emitidos y recibidos</p></div>
+    <div class="area-tabs">
+      <button class="area-badge obras active" id="chq-tab-emitidos" onclick="cambiarVistaCheques('emitidos')">Emitidos</button>
+      <button class="area-badge mant" id="chq-tab-recibidos" onclick="cambiarVistaCheques('recibidos')">Recibidos</button>
     </div>
-    <button class="btn" id="compras-btn-guardar" onclick="crearCheque()">Guardar</button>
-    <button class="btn ghost" id="compras-btn-cancelar" onclick="cancelarEdicionCheque()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha de pago</th><th>Beneficiario</th><th>Importe</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-compras"></tbody></table></div></div>
+
+  <div id="chq-vista-emitidos">
+    <div class="row-actions" id="compras-actions" style="display:none">
+      <button class="btn" onclick="toggleForm('compras')">+ Nuevo cheque</button>
+      <button class="btn ghost" onclick="document.getElementById('chq-csv-input').click()">Importar CSV</button>
+      <input type="file" id="chq-csv-input" accept=".csv" style="display:none" onchange="importarChequesCSV(event)">
+    </div>
+    <div id="chq-csv-msg" style="display:none;margin-bottom:12px"></div>
+    <div class="card" id="compras-form" style="display:none">
+      <div id="compras-err" class="form-err" style="display:none"></div>
+      <div class="form-grid">
+        <div class="field"><label>N° cheque</label><input id="chq-num"></div>
+        <div class="field"><label>Beneficiario</label><input id="chq-benef"></div>
+        <div class="field"><label>Proyecto</label><select id="chq-proyecto"><option value="">—</option></select></div>
+        <div class="field"><label>Fecha de pago</label><input type="date" id="chq-fecha"></div>
+        <div class="field"><label>Importe</label><input type="number" step="0.01" id="chq-importe"></div>
+        <div class="field"><label>Estado</label><select id="chq-estado"><option>Pendiente</option><option>Aceptado</option><option>Rechazado</option></select></div>
+      </div>
+      <button class="btn" id="compras-btn-guardar" onclick="crearCheque()">Guardar</button>
+      <button class="btn ghost" id="compras-btn-cancelar" onclick="cancelarEdicionCheque()" style="display:none">Cancelar edición</button>
+    </div>
+    <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha de pago</th><th>Beneficiario</th><th>Importe</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-compras"></tbody></table></div></div>
+  </div>
+
+  <div id="chq-vista-recibidos" style="display:none">
+    <div class="row-actions" id="chqr-actions" style="display:none">
+      <button class="btn" onclick="toggleForm('chqr')">+ Nuevo cheque recibido</button>
+      <button class="btn ghost" onclick="document.getElementById('chqr-csv-input').click()">Importar CSV</button>
+      <input type="file" id="chqr-csv-input" accept=".csv" style="display:none" onchange="importarChequesRecibidosCSV(event)">
+    </div>
+    <div id="chqr-csv-msg" style="display:none;margin-bottom:12px"></div>
+    <div class="card" id="chqr-form" style="display:none">
+      <div id="chqr-err" class="form-err" style="display:none"></div>
+      <div class="form-grid">
+        <div class="field"><label>N° cheque</label><input id="chqr-num"></div>
+        <div class="field"><label>Librador</label><input id="chqr-librador" placeholder="Quien lo entrega"></div>
+        <div class="field"><label>Cliente</label><select id="chqr-cliente"><option value="">—</option></select></div>
+        <div class="field"><label>Proyecto</label><select id="chqr-proyecto"><option value="">—</option></select></div>
+        <div class="field"><label>Banco</label><input id="chqr-banco"></div>
+        <div class="field"><label>Fecha de cobro</label><input type="date" id="chqr-fecha"></div>
+        <div class="field"><label>Importe</label><input type="number" step="0.01" id="chqr-importe"></div>
+        <div class="field"><label>Estado</label><select id="chqr-estado"><option>En cartera</option><option>Depositado</option><option>Rechazado</option></select></div>
+        <div class="field" style="grid-column:1/-1"><label>Concepto</label><input id="chqr-concepto"></div>
+      </div>
+      <button class="btn" id="chqr-btn-guardar" onclick="crearChequeRecibido()">Guardar</button>
+      <button class="btn ghost" id="chqr-btn-cancelar" onclick="cancelarEdicionChequeRecibido()" style="display:none">Cancelar edición</button>
+    </div>
+    <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha de cobro</th><th>Librador</th><th>Cliente</th><th>Importe</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-chqr"></tbody></table></div></div>
+  </div>
 </div>
 
 <!-- ÓRDENES DE COMPRA -->
@@ -733,6 +767,7 @@ const PUEDE_EDITAR = {
   ordenes_trabajo: r => r === 'ezequiel',
   no_conformidades: r => r === 'ezequiel',
   cheques: r => r === 'gonzalo',
+  cheques_recibidos: r => r === 'gonzalo',
   movimientos: r => r === 'gonzalo',
   facturas: r => r === 'gonzalo',
   presupuestos: r => r === 'sebastian' || r === 'ezequiel',
@@ -786,6 +821,7 @@ function aplicarPermisosUI() {
   document.getElementById('mtto-actions').style.display = PUEDE_EDITAR.planes_mtto(ROL) ? 'flex' : 'none';
   document.getElementById('ot-actions').style.display = PUEDE_EDITAR.ordenes_trabajo(ROL) ? 'flex' : 'none';
   document.getElementById('compras-actions').style.display = PUEDE_EDITAR.cheques(ROL) ? 'flex' : 'none';
+  document.getElementById('chqr-actions').style.display = PUEDE_EDITAR.cheques_recibidos(ROL) ? 'flex' : 'none';
   document.getElementById('calidad-actions').style.display = PUEDE_EDITAR.no_conformidades(ROL) ? 'flex' : 'none';
   document.getElementById('proyectos-actions').style.display = PUEDE_EDITAR.proyectos(ROL) ? 'flex' : 'none';
   document.getElementById('movimientos-actions').style.display = PUEDE_EDITAR.movimientos(ROL) ? 'flex' : 'none';
@@ -1539,6 +1575,30 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarChq ? `<button class="btn ghost" onclick="editarCheque(window.CHEQUES_CACHE['${c.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarCheque('${c.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin cheques</td></tr>';
 
+  // Cheques recibidos (de clientes)
+  const { data: chequesRecibidos } = await sb.from('cheques_recibidos').select('*').order('fecha_cobro',{ascending:true});
+  window.CHEQUES_RECIBIDOS_CACHE = {}; (chequesRecibidos||[]).forEach(c => window.CHEQUES_RECIBIDOS_CACHE[c.id] = c);
+  const puedeEditarChqR = PUEDE_EDITAR.cheques_recibidos(ROL);
+  const estadoChqRTag = { Depositado:'ok', 'En cartera':'w', Rechazado:'d' };
+  document.getElementById('tbl-chqr').innerHTML = (chequesRecibidos||[]).map(c => {
+    const cli = c.cliente_id ? (clienteNombre[c.cliente_id]||c.cliente_id) : '—';
+    const acciones = [];
+    if (puedeEditarChqR) {
+      if (c.estado === 'En cartera') {
+        acciones.push(`<button class="btn" onclick="depositarChequeRecibido('${c.id}')">Depositar</button>`);
+        acciones.push(`<button class="btn ghost" onclick="rechazarChequeRecibido('${c.id}')">Rechazar</button>`);
+      }
+      acciones.push(`<button class="btn ghost" onclick="editarChequeRecibido(window.CHEQUES_RECIBIDOS_CACHE['${c.id}'])">Editar</button>`);
+      acciones.push(`<button class="btn ghost" onclick="eliminarChequeRecibido('${c.id}')">✕</button>`);
+    }
+    return `<tr>
+      <td style="font-family:var(--mono)">${c.fecha_cobro||'—'}</td><td>${c.librador||'—'}</td><td>${cli}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(c.importe))}</td>
+      <td><span class="tag ${estadoChqRTag[c.estado]||'muted'}">${c.estado}</span></td>
+      <td>${acciones.join(' ')}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin cheques recibidos</td></tr>';
+
   // Movimientos (libro de caja completo, orden más reciente primero)
   const { data: movsTabla } = await sb.from('movimientos').select('*').order('fecha',{ascending:false});
   window.MOVS_CACHE = {}; (movsTabla||[]).forEach(m => window.MOVS_CACHE[m.id] = m);
@@ -1613,11 +1673,11 @@ function showErr(mod, msg) {
 function poblarSelectsClientesProyectos() {
   const clienteOpts = '<option value="">—</option>' + (window.CLIENTES||[]).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
   const proyectoOpts = '<option value="">—</option>' + (window.PROYECTOS||[]).map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
-  ['mov-cliente','pre-cliente','fac-cliente','proy-cliente','act-cliente'].forEach(id => {
+  ['mov-cliente','pre-cliente','fac-cliente','proy-cliente','act-cliente','chqr-cliente'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = clienteOpts;
   });
-  ['mov-proyecto','pre-proyecto','fac-proyecto','oc-proyecto','act-proyecto','op-proyecto','chq-proyecto'].forEach(id => {
+  ['mov-proyecto','pre-proyecto','fac-proyecto','oc-proyecto','act-proyecto','op-proyecto','chq-proyecto','chqr-proyecto'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = proyectoOpts;
   });
@@ -1958,6 +2018,140 @@ async function eliminarCheque(id) {
   const { error } = await sb.from('cheques').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
   location.reload();
+}
+
+function cambiarVistaCheques(vista) {
+  document.getElementById('chq-vista-emitidos').style.display = vista === 'emitidos' ? 'block' : 'none';
+  document.getElementById('chq-vista-recibidos').style.display = vista === 'recibidos' ? 'block' : 'none';
+  document.getElementById('chq-tab-emitidos').classList.toggle('active', vista === 'emitidos');
+  document.getElementById('chq-tab-recibidos').classList.toggle('active', vista === 'recibidos');
+}
+
+// ═══════════════════════════════════════════════
+// CHEQUES RECIBIDOS (de clientes, en espejo de Cheques emitidos)
+// ═══════════════════════════════════════════════
+let EDITANDO_CHQR_ID = null;
+
+async function crearChequeRecibido() {
+  const numero_cheque = document.getElementById('chqr-num').value.trim();
+  const librador = document.getElementById('chqr-librador').value.trim();
+  const cliente_id = document.getElementById('chqr-cliente').value || null;
+  const proyecto_id = document.getElementById('chqr-proyecto').value || null;
+  const banco = document.getElementById('chqr-banco').value.trim();
+  const fecha_cobro = document.getElementById('chqr-fecha').value || null;
+  const importe = Number(document.getElementById('chqr-importe').value);
+  const estado = document.getElementById('chqr-estado').value;
+  const concepto = document.getElementById('chqr-concepto').value.trim();
+  if (!librador || !importe) return showErr('chqr', 'Librador e importe son obligatorios.');
+  const payload = { numero_cheque: numero_cheque||null, librador, cliente_id, proyecto_id, banco: banco||null, fecha_cobro, importe, estado, concepto: concepto||null };
+  if (EDITANDO_CHQR_ID) {
+    const { error } = await sb.from('cheques_recibidos').update(payload).eq('id', EDITANDO_CHQR_ID);
+    if (error) return showErr('chqr', error.message);
+  } else {
+    const id = 'CHQR-' + Date.now();
+    const { error } = await sb.from('cheques_recibidos').insert({ id, ...payload });
+    if (error) return showErr('chqr', error.message);
+  }
+  location.reload();
+}
+
+function editarChequeRecibido(c) {
+  EDITANDO_CHQR_ID = c.id;
+  document.getElementById('chqr-num').value = c.numero_cheque || '';
+  document.getElementById('chqr-librador').value = c.librador || '';
+  document.getElementById('chqr-cliente').value = c.cliente_id || '';
+  document.getElementById('chqr-proyecto').value = c.proyecto_id || '';
+  document.getElementById('chqr-banco').value = c.banco || '';
+  document.getElementById('chqr-fecha').value = c.fecha_cobro || '';
+  document.getElementById('chqr-importe').value = c.importe || '';
+  document.getElementById('chqr-estado').value = c.estado || 'En cartera';
+  document.getElementById('chqr-concepto').value = c.concepto || '';
+  document.getElementById('chqr-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('chqr-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('chqr-form').style.display = 'block';
+  document.getElementById('chqr-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionChequeRecibido() {
+  EDITANDO_CHQR_ID = null;
+  document.getElementById('chqr-btn-guardar').textContent = 'Guardar';
+  document.getElementById('chqr-btn-cancelar').style.display = 'none';
+  document.getElementById('chqr-form').style.display = 'none';
+}
+
+async function eliminarChequeRecibido(id) {
+  if (!confirm('¿Eliminar este cheque recibido? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('cheques_recibidos').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+async function depositarChequeRecibido(id) {
+  const c = window.CHEQUES_RECIBIDOS_CACHE[id];
+  if (!c) return;
+  if (!confirm('¿Marcar este cheque como depositado? Se va a generar el movimiento de ingreso correspondiente.')) return;
+  if (c.movimiento_id) {
+    const { error: errMov } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: new Date().toISOString().slice(0,10) }).eq('id', c.movimiento_id);
+    if (errMov) return alert('No se pudo actualizar el movimiento: ' + errMov.message);
+  } else {
+    const movId = 'MOV-' + Date.now();
+    const { error: errIns } = await sb.from('movimientos').insert({
+      id: movId, fecha: new Date().toISOString().slice(0,10), tipo: 'INGRESO', categoria: 'Cheque recibido',
+      cliente_id: c.cliente_id, proyecto_id: c.proyecto_id,
+      concepto: (c.concepto || 'Cheque recibido') + ' - ' + c.librador,
+      monto: c.importe, estado: 'CANCELADO', fuente: 'Portal GS OS',
+    });
+    if (errIns) return alert('No se pudo crear el movimiento: ' + errIns.message);
+    await sb.from('cheques_recibidos').update({ movimiento_id: movId }).eq('id', id);
+  }
+  const { error } = await sb.from('cheques_recibidos').update({ estado: 'Depositado' }).eq('id', id);
+  if (error) return alert('No se pudo actualizar el cheque: ' + error.message);
+  location.reload();
+}
+
+async function rechazarChequeRecibido(id) {
+  if (!confirm('¿Marcar este cheque como rechazado? No genera movimiento y queda registrado para reclamarlo.')) return;
+  const { error } = await sb.from('cheques_recibidos').update({ estado: 'Rechazado' }).eq('id', id);
+  if (error) return alert('No se pudo actualizar: ' + error.message);
+  location.reload();
+}
+
+async function importarChequesRecibidosCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const msg = document.getElementById('chqr-csv-msg');
+  msg.style.display = 'block';
+  const text = await file.text();
+  const rows = parseCSV(text);
+  const parsed = rows.map(r => ({
+    numero_cheque: pickField(r, ['numero','n cheque','nro cheque','numero cheque','n de cheque','cheque']) || null,
+    librador: pickField(r, ['librador','cliente','pagador','recibido de']),
+    banco: pickField(r, ['banco']) || null,
+    fecha_cobro: parseFechaLocal(pickField(r, ['fecha de cobro','fecha cobro','fecha','vencimiento'])),
+    importe: parseMontoLocal(pickField(r, ['importe','monto','valor'])),
+  })).filter(r => r.librador && r.fecha_cobro && !isNaN(r.importe) && r.importe > 0);
+
+  if (!parsed.length) {
+    msg.innerHTML = '<div class="alert d"><div class="alert-msg">No se reconoció ninguna fila válida. El CSV necesita columnas de Librador, Fecha de cobro e Importe (con encabezados en la primera fila).</div></div>';
+    event.target.value = '';
+    return;
+  }
+  if (!confirm(`Se detectaron ${parsed.length} cheques en el archivo. ¿Confirmás la carga?`)) { event.target.value = ''; return; }
+
+  msg.innerHTML = 'Importando...';
+  let ok = 0, fail = 0;
+  for (let i = 0; i < parsed.length; i++) {
+    const r = parsed[i];
+    const id = 'CHQR-' + (r.numero_cheque || (Date.now() + '-' + i));
+    const { error } = await sb.from('cheques_recibidos').insert({
+      id, numero_cheque: r.numero_cheque, librador: r.librador, banco: r.banco,
+      fecha_cobro: r.fecha_cobro, importe: r.importe, estado: 'En cartera',
+    });
+    if (error) fail++; else ok++;
+  }
+  msg.innerHTML = `<div class="alert ${fail ? 'w' : 'g'}"><div class="alert-msg">Importación terminada: ${ok} cheque(s) cargado(s)${fail ? `, ${fail} con error` : ''}.</div></div>`;
+  event.target.value = '';
+  setTimeout(() => location.reload(), 1500);
 }
 
 // ═══════════════════════════════════════════════

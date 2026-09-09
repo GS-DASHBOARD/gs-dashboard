@@ -636,7 +636,12 @@ tr:hover td{background:var(--bg)}
 <!-- COMPRAS -->
 <div class="page" id="page-compras">
   <div class="ph"><div><h1>Cheques</h1><p>Cheques diferidos emitidos</p></div></div>
-  <div class="row-actions" id="compras-actions" style="display:none"><button class="btn" onclick="toggleForm('compras')">+ Nuevo cheque</button></div>
+  <div class="row-actions" id="compras-actions" style="display:none">
+    <button class="btn" onclick="toggleForm('compras')">+ Nuevo cheque</button>
+    <button class="btn ghost" onclick="document.getElementById('chq-csv-input').click()">Importar CSV</button>
+    <input type="file" id="chq-csv-input" accept=".csv" style="display:none" onchange="importarChequesCSV(event)">
+  </div>
+  <div id="chq-csv-msg" style="display:none;margin-bottom:12px"></div>
   <div class="card" id="compras-form" style="display:none">
     <div id="compras-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
@@ -1536,7 +1541,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${m.concepto||m.categoria||'—'}</td>
       <td><span class="tag ${estadoMovTag[m.estado]||'muted'}">${m.estado}</span></td>
       <td style="font-family:var(--mono);${color}">${m.tipo==='INGRESO'?'+':'-'}${fmtMoney(Math.abs(Number(m.monto)))}</td>
-      <td>${puedeEditarMov ? `<button class="btn ghost" onclick="editarMovimiento(window.MOVS_CACHE['${m.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarMovimiento('${m.id}')">✕</button>` : ''}</td>
+      <td>${puedeEditarMov ? `${m.estado!=='CANCELADO' ? `<button class="btn" onclick="conciliarMovimiento('${m.id}')">Conciliar</button> ` : ''}<button class="btn ghost" onclick="editarMovimiento(window.MOVS_CACHE['${m.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarMovimiento('${m.id}')">✕</button>` : ''}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
 
@@ -1928,6 +1933,115 @@ async function eliminarCheque(id) {
 }
 
 // ═══════════════════════════════════════════════
+// IMPORTACIÓN DE CSV (genérico: cheques, y a futuro ajustes bancarios)
+// Auto-detecta delimitador (,/;) y mapea columnas por nombre normalizado,
+// así funciona con cualquier export sin depender de un formato fijo.
+// ═══════════════════════════════════════════════
+function normalizeHeader(h) {
+  const sinAcentos = (h || '').toString().toLowerCase()
+    .replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e').replace(/[íìïî]/g,'i')
+    .replace(/[óòöô]/g,'o').replace(/[úùüû]/g,'u').replace(/ñ/g,'n');
+  return sinAcentos.replace(/[^a-z0-9]/g,'');
+}
+
+function parseCSV(text) {
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  const delim = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
+  const lines = text.replace(/\r/g,'').split('\n').filter(l => l.trim() !== '');
+  if (!lines.length) return [];
+  const parseLine = (line) => {
+    const out = []; let cur = ''; let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inQuotes) {
+        if (c === '"') { if (line[i+1] === '"') { cur += '"'; i++; } else inQuotes = false; }
+        else cur += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === delim) { out.push(cur); cur = ''; }
+        else cur += c;
+      }
+    }
+    out.push(cur);
+    return out;
+  };
+  const headers = parseLine(lines[0]).map(normalizeHeader);
+  return lines.slice(1).map(line => {
+    const cells = parseLine(line);
+    const row = {};
+    headers.forEach((h, i) => { row[h] = (cells[i] !== undefined ? cells[i].trim() : ''); });
+    return row;
+  });
+}
+
+function pickField(row, candidates) {
+  for (const c of candidates) {
+    const key = normalizeHeader(c);
+    if (row[key] !== undefined && row[key] !== '') return row[key];
+  }
+  return '';
+}
+
+function parseMontoLocal(str) {
+  if (!str) return NaN;
+  str = str.toString().trim().replace(/[^0-9,.\-]/g,'');
+  if (str.includes(',') && str.includes('.')) str = str.replace(/\./g,'').replace(',', '.');
+  else if (str.includes(',') && !str.includes('.')) str = str.replace(',', '.');
+  return Number(str);
+}
+
+function parseFechaLocal(str) {
+  if (!str) return '';
+  str = str.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = '20' + y;
+    return y + '-' + mo.padStart(2,'0') + '-' + d.padStart(2,'0');
+  }
+  return str;
+}
+
+async function importarChequesCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const msg = document.getElementById('chq-csv-msg');
+  msg.style.display = 'block';
+  const text = await file.text();
+  const rows = parseCSV(text);
+  const parsed = rows.map(r => ({
+    numero_cheque: pickField(r, ['numero','n cheque','nro cheque','numero cheque','n de cheque','cheque']) || null,
+    beneficiario: pickField(r, ['beneficiario','proveedor','pagado a']),
+    fecha_pago: parseFechaLocal(pickField(r, ['fecha de pago','fecha pago','fecha','vencimiento'])),
+    importe: parseMontoLocal(pickField(r, ['importe','monto','valor'])),
+  })).filter(r => r.beneficiario && r.fecha_pago && !isNaN(r.importe) && r.importe > 0);
+
+  if (!parsed.length) {
+    msg.innerHTML = '<div class="alert d"><div class="alert-msg">No se reconoció ninguna fila válida. El CSV necesita columnas de Beneficiario, Fecha de pago e Importe (con encabezados en la primera fila).</div></div>';
+    event.target.value = '';
+    return;
+  }
+  if (!confirm(`Se detectaron ${parsed.length} cheques en el archivo. ¿Confirmás la carga?`)) { event.target.value = ''; return; }
+
+  msg.innerHTML = 'Importando...';
+  let ok = 0, fail = 0;
+  for (let i = 0; i < parsed.length; i++) {
+    const r = parsed[i];
+    const proveedor_id = await obtenerOCrearProveedor(r.beneficiario);
+    const id = 'CHQ-' + (r.numero_cheque || (Date.now() + '-' + i));
+    const { error } = await sb.from('cheques').insert({
+      id, numero_cheque: r.numero_cheque, beneficiario: r.beneficiario, proveedor_id,
+      fecha_pago: r.fecha_pago, importe: r.importe, estado: 'Pendiente',
+    });
+    if (error) fail++; else ok++;
+  }
+  msg.innerHTML = `<div class="alert ${fail ? 'w' : 'g'}"><div class="alert-msg">Importación terminada: ${ok} cheque(s) cargado(s)${fail ? `, ${fail} con error` : ''}.</div></div>`;
+  event.target.value = '';
+  setTimeout(() => location.reload(), 1500);
+}
+
+// ═══════════════════════════════════════════════
 // PROVEEDORES (helper: busca por nombre o crea)
 // ═══════════════════════════════════════════════
 let EDITANDO_PRV_ID = null;
@@ -2198,6 +2312,20 @@ async function eliminarMovimiento(id) {
   if (!confirm('¿Eliminar este movimiento? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('movimientos').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+async function conciliarMovimiento(id) {
+  const m = window.MOVS_CACHE[id];
+  if (!m) return;
+  const fechaReal = prompt('Confirmar contra el banco.\n\nFecha real acreditada/debitada (AAAA-MM-DD):', m.fecha);
+  if (fechaReal === null) return;
+  const montoReal = prompt('Monto real (sin signo):', Math.abs(Number(m.monto)));
+  if (montoReal === null) return;
+  const monto = Math.abs(Number(montoReal));
+  if (!fechaReal || !monto) return alert('Fecha y monto son obligatorios.');
+  const { error } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: fechaReal, monto }).eq('id', id);
+  if (error) return alert('No se pudo conciliar: ' + error.message);
   location.reload();
 }
 

@@ -118,6 +118,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .card-sub{font-size:9px;color:var(--dim);font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px}
 .cgrid{display:grid;gap:16px;margin-bottom:16px}
 .cgrid.c2{grid-template-columns:1fr 1fr}
+.cgrid.c4{grid-template-columns:repeat(4,1fr)}
 .cgrid.ratio{grid-template-columns:3fr 2fr}
 
 /* TABLE */
@@ -480,6 +481,12 @@ tr:hover td{background:var(--bg)}
 <!-- PRESUPUESTOS -->
 <div class="page" id="page-presupuestos">
   <div class="ph"><div><h1>Presupuestos</h1><p>Cotizador por rubros e ítems · genera el documento en el formato de GS</p></div></div>
+  <div class="cgrid c4" style="margin-bottom:16px">
+    <div class="card" style="margin-bottom:0"><div class="card-ttl">Total presupuestado</div><div style="font-size:22px;font-weight:800" id="pre-kpi-total">—</div></div>
+    <div class="card" style="margin-bottom:0"><div class="card-ttl">Aprobado</div><div style="font-size:22px;font-weight:800;color:var(--good)" id="pre-kpi-aprobado">—</div></div>
+    <div class="card" style="margin-bottom:0"><div class="card-ttl">Rechazado</div><div style="font-size:22px;font-weight:800;color:var(--danger)" id="pre-kpi-rechazado">—</div></div>
+    <div class="card" style="margin-bottom:0"><div class="card-ttl">% de aceptación</div><div style="font-size:22px;font-weight:800" id="pre-kpi-aceptacion">—</div></div>
+  </div>
   <div class="row-actions" id="presupuestos-actions" style="display:none"><button class="btn" onclick="abrirBuilderPresupuesto()">+ Nuevo presupuesto</button></div>
 
   <div class="card" id="presupuestos-builder" style="display:none">
@@ -866,6 +873,7 @@ async function cargarTodo() {
       row[5] = proyTxt; row[6] = '';
       row[7] = m.medio; row[8] = m.concepto || m.categoria;
       row[9] = imp; row[10] = imp;
+      row[11] = m.estado;
       return row;
     });
 
@@ -966,7 +974,7 @@ function calcKPIs() {
     if (diff !== null && diff >= 0 && diff <= 7) {
       if (imp > 0) k.cobros7d += imp; else k.pagos7d += Math.abs(imp);
     }
-    if (diff !== null && diff < 0 && imp > 0) {
+    if (diff !== null && diff < 0 && imp > 0 && row[11] !== 'CANCELADO') {
       k.vencido += imp; k.vencidoCount++;
     }
     if (diff !== null && diff > 0 && diff <= 7 && imp > 0) {
@@ -1364,15 +1372,34 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
 
   // Presupuestos
   const { data: presupuestos } = await sb.from('presupuestos').select('*').order('numero',{ascending:false});
+  window.PRESUPUESTOS_CACHE = {}; (presupuestos||[]).forEach(p => window.PRESUPUESTOS_CACHE[p.id] = p);
   const estadoTag = { Aprobado:'ok', Enviado:'w', Borrador:'muted', 'Sin datos':'muted', Rechazado:'d' };
+  const puedeDecidirPresu = ROL === 'sebastian';
+  let preTotal = 0, preAprobado = 0, preRechazado = 0;
+  (presupuestos||[]).forEach(p => {
+    const m = Number(p.monto_cotizado_neto) || 0;
+    preTotal += m;
+    if (p.estado === 'Aprobado') preAprobado += m;
+    if (p.estado === 'Rechazado') preRechazado += m;
+  });
+  document.getElementById('pre-kpi-total').textContent = fmtMoney(preTotal);
+  document.getElementById('pre-kpi-aprobado').textContent = fmtMoney(preAprobado);
+  document.getElementById('pre-kpi-rechazado').textContent = fmtMoney(preRechazado);
+  const decididos = preAprobado + preRechazado;
+  document.getElementById('pre-kpi-aceptacion').textContent = decididos > 0 ? Math.round(preAprobado / decididos * 100) + '%' : '—';
   document.getElementById('tbl-presupuestos').innerHTML = (presupuestos||[]).map(p => {
     const cli = p.cliente_id ? (clienteNombre[p.cliente_id] || p.cliente_id) : '—';
     const margen = p.margen_pct !== null ? p.margen_pct + '%' : '—';
+    const acciones = [`<button class="btn ghost" onclick="verDocumentoPresupuesto('${p.id}')">Ver documento</button>`];
+    if (puedeDecidirPresu && (p.estado === 'Borrador' || p.estado === 'Enviado')) {
+      acciones.push(`<button class="btn ghost" onclick="marcarEstadoPresupuesto('${p.id}','Enviado')">Marcar enviado</button>`);
+      acciones.push(`<button class="btn ghost" onclick="marcarEstadoPresupuesto('${p.id}','Rechazado')">Marcar rechazado</button>`);
+    }
     return `<tr>
       <td>${p.numero ?? '—'}</td><td>${cli}</td><td>${p.asunto||p.unidad_negocio||'—'}</td>
       <td>${fmtMoney(p.monto_cotizado_neto)}</td><td>${margen}</td>
       <td><span class="tag ${estadoTag[p.estado]||'muted'}">${p.estado}</span></td>
-      <td><button class="btn ghost" onclick="verDocumentoPresupuesto('${p.id}')">Ver documento</button></td>
+      <td>${acciones.join(' ')}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin presupuestos</td></tr>';
 
@@ -2318,6 +2345,12 @@ async function guardarPresupuesto(estadoFinal) {
   }
 
   localStorage.setItem('gsos_ultimo_firmante', document.getElementById('pre-firmante').value);
+  location.reload();
+}
+
+async function marcarEstadoPresupuesto(id, estado) {
+  const { error } = await sb.from('presupuestos').update({ estado }).eq('id', id);
+  if (error) return alert('No se pudo actualizar: ' + error.message);
   location.reload();
 }
 

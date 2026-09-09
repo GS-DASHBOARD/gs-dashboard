@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 :root{
   --bg:#f5f4f1;--white:#fff;--s2:#f0eeea;--s3:#e8e5e0;
@@ -214,30 +215,36 @@ tr:hover td{background:var(--bg)}
     <div class="logo-tagline">Panel de gestión · Supabase</div>
   </div>
   <nav class="nav">
-    <div class="nav-section">Consolidado</div>
+    <div class="nav-section">Inteligencia</div>
     <button class="nav-item active" onclick="nav(this,'overview')"><span class="nav-pip"></span>Resumen ejecutivo</button>
-    <button class="nav-item" onclick="nav(this,'cashflow')"><span class="nav-pip"></span>Liquidez & Cash Flow</button>
-    <button class="nav-item" onclick="nav(this,'rigidez')"><span class="nav-pip"></span>Rigidez de estructura</button>
-    <button class="nav-item" onclick="nav(this,'cobranzas')"><span class="nav-pip"></span>Cobranzas & DSO</button>
+    <button class="nav-item" onclick="nav(this,'prediccion')"><span class="nav-pip"></span>Predicción & alertas IA</button>
+    <button class="nav-item" onclick="nav(this,'socios')"><span class="nav-pip"></span>Panel de Socios</button>
     <div class="nav-section">Por área</div>
     <button class="nav-item" data-area="obras" onclick="nav(this,'obras')"><span class="nav-pip"></span>Obras</button>
     <button class="nav-item" data-area="mant" onclick="nav(this,'mant')"><span class="nav-pip"></span>Mantenimiento</button>
     <button class="nav-item" data-area="energia" onclick="nav(this,'energia')"><span class="nav-pip"></span>Energía (GE & Solar)</button>
-    <div class="nav-section">Gestión</div>
-    <button class="nav-item" onclick="nav(this,'socios')"><span class="nav-pip"></span>Panel de Socios</button>
-    <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
-    <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
+    <div class="nav-section">Financiero</div>
     <button class="nav-item" onclick="nav(this,'movimientos')"><span class="nav-pip"></span>Movimientos</button>
+    <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Cheques</button>
+    <button class="nav-item" onclick="nav(this,'cashflow')"><span class="nav-pip"></span>Liquidez & Cash Flow</button>
+    <button class="nav-item" onclick="nav(this,'rigidez')"><span class="nav-pip"></span>Rigidez de estructura</button>
+    <button class="nav-item" onclick="nav(this,'cobranzas')"><span class="nav-pip"></span>Cobranzas & DSO</button>
+    <div class="nav-section">Comercial</div>
     <button class="nav-item" onclick="nav(this,'presupuestos')"><span class="nav-pip"></span>Presupuestos</button>
     <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
-    <button class="nav-item" onclick="nav(this,'activos')"><span class="nav-pip"></span>Activos</button>
-    <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
-    <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Compras (cheques)</button>
+    <div class="nav-section">Compras</div>
     <button class="nav-item" onclick="nav(this,'oc')"><span class="nav-pip"></span>Órdenes de Compra</button>
     <button class="nav-item" onclick="nav(this,'op')"><span class="nav-pip"></span>Órdenes de Pago</button>
+    <div class="nav-section">Activos y Mantenimiento</div>
+    <button class="nav-item" onclick="nav(this,'activos')"><span class="nav-pip"></span>Activos</button>
+    <button class="nav-item" onclick="nav(this,'mtto')"><span class="nav-pip"></span>Planes de Mantenimiento</button>
+    <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
+    <div class="nav-section">Calidad</div>
     <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
-    <div class="nav-section">Inteligencia</div>
-    <button class="nav-item" onclick="nav(this,'prediccion')"><span class="nav-pip"></span>Predicción & alertas IA</button>
+    <div class="nav-section">Datos Maestros</div>
+    <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
+    <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
+    <button class="nav-item" onclick="nav(this,'proveedores')"><span class="nav-pip"></span>Proveedores</button>
   </nav>
   <div class="sidebar-bottom">
     <div class="status-row">
@@ -430,6 +437,23 @@ tr:hover td{background:var(--bg)}
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Área</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-proyectos"></tbody></table></div></div>
 </div>
 
+<!-- PROVEEDORES -->
+<div class="page" id="page-proveedores">
+  <div class="ph"><div><h1>Proveedores</h1><p>Maestro de proveedores — usado por Cheques, Órdenes de Compra y Órdenes de Pago</p></div></div>
+  <div class="row-actions" id="proveedores-actions" style="display:none"><button class="btn" onclick="toggleForm('proveedores')">+ Nuevo proveedor</button></div>
+  <div class="card" id="proveedores-form" style="display:none">
+    <div id="proveedores-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Nombre</label><input id="prv-nombre"></div>
+      <div class="field"><label>CUIT</label><input id="prv-cuit"></div>
+      <div class="field"><label>Rubro</label><input id="prv-rubro"></div>
+    </div>
+    <button class="btn" id="proveedores-btn-guardar" onclick="crearProveedor()">Guardar</button>
+    <button class="btn ghost" id="proveedores-btn-cancelar" onclick="cancelarEdicionProveedor()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>CUIT</th><th>Rubro</th><th></th></tr></thead><tbody id="tbl-proveedores"></tbody></table></div></div>
+</div>
+
 <!-- MOVIMIENTOS -->
 <div class="page" id="page-movimientos">
   <div class="ph"><div><h1>Movimientos</h1><p>Libro de caja — cobros y pagos</p></div></div>
@@ -536,15 +560,48 @@ tr:hover td{background:var(--bg)}
     <div id="activos-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Nombre</label><input id="act-nombre"></div>
-      <div class="field"><label>Categoría</label><input id="act-categoria"></div>
+      <div class="field"><label>Categoría / tipo</label><input id="act-categoria" placeholder="Caldera, Tablero eléctrico..." oninput="sugerirCodigoActivo()"></div>
+      <div class="field"><label>Cliente</label><select id="act-cliente" onchange="sugerirCodigoActivo()"><option value="">—</option></select></div>
+      <div class="field"><label>Proyecto</label><select id="act-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Ubicación</label><input id="act-ubicacion" placeholder="Planta baja, sala de máquinas..."></div>
+      <div class="field"><label>Código (auto, editable)</label><input id="act-codigo" placeholder="Se sugiere solo"></div>
+      <div class="field"><label>Fecha de instalación</label><input type="date" id="act-fecha-inst"></div>
+      <div class="field"><label>Vida útil estimada (meses)</label><input type="number" id="act-vida-util"></div>
       <div class="field"><label>Criticidad</label>
         <select id="act-criticidad"><option>Alta</option><option selected>Media</option><option>Baja</option></select>
       </div>
+      <div class="field"><label>Estado</label><select id="act-estado"><option>ACTIVO</option><option>DE_BAJA</option><option>EN_REPARACION</option></select></div>
     </div>
-    <button class="btn" onclick="crearActivo()">Guardar</button>
+    <button class="btn" id="activos-btn-guardar" onclick="crearActivo()">Guardar</button>
+    <button class="btn ghost" id="activos-btn-cancelar" onclick="cancelarEdicionActivo()" style="display:none">Cancelar edición</button>
   </div>
   <div id="activos-empty" class="empty"><b>Todavía no hay activos cargados.</b>Este módulo se completa con el relevamiento inicial en River y Kansas.</div>
-  <div class="card" id="activos-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>Categoría</th><th>Criticidad</th><th>Estado</th></tr></thead><tbody id="tbl-activos"></tbody></table></div></div>
+  <div class="card" id="activos-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Cliente</th><th>Criticidad</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-activos"></tbody></table></div></div>
+</div>
+
+<!-- FICHA DE ACTIVO (deep-link desde QR) -->
+<div class="page" id="page-ficha-activo">
+  <div class="ph"><div><h1 id="ficha-titulo">Ficha de activo</h1><p>Historial de servicios y mantenimiento</p></div></div>
+  <div id="ficha-activo-contenido"></div>
+</div>
+
+<!-- PLANES DE MANTENIMIENTO -->
+<div class="page" id="page-mtto">
+  <div class="ph"><div><h1>Planes de Mantenimiento</h1><p>Rutinas preventivas y predictivas por activo</p></div></div>
+  <div class="row-actions" id="mtto-actions" style="display:none"><button class="btn" onclick="toggleForm('mtto')">+ Nueva rutina</button></div>
+  <div class="card" id="mtto-form" style="display:none">
+    <div id="mtto-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Activo</label><select id="mtto-activo"><option value="">—</option></select></div>
+      <div class="field"><label>Tipo</label><select id="mtto-tipo"><option value="preventivo">Preventivo</option><option value="predictivo">Predictivo</option></select></div>
+      <div class="field"><label>Frecuencia (días)</label><input type="number" id="mtto-frecuencia"></div>
+      <div class="field"><label>Última ejecución</label><input type="date" id="mtto-ultima"></div>
+      <div class="field"><label>Próxima ejecución</label><input type="date" id="mtto-proxima"></div>
+    </div>
+    <button class="btn" id="mtto-btn-guardar" onclick="crearPlanMtto()">Guardar</button>
+    <button class="btn ghost" id="mtto-btn-cancelar" onclick="cancelarEdicionMtto()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Activo</th><th>Tipo</th><th>Frecuencia</th><th>Última ejecución</th><th>Próxima ejecución</th><th></th></tr></thead><tbody id="tbl-mtto"></tbody></table></div></div>
 </div>
 
 <!-- OT -->
@@ -554,19 +611,24 @@ tr:hover td{background:var(--bg)}
   <div class="card" id="ot-form" style="display:none">
     <div id="ot-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
+      <div class="field"><label>Activo</label><select id="ot-activo"><option value="">—</option></select></div>
       <div class="field"><label>Tipo</label><select id="ot-tipo"><option value="correctivo">Correctivo</option><option value="preventivo">Preventivo</option><option value="emergencia">Emergencia</option></select></div>
       <div class="field"><label>Prioridad</label><select id="ot-prioridad"><option>Alta</option><option selected>Media</option><option>Baja</option></select></div>
+      <div class="field"><label>Técnico asignado</label><input id="ot-tecnico"></div>
+      <div class="field"><label>Fecha de apertura</label><input type="date" id="ot-fecha-apertura"></div>
+      <div class="field"><label>Tiempo estimado (horas)</label><input type="number" step="0.5" id="ot-horas"></div>
       <div class="field" style="grid-column:1/-1"><label>Descripción</label><textarea id="ot-desc"></textarea></div>
     </div>
-    <button class="btn" onclick="crearOT()">Crear OT</button>
+    <button class="btn" id="ot-btn-guardar" onclick="crearOT()">Crear OT</button>
+    <button class="btn ghost" id="ot-btn-cancelar" onclick="cancelarEdicionOT()" style="display:none">Cancelar edición</button>
   </div>
   <div id="ot-empty" class="empty"><b>Sin órdenes de trabajo registradas.</b>Se generan a partir de un activo o de un reclamo entrante.</div>
-  <div class="card" id="ot-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Tipo</th><th>Prioridad</th><th>Estado</th></tr></thead><tbody id="tbl-ot"></tbody></table></div></div>
+  <div class="card" id="ot-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Activo</th><th>Tipo</th><th>Prioridad</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-ot"></tbody></table></div></div>
 </div>
 
 <!-- COMPRAS -->
 <div class="page" id="page-compras">
-  <div class="ph"><div><h1>Compras</h1><p>Cheques diferidos emitidos</p></div></div>
+  <div class="ph"><div><h1>Cheques</h1><p>Cheques diferidos emitidos</p></div></div>
   <div class="row-actions" id="compras-actions" style="display:none"><button class="btn" onclick="toggleForm('compras')">+ Nuevo cheque</button></div>
   <div class="card" id="compras-form" style="display:none">
     <div id="compras-err" class="form-err" style="display:none"></div>
@@ -600,7 +662,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="oc-btn-guardar" onclick="crearOC()">Guardar</button>
     <button class="btn ghost" id="oc-btn-cancelar" onclick="cancelarEdicionOC()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Proyecto</th><th>Fecha</th><th>Monto est.</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-oc"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Proyecto</th><th>Fecha</th><th>Monto est.</th><th>Estado</th><th>OPs</th><th></th></tr></thead><tbody id="tbl-oc"></tbody></table></div></div>
 </div>
 
 <!-- ÓRDENES DE PAGO -->
@@ -621,7 +683,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="op-btn-guardar" onclick="crearOP()">Guardar</button>
     <button class="btn ghost" id="op-btn-cancelar" onclick="cancelarEdicionOP()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Concepto</th><th>Monto</th><th>Medio</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-op"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Concepto</th><th>Monto</th><th>Medio</th><th>Estado</th><th>OC</th><th></th></tr></thead><tbody id="tbl-op"></tbody></table></div></div>
 </div>
 
 <!-- CALIDAD -->
@@ -671,6 +733,7 @@ const PUEDE_EDITAR = {
   clientes: r => r === 'sebastian',
   proyectos: r => r === 'ezequiel',
   activos: r => r === 'ezequiel',
+  planes_mtto: r => r === 'ezequiel',
   ordenes_trabajo: r => r === 'ezequiel',
   no_conformidades: r => r === 'ezequiel',
   cheques: r => r === 'gonzalo',
@@ -679,6 +742,7 @@ const PUEDE_EDITAR = {
   presupuestos: r => r === 'sebastian' || r === 'ezequiel',
   ordenes_compra: r => r === 'gonzalo',
   ordenes_pago: r => r === 'gonzalo',
+  proveedores: r => r === 'gonzalo',
 };
 
 document.getElementById('hoy').textContent =
@@ -723,6 +787,7 @@ async function iniciarSesionOk(session) {
 function aplicarPermisosUI() {
   document.getElementById('clientes-actions').style.display = PUEDE_EDITAR.clientes(ROL) ? 'flex' : 'none';
   document.getElementById('activos-actions').style.display = PUEDE_EDITAR.activos(ROL) ? 'flex' : 'none';
+  document.getElementById('mtto-actions').style.display = PUEDE_EDITAR.planes_mtto(ROL) ? 'flex' : 'none';
   document.getElementById('ot-actions').style.display = PUEDE_EDITAR.ordenes_trabajo(ROL) ? 'flex' : 'none';
   document.getElementById('compras-actions').style.display = PUEDE_EDITAR.cheques(ROL) ? 'flex' : 'none';
   document.getElementById('calidad-actions').style.display = PUEDE_EDITAR.no_conformidades(ROL) ? 'flex' : 'none';
@@ -732,6 +797,7 @@ function aplicarPermisosUI() {
   document.getElementById('facturas-actions').style.display = PUEDE_EDITAR.facturas(ROL) ? 'flex' : 'none';
   document.getElementById('oc-actions').style.display = PUEDE_EDITAR.ordenes_compra(ROL) ? 'flex' : 'none';
   document.getElementById('op-actions').style.display = PUEDE_EDITAR.ordenes_pago(ROL) ? 'flex' : 'none';
+  document.getElementById('proveedores-actions').style.display = PUEDE_EDITAR.proveedores(ROL) ? 'flex' : 'none';
 }
 
 (async function initAuth() {
@@ -828,6 +894,9 @@ async function cargarTodo() {
 
     setStatus('ok', 'Actualizado ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}));
     document.getElementById('overlay').classList.add('hidden');
+
+    const activoParam = new URLSearchParams(location.search).get('activo');
+    if (activoParam) await mostrarFichaActivo(activoParam);
 
   } catch(e) {
     setStatus('error', 'Error: ' + e.message);
@@ -1308,46 +1377,85 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin presupuestos</td></tr>';
 
   // Activos
-  const { data: activos } = await sb.from('activos').select('*');
+  const { data: activos } = await sb.from('activos').select('*').order('nombre');
+  poblarSelectsActivos(activos);
+  window.ACTIVOS_CACHE = {}; (activos||[]).forEach(a => window.ACTIVOS_CACHE[a.id] = a);
+  const puedeEditarActivos = PUEDE_EDITAR.activos(ROL);
   if (activos && activos.length > 0) {
     document.getElementById('activos-empty').style.display = 'none';
     document.getElementById('activos-card').style.display = 'block';
-    document.getElementById('tbl-activos').innerHTML = activos.map(a => `<tr>
-      <td>${a.nombre}</td><td>${a.categoria||'—'}</td>
+    document.getElementById('tbl-activos').innerHTML = activos.map(a => {
+      const cli = a.cliente_id ? (clienteNombre[a.cliente_id]||a.cliente_id) : '—';
+      return `<tr>
+      <td style="font-family:var(--mono)">${a.codigo||'—'}</td>
+      <td>${a.nombre}</td><td>${a.categoria||'—'}</td><td>${cli}</td>
       <td><span class="tag ${a.criticidad==='Alta'?'d':a.criticidad==='Media'?'w':'muted'}">${a.criticidad||'—'}</span></td>
       <td>${a.estado||'—'}</td>
-    </tr>`).join('');
+      <td><button class="btn ghost" onclick="verFichaActivo('${a.id}')">Ficha</button> <button class="btn ghost" onclick="verQRActivo('${a.id}')">QR</button> ${puedeEditarActivos ? `<button class="btn ghost" onclick="editarActivo(window.ACTIVOS_CACHE['${a.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarActivo('${a.id}')">✕</button>` : ''}</td>
+    </tr>`;
+    }).join('');
   }
 
+  // Planes de Mantenimiento
+  const { data: mttos } = await sb.from('planes_mtto').select('*, activos(nombre)').order('proxima_ejecucion',{ascending:true});
+  window.MTTO_CACHE = {}; (mttos||[]).forEach(m => window.MTTO_CACHE[m.id] = m);
+  const puedeEditarMtto = PUEDE_EDITAR.planes_mtto(ROL);
+  const hoy = new Date().toISOString().slice(0,10);
+  document.getElementById('tbl-mtto').innerHTML = (mttos||[]).map(m => `<tr>
+      <td>${m.activos ? m.activos.nombre : '—'}</td><td>${m.tipo||'—'}</td>
+      <td>${m.frecuencia_dias ? m.frecuencia_dias + ' días' : '—'}</td>
+      <td style="font-family:var(--mono)">${m.ultima_ejecucion||'—'}</td>
+      <td style="font-family:var(--mono);${m.proxima_ejecucion && m.proxima_ejecucion <= hoy ? 'color:var(--danger)' : ''}">${m.proxima_ejecucion||'—'}</td>
+      <td>${puedeEditarMtto ? `<button class="btn ghost" onclick="marcarMttoEjecutado('${m.id}')">Ejecutada hoy</button> <button class="btn ghost" onclick="editarPlanMtto(window.MTTO_CACHE['${m.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarPlanMtto('${m.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin rutinas de mantenimiento</td></tr>';
+
   // OT
-  const { data: ots } = await sb.from('ordenes_trabajo').select('*').order('fecha_apertura',{ascending:false});
+  const { data: ots } = await sb.from('ordenes_trabajo').select('*, activos(nombre)').order('fecha_apertura',{ascending:false});
+  window.OT_CACHE = {}; (ots||[]).forEach(o => window.OT_CACHE[o.id] = o);
+  const puedeEditarOT = PUEDE_EDITAR.ordenes_trabajo(ROL);
   if (ots && ots.length > 0) {
     document.getElementById('ot-empty').style.display = 'none';
     document.getElementById('ot-card').style.display = 'block';
     document.getElementById('tbl-ot').innerHTML = ots.map(o => `<tr>
-      <td>${o.fecha_apertura}</td><td>${o.tipo}</td>
+      <td>${o.fecha_apertura}</td><td>${o.activos ? o.activos.nombre : '—'}</td><td>${o.tipo}</td>
       <td><span class="tag ${o.prioridad==='Alta'?'d':o.prioridad==='Media'?'w':'muted'}">${o.prioridad||'—'}</span></td>
       <td><span class="tag ${o.estado==='CERRADA'?'ok':'w'}">${o.estado}</span></td>
+      <td>${puedeEditarOT ? `${o.estado!=='CERRADA' ? `<button class="btn ghost" onclick="cerrarOT('${o.id}')">Cerrar</button> ` : ''}<button class="btn ghost" onclick="editarOT(window.OT_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOT('${o.id}')">✕</button>` : ''}</td>
     </tr>`).join('');
   }
+
+  // Proveedores
+  const { data: proveedores } = await sb.from('proveedores').select('*').order('nombre');
+  window.PROVEEDORES_CACHE = {}; (proveedores||[]).forEach(p => window.PROVEEDORES_CACHE[p.id] = p);
+  const puedeEditarProv = PUEDE_EDITAR.proveedores(ROL);
+  document.getElementById('tbl-proveedores').innerHTML = (proveedores||[]).map(p => `<tr>
+      <td>${p.nombre}</td><td>${p.cuit||'—'}</td><td>${p.rubro||'—'}</td>
+      <td>${puedeEditarProv ? `<button class="btn ghost" onclick="editarProveedor(window.PROVEEDORES_CACHE['${p.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarProveedor('${p.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin proveedores cargados</td></tr>';
 
   // Órdenes de Compra
   const { data: ocs } = await sb.from('ordenes_compra').select('*, proveedores(nombre)').order('numero',{ascending:false});
   window.OC_CACHE = {}; (ocs||[]).forEach(o => window.OC_CACHE[o.id] = o);
   const puedeEditarOC = PUEDE_EDITAR.ordenes_compra(ROL);
   const estadoOCTag = { Pendiente:'w', Aprobada:'ok', Recibida:'ok', Cerrada:'muted', Anulada:'d' };
+  const { data: opsParaConteo } = await sb.from('ordenes_pago').select('id, oc_id, numero');
+  window.OPS_POR_OC = {};
+  (opsParaConteo||[]).forEach(o => { if (o.oc_id) (window.OPS_POR_OC[o.oc_id] = window.OPS_POR_OC[o.oc_id] || []).push(o); });
   document.getElementById('tbl-oc').innerHTML = (ocs||[]).map(o => {
     const proy = o.proyecto_id ? (proyectoInfo[o.proyecto_id] ? proyectoInfo[o.proyecto_id].nombre : o.proyecto_id) : '—';
+    const opsVinc = window.OPS_POR_OC[o.id] || [];
     return `<tr>
       <td>${o.numero}</td><td>${o.proveedores ? o.proveedores.nombre : '—'}</td><td>${proy}</td>
       <td style="font-family:var(--mono)">${o.fecha||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(o.monto_estimado))}</td>
       <td><span class="tag ${estadoOCTag[o.estado]||'muted'}">${o.estado}</span></td>
+      <td>${opsVinc.length ? `<button class="btn ghost" onclick="irAModulo('op')">${opsVinc.length} OP${opsVinc.length>1?'s':''}</button>` : '—'}</td>
       <td>${puedeEditarOC ? `<button class="btn ghost" onclick="editarOC(window.OC_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOC('${o.id}')">✕</button>` : ''}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de compra</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de compra</td></tr>';
   const ocOpts = '<option value="">—</option>' + (ocs||[]).map(o => `<option value="${o.id}">OC-${o.numero} · ${o.proveedores ? o.proveedores.nombre : ''}</option>`).join('');
   const ocSelectOP = document.getElementById('op-oc'); if (ocSelectOP) ocSelectOP.innerHTML = ocOpts;
+  window.OC_NUMERO_POR_ID = {}; (ocs||[]).forEach(o => window.OC_NUMERO_POR_ID[o.id] = o.numero);
 
   // Órdenes de Pago
   const { data: ops } = await sb.from('ordenes_pago').select('*, proveedores(nombre)').order('numero',{ascending:false});
@@ -1359,8 +1467,9 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="font-family:var(--mono)">${fmtMoney(Number(o.monto))}</td>
       <td>${o.medio||'—'}</td>
       <td><span class="tag ${estadoOPTag[o.estado]||'muted'}">${o.estado}</span></td>
+      <td>${o.oc_id ? `<button class="btn ghost" onclick="irAModulo('oc')">OC-${window.OC_NUMERO_POR_ID[o.oc_id] ?? ''}</button>` : '—'}</td>
       <td>${puedeEditarOP ? `${o.estado!=='Pagada' ? `<button class="btn ghost" onclick="marcarOPPagada('${o.id}')">Marcar pagada</button> ` : ''}<button class="btn ghost" onclick="editarOP(window.OP_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOP('${o.id}')">✕</button>` : ''}</td>
-    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de pago</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de pago</td></tr>';
 
   // No conformidades
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});
@@ -1447,13 +1556,22 @@ function showErr(mod, msg) {
 function poblarSelectsClientesProyectos() {
   const clienteOpts = '<option value="">—</option>' + (window.CLIENTES||[]).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
   const proyectoOpts = '<option value="">—</option>' + (window.PROYECTOS||[]).map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
-  ['mov-cliente','pre-cliente','fac-cliente','proy-cliente'].forEach(id => {
+  ['mov-cliente','pre-cliente','fac-cliente','proy-cliente','act-cliente'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = clienteOpts;
   });
-  ['mov-proyecto','pre-proyecto','fac-proyecto','oc-proyecto'].forEach(id => {
+  ['mov-proyecto','pre-proyecto','fac-proyecto','oc-proyecto','act-proyecto'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = proyectoOpts;
+  });
+}
+
+function poblarSelectsActivos(activos) {
+  window.ACTIVOS = activos || [];
+  const activoOpts = '<option value="">—</option>' + (activos||[]).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
+  ['ot-activo','mtto-activo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = activoOpts;
   });
 }
 
@@ -1465,23 +1583,271 @@ async function crearCliente() {
   location.reload();
 }
 
+let EDITANDO_ACT_ID = null;
+
+function siglas(texto, n) {
+  return (texto || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n) || 'GEN';
+}
+
+function sugerirCodigoActivo() {
+  if (EDITANDO_ACT_ID) return;
+  const codigoEl = document.getElementById('act-codigo');
+  if (codigoEl.value.trim()) return;
+  const clienteSel = document.getElementById('act-cliente');
+  const clienteNombre = clienteSel.options[clienteSel.selectedIndex] ? clienteSel.options[clienteSel.selectedIndex].text : '';
+  const categoria = document.getElementById('act-categoria').value;
+  if (clienteNombre === '—' || !clienteNombre) return;
+  const cliSig = siglas(clienteNombre, 4);
+  const catSig = siglas(categoria, 4);
+  const yaCount = (window.ACTIVOS || []).filter(a => a.cliente_id === clienteSel.value).length + 1;
+  codigoEl.value = `${cliSig}-${catSig}-${String(yaCount).padStart(3, '0')}`;
+}
+
 async function crearActivo() {
   const nombre = document.getElementById('act-nombre').value.trim();
   const categoria = document.getElementById('act-categoria').value.trim();
+  const cliente_id = document.getElementById('act-cliente').value || null;
+  const proyecto_id = document.getElementById('act-proyecto').value || null;
+  const ubicacion = document.getElementById('act-ubicacion').value.trim();
+  const codigo = document.getElementById('act-codigo').value.trim();
+  const fecha_instalacion = document.getElementById('act-fecha-inst').value || null;
+  const vida_util_estimada_meses = Number(document.getElementById('act-vida-util').value) || null;
   const criticidad = document.getElementById('act-criticidad').value;
-  const id = 'ACT-' + Date.now();
-  const { error } = await sb.from('activos').insert({ id, nombre, categoria: categoria||null, criticidad, estado:'ACTIVO' });
-  if (error) return showErr('activos', error.message);
+  const estado = document.getElementById('act-estado').value;
+  const payload = { nombre, categoria: categoria||null, cliente_id, proyecto_id, ubicacion: ubicacion||null, codigo: codigo||null, fecha_instalacion, vida_util_estimada_meses, criticidad, estado };
+  if (EDITANDO_ACT_ID) {
+    const { error } = await sb.from('activos').update(payload).eq('id', EDITANDO_ACT_ID);
+    if (error) return showErr('activos', error.message);
+  } else {
+    const id = 'ACT-' + Date.now();
+    const { error } = await sb.from('activos').insert({ id, ...payload });
+    if (error) return showErr('activos', error.message);
+  }
   location.reload();
 }
 
+function editarActivo(a) {
+  EDITANDO_ACT_ID = a.id;
+  document.getElementById('act-nombre').value = a.nombre || '';
+  document.getElementById('act-categoria').value = a.categoria || '';
+  document.getElementById('act-cliente').value = a.cliente_id || '';
+  document.getElementById('act-proyecto').value = a.proyecto_id || '';
+  document.getElementById('act-ubicacion').value = a.ubicacion || '';
+  document.getElementById('act-codigo').value = a.codigo || '';
+  document.getElementById('act-fecha-inst').value = a.fecha_instalacion || '';
+  document.getElementById('act-vida-util').value = a.vida_util_estimada_meses || '';
+  document.getElementById('act-criticidad').value = a.criticidad || 'Media';
+  document.getElementById('act-estado').value = a.estado || 'ACTIVO';
+  document.getElementById('activos-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('activos-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('activos-form').style.display = 'block';
+  document.getElementById('activos-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionActivo() {
+  EDITANDO_ACT_ID = null;
+  document.getElementById('act-codigo').value = '';
+  document.getElementById('activos-btn-guardar').textContent = 'Guardar';
+  document.getElementById('activos-btn-cancelar').style.display = 'none';
+  document.getElementById('activos-form').style.display = 'none';
+}
+
+const URL_PRODUCCION = 'https://gs-dashboard.github.io/gs-dashboard/';
+
+function verFichaActivo(id) {
+  window.open(location.pathname + '?activo=' + encodeURIComponent(id), '_blank');
+}
+
+async function mostrarFichaActivo(id) {
+  const { data: a } = await sb.from('activos').select('*, clientes(nombre), proyectos(nombre)').eq('id', id).single();
+  if (!a) return;
+  const { data: mttos } = await sb.from('planes_mtto').select('*').eq('activo_id', id).order('proxima_ejecucion');
+  const { data: ots } = await sb.from('ordenes_trabajo').select('*').eq('activo_id', id).order('fecha_apertura', { ascending:false });
+
+  document.getElementById('ficha-titulo').textContent = a.nombre + (a.codigo ? ' · ' + a.codigo : '');
+  document.getElementById('ficha-activo-contenido').innerHTML = `
+    <div class="card">
+      <div class="card-ttl">Datos del activo</div>
+      <div class="form-grid" style="pointer-events:none">
+        <div class="field"><label>Código</label><div>${a.codigo || '—'}</div></div>
+        <div class="field"><label>Categoría</label><div>${a.categoria || '—'}</div></div>
+        <div class="field"><label>Cliente</label><div>${a.clientes ? a.clientes.nombre : '—'}</div></div>
+        <div class="field"><label>Proyecto</label><div>${a.proyectos ? a.proyectos.nombre : '—'}</div></div>
+        <div class="field"><label>Ubicación</label><div>${a.ubicacion || '—'}</div></div>
+        <div class="field"><label>Criticidad</label><div>${a.criticidad || '—'}</div></div>
+        <div class="field"><label>Estado</label><div>${a.estado || '—'}</div></div>
+        <div class="field"><label>Fecha de instalación</label><div>${a.fecha_instalacion || '—'}</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Plan de mantenimiento</div>
+      <div class="tbl-wrap"><table><thead><tr><th>Tipo</th><th>Frecuencia</th><th>Última ejecución</th><th>Próxima ejecución</th></tr></thead><tbody>
+        ${(mttos||[]).map(m => `<tr><td>${m.tipo||'—'}</td><td>${m.frecuencia_dias?m.frecuencia_dias+' días':'—'}</td><td>${m.ultima_ejecucion||'—'}</td><td>${m.proxima_ejecucion||'—'}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin plan de mantenimiento cargado</td></tr>'}
+      </tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Historial de órdenes de trabajo</div>
+      <div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Estado</th><th>Descripción</th></tr></thead><tbody>
+        ${(ots||[]).map(o => `<tr><td>${o.fecha_apertura}</td><td>${o.tipo}</td><td>${o.prioridad||'—'}</td><td>${o.tecnico_asignado||'—'}</td><td><span class="tag ${o.estado==='CERRADA'?'ok':'w'}">${o.estado}</span></td><td>${o.descripcion||'—'}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de trabajo registradas</td></tr>'}
+      </tbody></table></div>
+    </div>
+    <a href="${location.pathname}" class="btn ghost" style="display:inline-block;margin-top:8px">← Volver al panel</a>
+  `;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-ficha-activo').classList.add('active');
+}
+
+async function verQRActivo(id) {
+  const a = window.ACTIVOS_CACHE[id];
+  if (!a) return;
+  const url = URL_PRODUCCION + '?activo=' + encodeURIComponent(id);
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>QR ${a.codigo || a.nombre}</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>
+    <style>
+      body { font-family:Arial,Helvetica,sans-serif; text-align:center; padding:30px; }
+      .tag-fisico { display:inline-block; border:2px solid #1a1916; border-radius:10px; padding:20px 26px; }
+      h2 { margin:6px 0 2px; }
+      .cod { font-family:monospace; font-size:14px; color:#555; margin-bottom:14px; }
+      .no-print { margin-top:20px; }
+      button { padding:10px 18px; border-radius:6px; border:none; background:#1a1916; color:#fff; font-weight:700; cursor:pointer; }
+      @media print { .no-print { display:none; } }
+    </style></head>
+    <body>
+      <div class="tag-fisico">
+        <div style="font-weight:800;font-size:13px;letter-spacing:0.08em;color:#8a8880">GS GROUP</div>
+        <h2>${a.nombre}</h2>
+        <div class="cod">${a.codigo || a.id}</div>
+        <canvas id="qr"></canvas>
+      </div>
+      <div class="no-print"><button onclick="window.print()">🖨️ Imprimir etiqueta</button></div>
+      <script>window.onload = function() { QRCode.toCanvas(document.getElementById('qr'), ${JSON.stringify(url)}, { width: 220 }); };<\/script>
+    </body></html>`);
+  w.document.close();
+}
+
+async function eliminarActivo(id) {
+  if (!confirm('¿Eliminar este activo? También se eliminan sus planes de mantenimiento asociados. Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('activos').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// PLANES DE MANTENIMIENTO
+// ═══════════════════════════════════════════════
+let EDITANDO_MTTO_ID = null;
+
+async function crearPlanMtto() {
+  const activo_id = document.getElementById('mtto-activo').value || null;
+  const tipo = document.getElementById('mtto-tipo').value;
+  const frecuencia_dias = Number(document.getElementById('mtto-frecuencia').value) || null;
+  const ultima_ejecucion = document.getElementById('mtto-ultima').value || null;
+  const proxima_ejecucion = document.getElementById('mtto-proxima').value || null;
+  if (!activo_id) return showErr('mtto', 'El activo es obligatorio.');
+  const payload = { activo_id, tipo, frecuencia_dias, ultima_ejecucion, proxima_ejecucion };
+  if (EDITANDO_MTTO_ID) {
+    const { error } = await sb.from('planes_mtto').update(payload).eq('id', EDITANDO_MTTO_ID);
+    if (error) return showErr('mtto', error.message);
+  } else {
+    const id = 'MTTO-' + Date.now();
+    const { error } = await sb.from('planes_mtto').insert({ id, ...payload });
+    if (error) return showErr('mtto', error.message);
+  }
+  location.reload();
+}
+
+function editarPlanMtto(m) {
+  EDITANDO_MTTO_ID = m.id;
+  document.getElementById('mtto-activo').value = m.activo_id || '';
+  document.getElementById('mtto-tipo').value = m.tipo || 'preventivo';
+  document.getElementById('mtto-frecuencia').value = m.frecuencia_dias || '';
+  document.getElementById('mtto-ultima').value = m.ultima_ejecucion || '';
+  document.getElementById('mtto-proxima').value = m.proxima_ejecucion || '';
+  document.getElementById('mtto-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('mtto-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('mtto-form').style.display = 'block';
+  document.getElementById('mtto-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionMtto() {
+  EDITANDO_MTTO_ID = null;
+  document.getElementById('mtto-btn-guardar').textContent = 'Guardar';
+  document.getElementById('mtto-btn-cancelar').style.display = 'none';
+  document.getElementById('mtto-form').style.display = 'none';
+}
+
+async function eliminarPlanMtto(id) {
+  if (!confirm('¿Eliminar esta rutina de mantenimiento? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('planes_mtto').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+async function marcarMttoEjecutado(id) {
+  const m = window.MTTO_CACHE[id];
+  if (!m) return;
+  const hoy = new Date().toISOString().slice(0,10);
+  const proxima = m.frecuencia_dias ? new Date(Date.now() + m.frecuencia_dias*86400000).toISOString().slice(0,10) : null;
+  const { error } = await sb.from('planes_mtto').update({ ultima_ejecucion: hoy, proxima_ejecucion: proxima }).eq('id', id);
+  if (error) return alert('No se pudo actualizar: ' + error.message);
+  location.reload();
+}
+
+let EDITANDO_OT_ID = null;
+
 async function crearOT() {
+  const activo_id = document.getElementById('ot-activo').value || null;
   const tipo = document.getElementById('ot-tipo').value;
   const prioridad = document.getElementById('ot-prioridad').value;
+  const tecnico_asignado = document.getElementById('ot-tecnico').value.trim();
+  const fecha_apertura = document.getElementById('ot-fecha-apertura').value || undefined;
+  const tiempo_estimado_horas = Number(document.getElementById('ot-horas').value) || null;
   const descripcion = document.getElementById('ot-desc').value.trim();
-  const id = 'OT-' + Date.now();
-  const { error } = await sb.from('ordenes_trabajo').insert({ id, tipo, prioridad, descripcion: descripcion||null, estado:'ABIERTA' });
-  if (error) return showErr('ot', error.message);
+  const payload = { activo_id, tipo, prioridad, tecnico_asignado: tecnico_asignado||null, fecha_apertura, tiempo_estimado_horas, descripcion: descripcion||null };
+  if (EDITANDO_OT_ID) {
+    const { error } = await sb.from('ordenes_trabajo').update(payload).eq('id', EDITANDO_OT_ID);
+    if (error) return showErr('ot', error.message);
+  } else {
+    const id = 'OT-' + Date.now();
+    const { error } = await sb.from('ordenes_trabajo').insert({ id, ...payload, estado:'ABIERTA' });
+    if (error) return showErr('ot', error.message);
+  }
+  location.reload();
+}
+
+function editarOT(o) {
+  EDITANDO_OT_ID = o.id;
+  document.getElementById('ot-activo').value = o.activo_id || '';
+  document.getElementById('ot-tipo').value = o.tipo || 'correctivo';
+  document.getElementById('ot-prioridad').value = o.prioridad || 'Media';
+  document.getElementById('ot-tecnico').value = o.tecnico_asignado || '';
+  document.getElementById('ot-fecha-apertura').value = o.fecha_apertura || '';
+  document.getElementById('ot-horas').value = o.tiempo_estimado_horas || '';
+  document.getElementById('ot-desc').value = o.descripcion || '';
+  document.getElementById('ot-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('ot-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('ot-form').style.display = 'block';
+  document.getElementById('ot-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionOT() {
+  EDITANDO_OT_ID = null;
+  document.getElementById('ot-btn-guardar').textContent = 'Crear OT';
+  document.getElementById('ot-btn-cancelar').style.display = 'none';
+  document.getElementById('ot-form').style.display = 'none';
+}
+
+async function eliminarOT(id) {
+  if (!confirm('¿Eliminar esta orden de trabajo? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('ordenes_trabajo').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+async function cerrarOT(id) {
+  const { error } = await sb.from('ordenes_trabajo').update({ estado: 'CERRADA', fecha_cierre: new Date().toISOString().slice(0,10) }).eq('id', id);
+  if (error) return alert('No se pudo cerrar la OT: ' + error.message);
   location.reload();
 }
 
@@ -1493,7 +1859,8 @@ async function crearCheque() {
   const fecha_pago = document.getElementById('chq-fecha').value;
   const importe = Number(document.getElementById('chq-importe').value);
   const estado = document.getElementById('chq-estado').value;
-  const payload = { numero_cheque: numero_cheque||null, beneficiario, fecha_pago: fecha_pago||null, importe, estado };
+  const proveedor_id = await obtenerOCrearProveedor(beneficiario);
+  const payload = { numero_cheque: numero_cheque||null, beneficiario, proveedor_id, fecha_pago: fecha_pago||null, importe, estado };
   if (EDITANDO_CHQ_ID) {
     const { error } = await sb.from('cheques').update(payload).eq('id', EDITANDO_CHQ_ID);
     if (error) return showErr('compras', error.message);
@@ -1535,6 +1902,50 @@ async function eliminarCheque(id) {
 // ═══════════════════════════════════════════════
 // PROVEEDORES (helper: busca por nombre o crea)
 // ═══════════════════════════════════════════════
+let EDITANDO_PRV_ID = null;
+
+async function crearProveedor() {
+  const nombre = document.getElementById('prv-nombre').value.trim();
+  const cuit = document.getElementById('prv-cuit').value.trim();
+  const rubro = document.getElementById('prv-rubro').value.trim();
+  if (!nombre) return showErr('proveedores', 'El nombre es obligatorio.');
+  const payload = { nombre, cuit: cuit||null, rubro: rubro||null };
+  if (EDITANDO_PRV_ID) {
+    const { error } = await sb.from('proveedores').update(payload).eq('id', EDITANDO_PRV_ID);
+    if (error) return showErr('proveedores', error.message);
+  } else {
+    const id = 'PRV-' + Date.now();
+    const { error } = await sb.from('proveedores').insert({ id, ...payload });
+    if (error) return showErr('proveedores', error.message);
+  }
+  location.reload();
+}
+
+function editarProveedor(p) {
+  EDITANDO_PRV_ID = p.id;
+  document.getElementById('prv-nombre').value = p.nombre || '';
+  document.getElementById('prv-cuit').value = p.cuit || '';
+  document.getElementById('prv-rubro').value = p.rubro || '';
+  document.getElementById('proveedores-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('proveedores-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('proveedores-form').style.display = 'block';
+  document.getElementById('proveedores-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionProveedor() {
+  EDITANDO_PRV_ID = null;
+  document.getElementById('proveedores-btn-guardar').textContent = 'Guardar';
+  document.getElementById('proveedores-btn-cancelar').style.display = 'none';
+  document.getElementById('proveedores-form').style.display = 'none';
+}
+
+async function eliminarProveedor(id) {
+  if (!confirm('¿Eliminar este proveedor? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('proveedores').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
 async function obtenerOCrearProveedor(nombre) {
   nombre = (nombre || '').trim();
   if (!nombre) return null;
@@ -2123,6 +2534,11 @@ function nav(el, id) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   el.classList.add('active');
+}
+
+function irAModulo(id) {
+  const btn = Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick') === `nav(this,'${id}')`);
+  if (btn) nav(btn, id);
 }
 </script>
 </body>

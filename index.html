@@ -789,22 +789,26 @@ let CHARTS = {};
 let ROL = null;
 let SESSION = null;
 
+// Sebastián pidió acceso de escritura a todo para poder probar todas las
+// funciones (no solo su dominio original de clientes/presupuestos) — cada
+// entrada acá tiene su espejo en una política RLS "_write_sebastian_testing"
+// nueva por tabla (no se tocaron las políticas de Gonzalo/Ezequiel).
 const PUEDE_EDITAR = {
   clientes: r => r === 'sebastian',
-  proyectos: r => r === 'ezequiel',
-  activos: r => r === 'ezequiel',
-  planes_mtto: r => r === 'ezequiel',
-  ordenes_trabajo: r => r === 'ezequiel',
-  no_conformidades: r => r === 'ezequiel',
-  cheques: r => r === 'gonzalo',
-  cheques_recibidos: r => r === 'gonzalo',
-  costos_fijos: r => r === 'gonzalo',
-  movimientos: r => r === 'gonzalo',
-  facturas: r => r === 'gonzalo',
+  proyectos: r => r === 'ezequiel' || r === 'sebastian',
+  activos: r => r === 'ezequiel' || r === 'sebastian',
+  planes_mtto: r => r === 'ezequiel' || r === 'sebastian',
+  ordenes_trabajo: r => r === 'ezequiel' || r === 'sebastian',
+  no_conformidades: r => r === 'ezequiel' || r === 'sebastian',
+  cheques: r => r === 'gonzalo' || r === 'sebastian',
+  cheques_recibidos: r => r === 'gonzalo' || r === 'sebastian',
+  costos_fijos: r => r === 'gonzalo' || r === 'sebastian',
+  movimientos: r => r === 'gonzalo' || r === 'sebastian',
+  facturas: r => r === 'gonzalo' || r === 'sebastian',
   presupuestos: r => r === 'sebastian' || r === 'ezequiel',
-  ordenes_compra: r => r === 'gonzalo',
-  ordenes_pago: r => r === 'gonzalo',
-  proveedores: r => r === 'gonzalo',
+  ordenes_compra: r => r === 'gonzalo' || r === 'sebastian',
+  ordenes_pago: r => r === 'gonzalo' || r === 'sebastian',
+  proveedores: r => r === 'gonzalo' || r === 'sebastian',
 };
 
 document.getElementById('hoy').textContent =

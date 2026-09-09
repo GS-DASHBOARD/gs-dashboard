@@ -83,6 +83,9 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .area-badge.obras{color:var(--obras);border-color:var(--obras);background:#fdf4e5}
 .area-badge.mant{color:var(--mant);border-color:var(--mant);background:#eff6fc}
 .area-badge.energia{color:var(--energia);border-color:var(--energia);background:#edf7ea}
+.area-tabs{display:flex;gap:8px}
+.area-tabs .area-badge{cursor:pointer;font-family:inherit;opacity:.45;transition:opacity .15s}
+.area-tabs .area-badge.active{opacity:1}
 
 /* ALERTS */
 .alert{display:flex;align-items:flex-start;gap:11px;padding:12px 15px;border-radius:8px;margin-bottom:12px;border-left:3px solid}
@@ -221,9 +224,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'prediccion')"><span class="nav-pip"></span>Predicción & alertas IA</button>
     <button class="nav-item" onclick="nav(this,'socios')"><span class="nav-pip"></span>Panel de Socios</button>
     <div class="nav-section">Por área</div>
-    <button class="nav-item" data-area="obras" onclick="nav(this,'obras')"><span class="nav-pip"></span>Obras</button>
-    <button class="nav-item" data-area="mant" onclick="nav(this,'mant')"><span class="nav-pip"></span>Mantenimiento</button>
-    <button class="nav-item" data-area="energia" onclick="nav(this,'energia')"><span class="nav-pip"></span>Energía (GE & Solar)</button>
+    <button class="nav-item" onclick="nav(this,'area')"><span class="nav-pip"></span>Movimientos por área</button>
     <div class="nav-section">Financiero</div>
     <button class="nav-item" onclick="nav(this,'movimientos')"><span class="nav-pip"></span>Movimientos</button>
     <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Cheques</button>
@@ -351,44 +352,22 @@ tr:hover td{background:var(--bg)}
 </div>
 
 <!-- OBRAS -->
-<div class="page" id="page-obras">
-  <div class="ph"><div><h1>Área <span>Obras</span></h1><p>Movimientos filtrados por tipo</p></div><span class="area-badge obras">Obras</span></div>
+<div class="page" id="page-area">
+  <div class="ph"><div><h1>Movimientos <span>por área</span></h1><p>Obras · Mantenimiento · Energía</p></div>
+    <div class="area-tabs">
+      <button class="area-badge obras active" id="area-tab-obras" onclick="cambiarAreaVista('obras')">Obras</button>
+      <button class="area-badge mant" id="area-tab-mant" onclick="cambiarAreaVista('mant')">Mantenimiento</button>
+      <button class="area-badge energia" id="area-tab-energia" onclick="cambiarAreaVista('energia')">Energía</button>
+    </div>
+  </div>
   <div class="kgrid c4">
-    <div class="kcard" style="--ka:var(--obras)"><div class="k-lbl">Movimientos registrados</div><div class="k-val obras" id="ob-count">—</div><div class="k-sub">total</div></div>
-    <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Total cobros</div><div class="k-val g" id="ob-cobros">—</div><div class="k-sub">importes positivos</div></div>
-    <div class="kcard" style="--ka:var(--danger)"><div class="k-lbl">Total pagos</div><div class="k-val d" id="ob-pagos">—</div><div class="k-sub">importes negativos</div></div>
-    <div class="kcard" style="--ka:var(--obras)"><div class="k-lbl">Saldo neto</div><div class="k-val" id="ob-neto">—</div><div class="k-sub">cobros − pagos</div></div>
+    <div class="kcard" id="area-kcard-count" style="--ka:var(--obras)"><div class="k-lbl">Movimientos registrados</div><div class="k-val" id="area-count">—</div><div class="k-sub">total</div></div>
+    <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Total cobros</div><div class="k-val g" id="area-cobros">—</div><div class="k-sub">importes positivos</div></div>
+    <div class="kcard" style="--ka:var(--danger)"><div class="k-lbl">Total pagos</div><div class="k-val d" id="area-pagos">—</div><div class="k-sub">importes negativos</div></div>
+    <div class="kcard" id="area-kcard-neto" style="--ka:var(--obras)"><div class="k-lbl">Saldo neto</div><div class="k-val" id="area-neto">—</div><div class="k-sub">cobros − pagos</div></div>
   </div>
-  <div class="card"><div class="card-ttl">Movimientos de Obras</div><div class="card-sub">filtrado por tipo de movimiento</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente/Prov.</th><th>Proyecto</th><th>Concepto</th><th>Importe</th></tr></thead><tbody id="tbl-obras"></tbody></table></div>
-  </div>
-</div>
-
-<!-- MANTENIMIENTO -->
-<div class="page" id="page-mant">
-  <div class="ph"><div><h1>Área <span>Mantenimiento</span></h1><p>Movimientos filtrados</p></div><span class="area-badge mant">Mantenimiento</span></div>
-  <div class="kgrid c4">
-    <div class="kcard" style="--ka:var(--mant)"><div class="k-lbl">Movimientos registrados</div><div class="k-val mant" id="mt-count">—</div><div class="k-sub">total</div></div>
-    <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Total cobros</div><div class="k-val g" id="mt-cobros">—</div><div class="k-sub">importes positivos</div></div>
-    <div class="kcard" style="--ka:var(--danger)"><div class="k-lbl">Total pagos</div><div class="k-val d" id="mt-pagos">—</div><div class="k-sub">importes negativos</div></div>
-    <div class="kcard" style="--ka:var(--mant)"><div class="k-lbl">Saldo neto</div><div class="k-val" id="mt-neto">—</div><div class="k-sub">cobros − pagos</div></div>
-  </div>
-  <div class="card"><div class="card-ttl">Movimientos de Mantenimiento</div><div class="card-sub">filtrado por tipo de movimiento</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente/Prov.</th><th>Proyecto</th><th>Concepto</th><th>Importe</th></tr></thead><tbody id="tbl-mant"></tbody></table></div>
-  </div>
-</div>
-
-<!-- ENERGÍA -->
-<div class="page" id="page-energia">
-  <div class="ph"><div><h1>Área <span>Energía</span></h1><p>GE & Solar</p></div><span class="area-badge energia">Energía</span></div>
-  <div class="kgrid c4">
-    <div class="kcard" style="--ka:var(--energia)"><div class="k-lbl">Movimientos registrados</div><div class="k-val energia" id="en-count">—</div><div class="k-sub">total</div></div>
-    <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Total cobros</div><div class="k-val g" id="en-cobros">—</div><div class="k-sub">importes positivos</div></div>
-    <div class="kcard" style="--ka:var(--danger)"><div class="k-lbl">Total pagos</div><div class="k-val d" id="en-pagos">—</div><div class="k-sub">importes negativos</div></div>
-    <div class="kcard" style="--ka:var(--energia)"><div class="k-lbl">Saldo neto</div><div class="k-val" id="en-neto">—</div><div class="k-sub">cobros − pagos</div></div>
-  </div>
-  <div class="card"><div class="card-ttl">Movimientos de Energía</div><div class="card-sub">filtrado por tipo de movimiento</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente/Prov.</th><th>Proyecto</th><th>Concepto</th><th>Importe</th></tr></thead><tbody id="tbl-energia"></tbody></table></div>
+  <div class="card"><div class="card-ttl" id="area-card-ttl">Movimientos de Obras</div><div class="card-sub">filtrado por tipo de movimiento</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente/Prov.</th><th>Proyecto</th><th>Concepto</th><th>Importe</th></tr></thead><tbody id="tbl-area"></tbody></table></div>
   </div>
 </div>
 
@@ -647,6 +626,7 @@ tr:hover td{background:var(--bg)}
     <div class="form-grid">
       <div class="field"><label>N° cheque</label><input id="chq-num"></div>
       <div class="field"><label>Beneficiario</label><input id="chq-benef"></div>
+      <div class="field"><label>Proyecto</label><select id="chq-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Fecha de pago</label><input type="date" id="chq-fecha"></div>
       <div class="field"><label>Importe</label><input type="number" step="0.01" id="chq-importe"></div>
       <div class="field"><label>Estado</label><select id="chq-estado"><option>Pendiente</option><option>Aceptado</option><option>Rechazado</option></select></div>
@@ -686,6 +666,7 @@ tr:hover td{background:var(--bg)}
     <div class="form-grid">
       <div class="field"><label>Proveedor</label><input id="op-proveedor" placeholder="Nombre del proveedor"></div>
       <div class="field"><label>OC relacionada</label><select id="op-oc"><option value="">—</option></select></div>
+      <div class="field"><label>Proyecto</label><select id="op-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Fecha</label><input type="date" id="op-fecha"></div>
       <div class="field"><label>Monto</label><input type="number" step="0.01" id="op-monto"></div>
       <div class="field"><label>Medio</label><select id="op-medio"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option></select></div>
@@ -937,9 +918,8 @@ function renderTodo() {
   renderCashflow(kpis);
   renderRigidez(kpis);
   renderCobranzas(kpis);
-  renderArea('obras', kpis);
-  renderArea('mant', kpis);
-  renderArea('energia', kpis);
+  window.LAST_AREA_KPIS = kpis;
+  renderAreaVista(window.CURRENT_AREA || 'obras', kpis);
   renderPrediccion(kpis);
 }
 
@@ -1272,18 +1252,28 @@ function renderCobranzas(k) {
   }).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Sin cheques cargados</td></tr>';
 }
 
-function renderArea(area, k) {
+function cambiarAreaVista(area) {
+  window.CURRENT_AREA = area;
+  document.querySelectorAll('.area-tabs .area-badge').forEach(b => b.classList.remove('active'));
+  document.getElementById('area-tab-'+area).classList.add('active');
+  if (window.LAST_AREA_KPIS) renderAreaVista(area, window.LAST_AREA_KPIS);
+}
+
+function renderAreaVista(area, k) {
   const d = k[area];
   const neto = d.cobros - d.pagos;
-  const prefix = area === 'obras' ? 'ob' : area === 'mant' ? 'mt' : 'en';
-  document.getElementById(prefix+'-count').textContent  = d.movs.length || '0';
-  document.getElementById(prefix+'-cobros').textContent = fmtMoney(d.cobros);
-  document.getElementById(prefix+'-pagos').textContent  = fmtMoney(d.pagos);
-  const nEl = document.getElementById(prefix+'-neto');
+  const nombre = area === 'obras' ? 'Obras' : area === 'mant' ? 'Mantenimiento' : 'Energía';
+  document.getElementById('area-kcard-count').style.setProperty('--ka', 'var(--'+area+')');
+  document.getElementById('area-kcard-neto').style.setProperty('--ka', 'var(--'+area+')');
+  document.getElementById('area-card-ttl').textContent = 'Movimientos de ' + nombre;
+  document.getElementById('area-count').textContent  = d.movs.length || '0';
+  document.getElementById('area-cobros').textContent = fmtMoney(d.cobros);
+  document.getElementById('area-pagos').textContent  = fmtMoney(d.pagos);
+  const nEl = document.getElementById('area-neto');
   nEl.textContent = fmtMoney(neto);
   nEl.className   = 'k-val ' + (neto>=0?'g':'d');
 
-  document.getElementById('tbl-'+area).innerHTML = d.movs.length > 0
+  document.getElementById('tbl-area').innerHTML = d.movs.length > 0
     ? d.movs.sort((a,b)=>b.fecha-a.fecha).slice(0,15).map(m => {
         const color = m.imp>0?'color:var(--good)':'color:var(--danger)';
         return `<tr>
@@ -1593,7 +1583,7 @@ function poblarSelectsClientesProyectos() {
     const el = document.getElementById(id);
     if (el) el.innerHTML = clienteOpts;
   });
-  ['mov-proyecto','pre-proyecto','fac-proyecto','oc-proyecto','act-proyecto'].forEach(id => {
+  ['mov-proyecto','pre-proyecto','fac-proyecto','oc-proyecto','act-proyecto','op-proyecto','chq-proyecto'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = proyectoOpts;
   });
@@ -1889,11 +1879,12 @@ let EDITANDO_CHQ_ID = null;
 async function crearCheque() {
   const numero_cheque = document.getElementById('chq-num').value.trim();
   const beneficiario = document.getElementById('chq-benef').value.trim();
+  const proyecto_id = document.getElementById('chq-proyecto').value || null;
   const fecha_pago = document.getElementById('chq-fecha').value;
   const importe = Number(document.getElementById('chq-importe').value);
   const estado = document.getElementById('chq-estado').value;
   const proveedor_id = await obtenerOCrearProveedor(beneficiario);
-  const payload = { numero_cheque: numero_cheque||null, beneficiario, proveedor_id, fecha_pago: fecha_pago||null, importe, estado };
+  const payload = { numero_cheque: numero_cheque||null, beneficiario, proveedor_id, proyecto_id, fecha_pago: fecha_pago||null, importe, estado };
   if (EDITANDO_CHQ_ID) {
     const { error } = await sb.from('cheques').update(payload).eq('id', EDITANDO_CHQ_ID);
     if (error) return showErr('compras', error.message);
@@ -1909,6 +1900,7 @@ function editarCheque(c) {
   EDITANDO_CHQ_ID = c.id;
   document.getElementById('chq-num').value = c.numero_cheque || '';
   document.getElementById('chq-benef').value = c.beneficiario || '';
+  document.getElementById('chq-proyecto').value = c.proyecto_id || '';
   document.getElementById('chq-fecha').value = c.fecha_pago || '';
   document.getElementById('chq-importe').value = c.importe || '';
   document.getElementById('chq-estado').value = c.estado || 'Pendiente';
@@ -2161,6 +2153,7 @@ let EDITANDO_OP_ID = null;
 async function crearOP() {
   const proveedorNombre = document.getElementById('op-proveedor').value.trim();
   const oc_id = document.getElementById('op-oc').value || null;
+  const proyecto_id = document.getElementById('op-proyecto').value || null;
   const fecha = document.getElementById('op-fecha').value || null;
   const monto = Number(document.getElementById('op-monto').value);
   const medio = document.getElementById('op-medio').value;
@@ -2168,22 +2161,38 @@ async function crearOP() {
   const concepto = document.getElementById('op-concepto').value.trim();
   if (!proveedorNombre || !monto) return showErr('op', 'Proveedor y monto son obligatorios.');
   const proveedor_id = await obtenerOCrearProveedor(proveedorNombre);
-  const payload = { proveedor_id, oc_id, fecha: fecha||undefined, monto, medio, estado, concepto: concepto||null };
+  const payload = { proveedor_id, oc_id, proyecto_id, fecha: fecha||undefined, monto, medio, estado, concepto: concepto||null };
+  let opId;
   if (EDITANDO_OP_ID) {
     const { error } = await sb.from('ordenes_pago').update(payload).eq('id', EDITANDO_OP_ID);
     if (error) return showErr('op', error.message);
+    opId = EDITANDO_OP_ID;
   } else {
-    const id = 'OP-' + Date.now();
-    const { error } = await sb.from('ordenes_pago').insert({ id, ...payload });
+    opId = 'OP-' + Date.now();
+    const { error } = await sb.from('ordenes_pago').insert({ id: opId, ...payload });
     if (error) return showErr('op', error.message);
   }
+  if (medio === 'Cheque') await generarChequeDesdeOP(opId);
   location.reload();
+}
+
+async function generarChequeDesdeOP(opId) {
+  const { data: op } = await sb.from('ordenes_pago').select('*, proveedores(nombre)').eq('id', opId).single();
+  if (!op || op.cheque_id) return;
+  const chqId = 'CHQ-' + Date.now();
+  const { error: errChq } = await sb.from('cheques').insert({
+    id: chqId, beneficiario: op.proveedores ? op.proveedores.nombre : null, proveedor_id: op.proveedor_id,
+    proyecto_id: op.proyecto_id, fecha_pago: op.fecha, importe: op.monto, estado: 'Pendiente', concepto: op.concepto,
+  });
+  if (errChq) return;
+  await sb.from('ordenes_pago').update({ cheque_id: chqId }).eq('id', opId);
 }
 
 function editarOP(o) {
   EDITANDO_OP_ID = o.id;
   document.getElementById('op-proveedor').value = o.proveedores ? o.proveedores.nombre : '';
   document.getElementById('op-oc').value = o.oc_id || '';
+  document.getElementById('op-proyecto').value = o.proyecto_id || '';
   document.getElementById('op-fecha').value = o.fecha || '';
   document.getElementById('op-monto').value = o.monto || '';
   document.getElementById('op-medio').value = o.medio || 'Transferencia';

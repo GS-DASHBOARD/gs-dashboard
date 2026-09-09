@@ -479,6 +479,7 @@ tr:hover td{background:var(--bg)}
 
   <div class="card" id="presupuestos-builder" style="display:none">
     <div id="presupuestos-err" class="form-err" style="display:none"></div>
+    <div id="pre-aviso-version" class="alert w" style="display:none;margin-bottom:12px"></div>
     <div class="form-grid">
       <div class="field"><label>Fecha</label><input type="date" id="pre-fecha"></div>
       <div class="field"><label>N° (automático al guardar)</label><input value="—" disabled></div>
@@ -699,7 +700,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="gastos-btn-cancelar" onclick="cancelarEdicionGastoFijo()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="card-ttl">Total mensual activo</div><div style="font-size:22px;font-weight:800" id="gto-total">—</div></div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Concepto</th><th>Fuente</th><th>Naturaleza</th><th>Monto</th><th>Día de pago</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-gastos"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Concepto</th><th>Fuente</th><th>Naturaleza</th><th>Monto</th><th>Día de pago</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-gastos-fijos"></tbody></table></div></div>
 </div>
 
 <!-- ÓRDENES DE COMPRA -->
@@ -1444,7 +1445,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin proyectos</td></tr>';
 
   // Presupuestos
-  const { data: presupuestos } = await sb.from('presupuestos').select('*').order('numero',{ascending:false});
+  const { data: presupuestos } = await sb.from('presupuestos').select('*').eq('vigente', true).order('numero',{ascending:false});
   window.PRESUPUESTOS_CACHE = {}; (presupuestos||[]).forEach(p => window.PRESUPUESTOS_CACHE[p.id] = p);
   const { data: costosReales } = await sb.from('costo_real_por_proyecto').select('*');
   const costoRealPorProyecto = {}; (costosReales||[]).forEach(c => costoRealPorProyecto[c.proyecto_id] = c);
@@ -1466,6 +1467,8 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     const cli = p.cliente_id ? (clienteNombre[p.cliente_id] || p.cliente_id) : '—';
     const margen = p.margen_pct !== null ? p.margen_pct + '%' : '—';
     const acciones = [`<button class="btn ghost" onclick="verDocumentoPresupuesto('${p.id}')">Ver documento</button>`];
+    if (PUEDE_EDITAR.presupuestos(ROL)) acciones.push(`<button class="btn ghost" onclick="editarPresupuesto('${p.id}')">Editar</button>`);
+    if ((p.version||1) > 1) acciones.push(`<button class="btn ghost" onclick="verHistorialPresupuesto('${p.id}')">Historial</button>`);
     if (puedeDecidirPresu && (p.estado === 'Borrador' || p.estado === 'Enviado')) {
       if (p.estado === 'Borrador') acciones.push(`<button class="btn ghost" onclick="marcarEstadoPresupuesto('${p.id}','Enviado')">Marcar enviado</button>`);
       acciones.push(`<button class="btn" onclick="aprobarPresupuestoDesdeLista('${p.id}')">Marcar aprobado</button>`);
@@ -1475,8 +1478,9 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     const costoRealTxt = cr
       ? `${fmtMoney(cr.costo_real_pagado)}${cr.comprometido_oc > 0 ? `<div style="font-size:10px;color:var(--muted)">+${fmtMoney(cr.comprometido_oc)} comprometido</div>` : ''}`
       : '—';
+    const numeroTxt = (p.numero ?? '—') + ((p.version||1) > 1 ? ` <span class="tag muted" style="font-size:9px">v${p.version}</span>` : '');
     return `<tr>
-      <td>${p.numero ?? '—'}</td><td>${cli}</td><td>${p.asunto||p.unidad_negocio||'—'}</td>
+      <td>${numeroTxt}</td><td>${cli}</td><td>${p.asunto||p.unidad_negocio||'—'}</td>
       <td>${fmtMoney(p.monto_cotizado_neto)}</td><td>${margen}</td>
       <td>${costoRealTxt}</td>
       <td><span class="tag ${estadoTag[p.estado]||'muted'}">${p.estado}</span></td>
@@ -1644,7 +1648,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   const puedeEditarGto = PUEDE_EDITAR.costos_fijos(ROL);
   const totalGastosActivos = (gastosFijos||[]).filter(g=>g.activo).reduce((s,g)=>s+Number(g.monto),0);
   document.getElementById('gto-total').textContent = fmtMoney(totalGastosActivos);
-  document.getElementById('tbl-gastos').innerHTML = (gastosFijos||[]).map(g => `<tr>
+  document.getElementById('tbl-gastos-fijos').innerHTML = (gastosFijos||[]).map(g => `<tr>
       <td>${g.concepto}</td><td>${g.fuente||'—'}</td><td>${g.naturaleza||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(g.monto))}</td>
       <td style="font-family:var(--mono)">${g.dia_pago||'—'}</td>
@@ -2707,12 +2711,15 @@ const FIRMANTES = {
 let RUBROS_BUILDER = [];
 
 function abrirBuilderPresupuesto() {
+  EDITANDO_PRE_ID = null;
   RUBROS_BUILDER = [];
   document.getElementById('pre-fecha').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('pre-aviso-version').style.display = 'none';
   document.getElementById('presupuestos-builder').style.display = 'block';
   agregarRubro();
 }
 function cerrarBuilderPresupuesto() {
+  EDITANDO_PRE_ID = null;
   document.getElementById('presupuestos-builder').style.display = 'none';
 }
 
@@ -2797,6 +2804,60 @@ function renderResumen() {
   document.getElementById('resumen-ganancia').textContent = fmtMoney(totalVenta - totalCosto);
 }
 
+let EDITANDO_PRE_ID = null;
+
+async function editarPresupuesto(id) {
+  const p = window.PRESUPUESTOS_CACHE[id];
+  if (!p) return;
+  EDITANDO_PRE_ID = id;
+  const { data: rubros } = await sb.from('presupuesto_rubros').select('*, presupuesto_items(*)').eq('presupuesto_id', id).order('orden');
+  RUBROS_BUILDER = (rubros || []).map(r => ({
+    id: r.id, nombre: r.nombre,
+    items: (r.presupuesto_items || []).sort((a,b) => a.orden - b.orden).map(it => ({
+      id: it.id, descripcion: it.descripcion || '', unidad: it.unidad || 'GL',
+      cantidad: it.cantidad, mo: it.precio_mano_obra, mat: it.precio_materiales,
+    })),
+  }));
+  if (!RUBROS_BUILDER.length) RUBROS_BUILDER.push({ id: 'RUB-' + Date.now(), nombre: 'GENERAL', items: [] });
+
+  document.getElementById('pre-fecha').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('pre-cliente').value = p.cliente_id || '';
+  document.getElementById('pre-proyecto').value = p.proyecto_id || '';
+  document.getElementById('pre-asunto').value = p.asunto || '';
+  document.getElementById('pre-unidad').value = p.unidad_negocio || '';
+  document.getElementById('pre-dest-cargo').value = p.destinatario_cargo || '';
+  document.getElementById('pre-dest-nombre').value = p.destinatario_nombre || '';
+  document.getElementById('pre-dest-empresa').value = p.destinatario_empresa || '';
+  document.getElementById('pre-margen').value = p.margen_pct != null ? p.margen_pct : 32;
+  document.getElementById('pre-anticipo').value = p.anticipo_pct || 30;
+  document.getElementById('pre-tiempo').value = p.tiempo_ejecucion || 'A convenir';
+  document.getElementById('pre-validez').value = p.validez_dias || 15;
+  document.getElementById('pre-forma-pago').value = p.forma_pago || '';
+
+  const avisoVersion = document.getElementById('pre-aviso-version');
+  if (p.estado !== 'Borrador') {
+    avisoVersion.style.display = 'block';
+    avisoVersion.textContent = `Este presupuesto ya está en estado "${p.estado}". Guardar los cambios va a crear la versión ${(p.version||1)+1} sin perder el historial — la actual queda archivada como versión ${p.version||1}.`;
+  } else {
+    avisoVersion.style.display = 'none';
+  }
+
+  document.getElementById('presupuestos-builder').style.display = 'block';
+  renderBuilder();
+  document.getElementById('presupuestos-builder').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function verHistorialPresupuesto(id) {
+  const p = window.PRESUPUESTOS_CACHE[id];
+  if (!p) return;
+  const baseId = p.presupuesto_base_id || p.id;
+  const { data: versiones } = await sb.from('presupuestos').select('*').or(`id.eq.${baseId},presupuesto_base_id.eq.${baseId}`).order('version');
+  const lineas = (versiones || []).map(v =>
+    `v${v.version||1} — ${v.estado} — ${fmtMoney(v.monto_cotizado_neto)} — ${new Date(v.created_at).toLocaleDateString('es-AR')}${v.vigente ? ' (vigente)' : ''}`
+  );
+  alert('Historial de versiones:\n\n' + lineas.join('\n'));
+}
+
 async function guardarPresupuesto(estadoFinal) {
   if (estadoFinal !== 'Borrador' && ROL === 'ezequiel') {
     return showErr('presupuestos', 'Como Ezequiel solo podés guardar presupuestos como Borrador.');
@@ -2810,9 +2871,8 @@ async function guardarPresupuesto(estadoFinal) {
   }));
   const margen_pct = totalVenta > 0 ? Number((((totalVenta - totalCosto) / totalVenta) * 100).toFixed(1)) : null;
 
-  const id = 'PRE-' + Date.now();
-  const { data: presuData, error } = await sb.from('presupuestos').insert({
-    id, cliente_id, proyecto_id, estado: 'Borrador',
+  const camposComunes = {
+    cliente_id, proyecto_id,
     unidad_negocio: document.getElementById('pre-unidad').value.trim() || null,
     asunto: document.getElementById('pre-asunto').value.trim() || null,
     destinatario_cargo: document.getElementById('pre-dest-cargo').value.trim() || null,
@@ -2824,8 +2884,37 @@ async function guardarPresupuesto(estadoFinal) {
     forma_pago: document.getElementById('pre-forma-pago').value.trim(),
     monto_cotizado_neto: totalVenta, costo_total_neto: totalCosto, margen_pct,
     moneda: 'ARS',
-  }).select().single();
-  if (error) return showErr('presupuestos', error.message);
+  };
+
+  const editandoBase = EDITANDO_PRE_ID ? window.PRESUPUESTOS_CACHE[EDITANDO_PRE_ID] : null;
+  const esNuevaVersion = editandoBase && editandoBase.estado !== 'Borrador';
+  let id;
+
+  if (editandoBase && !esNuevaVersion) {
+    // Editando un Borrador: se actualiza en el lugar, sin generar versión nueva.
+    id = EDITANDO_PRE_ID;
+    const { error } = await sb.from('presupuestos').update({ ...camposComunes, estado: 'Borrador' }).eq('id', id);
+    if (error) return showErr('presupuestos', error.message);
+    await sb.from('presupuesto_items').delete().in('rubro_id', (await sb.from('presupuesto_rubros').select('id').eq('presupuesto_id', id)).data.map(r => r.id));
+    await sb.from('presupuesto_rubros').delete().eq('presupuesto_id', id);
+  } else if (editandoBase && esNuevaVersion) {
+    // Ya fue enviado/aprobado/rechazado: la edición genera una versión nueva,
+    // conserva el mismo N° visible y archiva la anterior (vigente = false).
+    id = 'PRE-' + Date.now();
+    const { error } = await sb.from('presupuestos').insert({
+      id, ...camposComunes, estado: 'Borrador',
+      numero: editandoBase.numero,
+      version: (editandoBase.version || 1) + 1,
+      presupuesto_base_id: editandoBase.presupuesto_base_id || editandoBase.id,
+      vigente: true,
+    });
+    if (error) return showErr('presupuestos', error.message);
+    await sb.from('presupuestos').update({ vigente: false }).eq('id', EDITANDO_PRE_ID);
+  } else {
+    id = 'PRE-' + Date.now();
+    const { error } = await sb.from('presupuestos').insert({ id, ...camposComunes, estado: 'Borrador' });
+    if (error) return showErr('presupuestos', error.message);
+  }
 
   for (const r of RUBROS_BUILDER) {
     const { error: errRubro } = await sb.from('presupuesto_rubros').insert({ id: r.id, presupuesto_id: id, nombre: r.nombre, orden: RUBROS_BUILDER.indexOf(r) + 1 });
@@ -2845,6 +2934,7 @@ async function guardarPresupuesto(estadoFinal) {
     if (errAprobar) return showErr('presupuestos', 'Se guardó como Borrador pero no se pudo aprobar: ' + errAprobar.message);
   }
 
+  EDITANDO_PRE_ID = null;
   localStorage.setItem('gsos_ultimo_firmante', document.getElementById('pre-firmante').value);
   location.reload();
 }

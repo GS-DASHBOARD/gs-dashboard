@@ -2186,27 +2186,29 @@ async function importarChequesRecibidosCSV(event) {
   const parsed = rows.map(r => ({
     numero_cheque: pickField(r, ['numero','n cheque','nro cheque','numero cheque','n de cheque','cheque']) || null,
     librador: pickField(r, ['librador','cliente','pagador','recibido de']),
-    banco: pickField(r, ['banco']) || null,
-    fecha_cobro: parseFechaLocal(pickField(r, ['fecha de cobro','fecha cobro','fecha','vencimiento'])),
+    banco: pickField(r, ['banco','banco emisor']) || null,
+    fecha_cobro: parseFechaLocal(pickField(r, ['fecha de cobro','fecha cobro','fecha de pago','fecha','vencimiento'])),
     importe: parseMontoLocal(pickField(r, ['importe','monto','valor'])),
-  })).filter(r => r.librador && r.fecha_cobro && !isNaN(r.importe) && r.importe > 0);
+    concepto: pickField(r, ['motivo y descripcion','concepto']) || null,
+    estado: mapEstadoChequeCSV(pickField(r, ['estado']), 'recibido'),
+  })).filter(r => r.librador && r.fecha_cobro && !isNaN(r.importe) && r.importe > 0 && r.estado !== null);
 
   if (!parsed.length) {
-    msg.innerHTML = '<div class="alert d"><div class="alert-msg">No se reconoció ninguna fila válida. El CSV necesita columnas de Librador, Fecha de cobro e Importe (con encabezados en la primera fila).</div></div>';
+    msg.innerHTML = '<div class="alert d"><div class="alert-msg">No se reconoció ninguna fila válida. El CSV necesita columnas de Librador (o "Recibido de"), Fecha de cobro (o "Fecha de pago") e Importe (con encabezados en la primera o segunda fila).</div></div>';
     event.target.value = '';
     return;
   }
-  if (!confirm(`Se detectaron ${parsed.length} cheques en el archivo. ¿Confirmás la carga?`)) { event.target.value = ''; return; }
+  if (!confirm(`Se detectaron ${parsed.length} cheques en el archivo. Si un N° de cheque ya existe se actualiza su estado/importe/fecha en vez de duplicarlo. ¿Confirmás la carga?`)) { event.target.value = ''; return; }
 
   msg.innerHTML = 'Importando...';
   let ok = 0, fail = 0;
   for (let i = 0; i < parsed.length; i++) {
     const r = parsed[i];
     const id = 'CHQR-' + (r.numero_cheque || (Date.now() + '-' + i));
-    const { error } = await sb.from('cheques_recibidos').insert({
+    const { error } = await sb.from('cheques_recibidos').upsert({
       id, numero_cheque: r.numero_cheque, librador: r.librador, banco: r.banco,
-      fecha_cobro: r.fecha_cobro, importe: r.importe, estado: 'En cartera',
-    });
+      fecha_cobro: r.fecha_cobro, importe: r.importe, estado: r.estado, concepto: r.concepto,
+    }, { onConflict: 'id' });
     if (error) fail++; else ok++;
   }
   msg.innerHTML = `<div class="alert ${fail ? 'w' : 'g'}"><div class="alert-msg">Importación terminada: ${ok} cheque(s) cargado(s)${fail ? `, ${fail} con error` : ''}.</div></div>`;
@@ -2227,10 +2229,19 @@ function normalizeHeader(h) {
 }
 
 function parseCSV(text) {
-  const firstLine = text.split(/\r?\n/)[0] || '';
-  const delim = (firstLine.split(';').length > firstLine.split(',').length) ? ';' : ',';
-  const lines = text.replace(/\r/g,'').split('\n').filter(l => l.trim() !== '');
+  text = text.replace(/^﻿/, '');
+  let lines = text.replace(/\r/g,'').split('\n').filter(l => l.trim() !== '');
   if (!lines.length) return [];
+  const delim = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+  // Algunos exports bancarios (ej. e-cheq de Banco Galicia) traen una fila
+  // de agrupación de secciones antes de la fila real de encabezados
+  // ("Datos del cheque;;;;;...;Datos del librador;;;..."). Se detecta
+  // porque tiene muchas menos celdas no vacías que la fila siguiente, y se
+  // descarta para no interpretarla como encabezado.
+  const countNonEmpty = line => line.split(delim).filter(c => c.trim() !== '').length;
+  if (lines.length > 2 && countNonEmpty(lines[0]) < countNonEmpty(lines[1]) * 0.6) {
+    lines = lines.slice(1);
+  }
   const parseLine = (line) => {
     const out = []; let cur = ''; let inQuotes = false;
     for (let i = 0; i < line.length; i++) {
@@ -2285,6 +2296,24 @@ function parseFechaLocal(str) {
   return str;
 }
 
+// Los exports de e-cheq (Banco Galicia y similares) traen su propio estado
+// bancario (Aceptado, En custodia, Depósito en proceso, Pagado, Anulado...)
+// que no coincide con el enum acotado que usa el panel para cada tabla.
+// Se mapea a lo más parecido; "Anulado" se descarta directamente porque ya
+// no representa una obligación/cobro real pendiente.
+function mapEstadoChequeCSV(raw, tipo) {
+  const e = normalizeHeader(raw || '');
+  if (!e) return tipo === 'emitido' ? 'Pendiente' : 'En cartera';
+  if (e === 'anulado') return null;
+  if (e === 'rechazado') return 'Rechazado';
+  if (tipo === 'emitido') {
+    if (e === 'pendiente') return 'Pendiente';
+    return 'Aceptado';
+  }
+  if (e === 'pagado' || e === 'cobrado' || e === 'depositado' || e === 'depositoenproceso') return 'Depositado';
+  return 'En cartera';
+}
+
 async function importarChequesCSV(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -2294,17 +2323,19 @@ async function importarChequesCSV(event) {
   const rows = parseCSV(text);
   const parsed = rows.map(r => ({
     numero_cheque: pickField(r, ['numero','n cheque','nro cheque','numero cheque','n de cheque','cheque']) || null,
-    beneficiario: pickField(r, ['beneficiario','proveedor','pagado a']),
+    beneficiario: pickField(r, ['beneficiario','proveedor','pagado a','emitido a']),
     fecha_pago: parseFechaLocal(pickField(r, ['fecha de pago','fecha pago','fecha','vencimiento'])),
     importe: parseMontoLocal(pickField(r, ['importe','monto','valor'])),
-  })).filter(r => r.beneficiario && r.fecha_pago && !isNaN(r.importe) && r.importe > 0);
+    concepto: pickField(r, ['motivo y descripcion','concepto']) || null,
+    estado: mapEstadoChequeCSV(pickField(r, ['estado']), 'emitido'),
+  })).filter(r => r.beneficiario && r.fecha_pago && !isNaN(r.importe) && r.importe > 0 && r.estado !== null);
 
   if (!parsed.length) {
-    msg.innerHTML = '<div class="alert d"><div class="alert-msg">No se reconoció ninguna fila válida. El CSV necesita columnas de Beneficiario, Fecha de pago e Importe (con encabezados en la primera fila).</div></div>';
+    msg.innerHTML = '<div class="alert d"><div class="alert-msg">No se reconoció ninguna fila válida. El CSV necesita columnas de Beneficiario (o "Emitido a"), Fecha de pago e Importe (con encabezados en la primera o segunda fila).</div></div>';
     event.target.value = '';
     return;
   }
-  if (!confirm(`Se detectaron ${parsed.length} cheques en el archivo. ¿Confirmás la carga?`)) { event.target.value = ''; return; }
+  if (!confirm(`Se detectaron ${parsed.length} cheques en el archivo. Si un N° de cheque ya existe se actualiza su estado/importe/fecha en vez de duplicarlo. ¿Confirmás la carga?`)) { event.target.value = ''; return; }
 
   msg.innerHTML = 'Importando...';
   let ok = 0, fail = 0;
@@ -2312,10 +2343,10 @@ async function importarChequesCSV(event) {
     const r = parsed[i];
     const proveedor_id = await obtenerOCrearProveedor(r.beneficiario);
     const id = 'CHQ-' + (r.numero_cheque || (Date.now() + '-' + i));
-    const { error } = await sb.from('cheques').insert({
+    const { error } = await sb.from('cheques').upsert({
       id, numero_cheque: r.numero_cheque, beneficiario: r.beneficiario, proveedor_id,
-      fecha_pago: r.fecha_pago, importe: r.importe, estado: 'Pendiente',
-    });
+      fecha_pago: r.fecha_pago, importe: r.importe, estado: r.estado, concepto: r.concepto,
+    }, { onConflict: 'id' });
     if (error) fail++; else ok++;
   }
   msg.innerHTML = `<div class="alert ${fail ? 'w' : 'g'}"><div class="alert-msg">Importación terminada: ${ok} cheque(s) cargado(s)${fail ? `, ${fail} con error` : ''}.</div></div>`;

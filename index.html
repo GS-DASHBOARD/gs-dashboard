@@ -524,6 +524,7 @@ tr:hover td{background:var(--bg)}
     <div id="facturas-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>N° factura</label><input id="fac-numero"></div>
+      <div class="field"><label>Tipo de comprobante</label><select id="fac-tipo-comprobante"><option value="A">A</option><option value="B">B</option><option value="FCE A">FCE A</option></select></div>
       <div class="field"><label>Cliente</label><select id="fac-cliente"><option value="">—</option></select></div>
       <div class="field"><label>Proyecto</label><select id="fac-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Fecha de emisión</label><input type="date" id="fac-emision"></div>
@@ -535,7 +536,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="fac-btn-guardar" onclick="crearFactura()">Guardar</button>
     <button class="btn ghost" id="fac-btn-cancelar" onclick="cancelarEdicionFactura()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Cliente</th><th>Proyecto</th><th>Presupuesto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Presupuesto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
 </div>
 
 <!-- ACTIVOS -->
@@ -1697,7 +1698,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       }
     }
     return `<tr>
-      <td>${f.numero||'—'}</td><td>${cli}</td><td>${proy}</td>
+      <td>${f.numero||'—'}</td><td>${f.tipo_comprobante||'—'}</td><td>${cli}</td><td>${proy}</td>
       <td>${presuTxt}</td>
       <td style="font-family:var(--mono)">${f.fecha_emision||'—'}</td>
       <td style="font-family:var(--mono)">${f.fecha_vencimiento||'—'}</td>
@@ -1705,7 +1706,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td><span class="tag ${estadoFacTag[f.estado]||'muted'}">${f.estado}</span></td>
       <td>${puedeEditarFac ? `${f.estado==='Pendiente de emitir' ? `<button class="btn" onclick="registrarEmisionFactura(window.FACS_CACHE['${f.id}'])">Registrar emisión</button> ` : ''}${f.estado!=='Cobrada' && f.estado!=='Pendiente de emitir' ? `<button class="btn ghost" onclick="marcarFacturaCobrada('${f.id}')">Marcar cobrada</button> ` : ''}<button class="btn ghost" onclick="editarFactura(window.FACS_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFactura('${f.id}')">✕</button>` : ''}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
+  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
 
   // Panel de Socios
   const otTotal = (ots||[]).length, otCerradas = (ots||[]).filter(o=>o.estado==='CERRADA').length;
@@ -3159,8 +3160,34 @@ function fmtMoneyPlain(n) {
 
 let EDITANDO_FAC_ID = null;
 
+// Genera (o actualiza) el movimiento PROYECTADO de cobro esperado para una
+// factura recién emitida, para que sume a "Cobros próx. 30d" y al cash flow
+// sin esperar a que se cobre. 'Pendiente de emitir'/'Anulada' todavía no son
+// un cobro esperado real, no generan movimiento.
+async function sincronizarMovimientoFactura(facturaId, f, movimientoIdExistente) {
+  if (f.estado === 'Pendiente de emitir' || f.estado === 'Anulada') return;
+  const fecha = f.fecha_vencimiento || f.fecha_emision || new Date().toISOString().slice(0,10);
+  if (movimientoIdExistente) {
+    await sb.from('movimientos')
+      .update({ fecha, monto: f.monto })
+      .eq('id', movimientoIdExistente)
+      .neq('estado', 'CANCELADO');
+    return;
+  }
+  const movId = 'MOV-' + Date.now();
+  const estadoMov = f.estado === 'Cobrada' ? 'CANCELADO' : 'PROYECTADO';
+  const { error } = await sb.from('movimientos').insert({
+    id: movId, fecha, tipo: 'INGRESO', categoria: 'Facturación',
+    cliente_id: f.cliente_id, proyecto_id: f.proyecto_id,
+    concepto: 'Factura ' + (f.numero || '') + (f.concepto ? ' - ' + f.concepto : ''),
+    monto: f.monto, fecha_vencimiento: f.fecha_vencimiento, estado: estadoMov, fuente: 'Portal GS OS',
+  });
+  if (!error) await sb.from('facturas').update({ movimiento_id: movId }).eq('id', facturaId);
+}
+
 async function crearFactura() {
   const numero = document.getElementById('fac-numero').value.trim();
+  const tipo_comprobante = document.getElementById('fac-tipo-comprobante').value;
   const cliente_id = document.getElementById('fac-cliente').value || null;
   const proyecto_id = document.getElementById('fac-proyecto').value || null;
   const fecha_emision = document.getElementById('fac-emision').value || null;
@@ -3169,26 +3196,17 @@ async function crearFactura() {
   const estado = document.getElementById('fac-estado').value;
   const concepto = document.getElementById('fac-concepto').value.trim();
   if (!monto) return showErr('facturas', 'El monto es obligatorio.');
-  const payload = { numero: numero||null, cliente_id, proyecto_id, fecha_emision: fecha_emision||undefined, fecha_vencimiento, monto, estado, concepto: concepto||null };
+  const payload = { numero: numero||null, tipo_comprobante, cliente_id, proyecto_id, fecha_emision: fecha_emision||undefined, fecha_vencimiento, monto, estado, concepto: concepto||null };
   if (EDITANDO_FAC_ID) {
     const { error } = await sb.from('facturas').update(payload).eq('id', EDITANDO_FAC_ID);
     if (error) return showErr('facturas', error.message);
-    // Si la factura tiene un movimiento proyectado vinculado (generado al cerrar
-    // el proyecto) y todavía no se confirmó contra el banco, lo actualizamos con
-    // la fecha y el monto reales recién cargados en vez de dejarlo con el
-    // placeholder de +30 días — así el forecast de cobro queda al día apenas se
-    // conoce la factura real.
     const facturaPrevia = window.FACS_CACHE ? window.FACS_CACHE[EDITANDO_FAC_ID] : null;
-    if (facturaPrevia && facturaPrevia.movimiento_id) {
-      await sb.from('movimientos')
-        .update({ fecha: fecha_vencimiento || fecha_emision, monto })
-        .eq('id', facturaPrevia.movimiento_id)
-        .neq('estado', 'CANCELADO');
-    }
+    await sincronizarMovimientoFactura(EDITANDO_FAC_ID, { cliente_id, proyecto_id, numero, concepto, fecha_emision, fecha_vencimiento, monto, estado }, facturaPrevia ? facturaPrevia.movimiento_id : null);
   } else {
     const id = 'FAC-' + Date.now();
     const { error } = await sb.from('facturas').insert({ id, ...payload });
     if (error) return showErr('facturas', error.message);
+    await sincronizarMovimientoFactura(id, { cliente_id, proyecto_id, numero, concepto, fecha_emision, fecha_vencimiento, monto, estado }, null);
   }
   location.reload();
 }
@@ -3196,6 +3214,7 @@ async function crearFactura() {
 function editarFactura(f) {
   EDITANDO_FAC_ID = f.id;
   document.getElementById('fac-numero').value = f.numero || '';
+  document.getElementById('fac-tipo-comprobante').value = f.tipo_comprobante || 'A';
   document.getElementById('fac-cliente').value = f.cliente_id || '';
   document.getElementById('fac-proyecto').value = f.proyecto_id || '';
   document.getElementById('fac-emision').value = f.fecha_emision || '';

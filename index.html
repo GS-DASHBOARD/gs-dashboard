@@ -375,12 +375,17 @@ tr:hover td{background:var(--bg)}
   <div class="card" id="clientes-form" style="display:none">
     <div id="clientes-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
-      <div class="field"><label>ID</label><input id="cli-id" placeholder="CLI-009"></div>
-      <div class="field"><label>Nombre</label><input id="cli-nombre"></div>
+      <div class="field"><label>Nombre</label><input id="cli-nombre" placeholder="Apodo interno del proyecto (ej: KANSAS, CARP)"></div>
+      <div class="field"><label>Razón social</label><input id="cli-razon-social" placeholder="Nombre legal/fiscal real"></div>
+      <div class="field"><label>CUIT</label><input id="cli-cuit" placeholder="30-12345678-9"></div>
+      <div class="field"><label>Dirección</label><input id="cli-direccion"></div>
+      <div class="field"><label>Contacto</label><input id="cli-contacto" placeholder="Nombre, teléfono o email"></div>
+      <div class="field"><label>Estado</label><select id="cli-estado"><option>ACTIVO</option><option>INACTIVO</option></select></div>
     </div>
-    <button class="btn" onclick="crearCliente()">Guardar</button>
+    <button class="btn" id="clientes-btn-guardar" onclick="crearCliente()">Guardar</button>
+    <button class="btn ghost" id="clientes-btn-cancelar" onclick="cancelarEdicionCliente()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Proyectos activos</th><th>Estado</th></tr></thead><tbody id="tbl-clientes"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Razón social</th><th>CUIT</th><th>Proyectos activos</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-clientes"></tbody></table></div></div>
 </div>
 
 <!-- PROYECTOS -->
@@ -1435,12 +1440,15 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   poblarSelectsClientesProyectos();
 
   // Clientes + conteo de proyectos activos
+  window.CLIENTES_CACHE = {}; clientes.forEach(c => window.CLIENTES_CACHE[c.id] = c);
+  const puedeEditarCli = PUEDE_EDITAR.clientes(ROL);
   const conteoProy = {};
   proyectos.forEach(p => { if (p.estado === 'ACTIVO' && p.cliente_id) conteoProy[p.cliente_id] = (conteoProy[p.cliente_id]||0)+1; });
   document.getElementById('tbl-clientes').innerHTML = clientes.map(c => `<tr>
-    <td>${c.nombre}</td><td>${conteoProy[c.id]||0}</td>
+    <td>${c.nombre}</td><td>${c.razon_social||'—'}</td><td>${c.cuit||'—'}</td><td>${conteoProy[c.id]||0}</td>
     <td><span class="tag ${c.estado==='ACTIVO'?'ok':'muted'}">${c.estado}</span></td>
-  </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Sin clientes</td></tr>';
+    <td>${puedeEditarCli ? `<button class="btn ghost" onclick="editarCliente(window.CLIENTES_CACHE['${c.id}'])">Editar</button>` : ''}</td>
+  </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin clientes</td></tr>';
 
   // Proyectos
   const puedeEditarProyectos = PUEDE_EDITAR.proyectos(ROL);
@@ -1753,12 +1761,47 @@ function poblarSelectsActivos(activos) {
   });
 }
 
+let EDITANDO_CLI_ID = null;
+
 async function crearCliente() {
-  const id = document.getElementById('cli-id').value.trim();
   const nombre = document.getElementById('cli-nombre').value.trim();
-  const { error } = await sb.from('clientes').insert({ id, nombre, estado:'ACTIVO' });
-  if (error) return showErr('clientes', error.message);
+  const razon_social = document.getElementById('cli-razon-social').value.trim();
+  const cuit = document.getElementById('cli-cuit').value.trim();
+  const direccion = document.getElementById('cli-direccion').value.trim();
+  const contacto = document.getElementById('cli-contacto').value.trim();
+  const estado = document.getElementById('cli-estado').value;
+  if (!nombre) return showErr('clientes', 'El nombre es obligatorio.');
+  const payload = { nombre, razon_social: razon_social||null, cuit: cuit||null, direccion: direccion||null, contacto: contacto||null, estado };
+  if (EDITANDO_CLI_ID) {
+    const { error } = await sb.from('clientes').update(payload).eq('id', EDITANDO_CLI_ID);
+    if (error) return showErr('clientes', error.message);
+  } else {
+    const id = 'CLI-' + Date.now();
+    const { error } = await sb.from('clientes').insert({ id, ...payload });
+    if (error) return showErr('clientes', error.message);
+  }
   location.reload();
+}
+
+function editarCliente(c) {
+  EDITANDO_CLI_ID = c.id;
+  document.getElementById('cli-nombre').value = c.nombre || '';
+  document.getElementById('cli-razon-social').value = c.razon_social || '';
+  document.getElementById('cli-cuit').value = c.cuit || '';
+  document.getElementById('cli-direccion').value = c.direccion || '';
+  document.getElementById('cli-contacto').value = c.contacto || '';
+  document.getElementById('cli-estado').value = c.estado || 'ACTIVO';
+  document.getElementById('clientes-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('clientes-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('clientes-form').style.display = 'block';
+  document.getElementById('clientes-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionCliente() {
+  EDITANDO_CLI_ID = null;
+  document.getElementById('clientes-btn-guardar').textContent = 'Guardar';
+  document.getElementById('clientes-btn-cancelar').style.display = 'none';
+  document.getElementById('clientes-form').style.display = 'none';
 }
 
 let EDITANDO_ACT_ID = null;

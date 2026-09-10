@@ -479,9 +479,9 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Fecha</label><input type="date" id="pre-fecha"></div>
       <div class="field"><label>N° (automático al guardar)</label><input value="—" disabled></div>
       <div class="field"><label>Cliente</label><select id="pre-cliente"><option value="">—</option></select></div>
-      <div class="field"><label>Proyecto</label><select id="pre-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Proyecto</label><input id="pre-proyecto" list="pre-proyecto-list" placeholder="Buscar existente o escribir uno nuevo..."><datalist id="pre-proyecto-list"></datalist></div>
       <div class="field"><label>Asunto</label><input id="pre-asunto" placeholder="TABIQUES, CALDERA..."></div>
-      <div class="field"><label>Unidad de negocio</label><input id="pre-unidad" placeholder="Obras, Termomecánica..."></div>
+      <div class="field"><label>Unidad de negocio</label><select id="pre-unidad"><option>Obras</option><option>Mantenimiento</option><option>Energía</option></select></div>
       <div class="field"><label>Destinatario — cargo</label><input id="pre-dest-cargo" placeholder="Arquitecto"></div>
       <div class="field"><label>Destinatario — nombre</label><input id="pre-dest-nombre"></div>
       <div class="field"><label>Destinatario — empresa / referencia</label><input id="pre-dest-empresa"></div>
@@ -1746,10 +1746,16 @@ function poblarSelectsClientesProyectos() {
     const el = document.getElementById(id);
     if (el) el.innerHTML = clienteOpts;
   });
-  ['mov-proyecto','pre-proyecto','fac-proyecto','oc-proyecto','act-proyecto','op-proyecto','chq-proyecto','chqr-proyecto'].forEach(id => {
+  ['mov-proyecto','fac-proyecto','oc-proyecto','act-proyecto','op-proyecto','chq-proyecto','chqr-proyecto'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = proyectoOpts;
   });
+  // Proyecto en Presupuestos es un combobox (input + datalist), no un select
+  // cerrado -- un presupuesto se cotiza a menudo antes de que el proyecto
+  // exista formalmente, así que hay que poder buscar uno existente o
+  // simplemente escribir un nombre nuevo.
+  const preProyectoList = document.getElementById('pre-proyecto-list');
+  if (preProyectoList) preProyectoList.innerHTML = (window.PROYECTOS||[]).map(p => `<option value="${p.nombre}">`).join('');
 }
 
 function poblarSelectsActivos(activos) {
@@ -2941,7 +2947,8 @@ async function editarPresupuesto(id) {
 
   document.getElementById('pre-fecha').value = new Date().toISOString().slice(0, 10);
   document.getElementById('pre-cliente').value = p.cliente_id || '';
-  document.getElementById('pre-proyecto').value = p.proyecto_id || '';
+  const proyectoVinculado = p.proyecto_id ? (window.PROYECTOS||[]).find(pr => pr.id === p.proyecto_id) : null;
+  document.getElementById('pre-proyecto').value = proyectoVinculado ? proyectoVinculado.nombre : (p.proyecto_texto || '');
   document.getElementById('pre-asunto').value = p.asunto || '';
   document.getElementById('pre-unidad').value = p.unidad_negocio || '';
   document.getElementById('pre-dest-cargo').value = p.destinatario_cargo || '';
@@ -2982,7 +2989,14 @@ async function guardarPresupuesto(estadoFinal) {
     return showErr('presupuestos', 'Como Ezequiel solo podés guardar presupuestos como Borrador.');
   }
   const cliente_id = document.getElementById('pre-cliente').value || null;
-  const proyecto_id = document.getElementById('pre-proyecto').value || null;
+  // Proyecto es un combobox: si el texto matchea el nombre de un proyecto ya
+  // cargado se usa ese id; si no, se guarda el texto tal cual para que
+  // aprobar_presupuesto() lo use como nombre al crear el proyecto nuevo
+  // recién al aprobar (nunca antes).
+  const proyectoTexto = document.getElementById('pre-proyecto').value.trim();
+  const proyectoExistente = (window.PROYECTOS||[]).find(p => p.nombre.toLowerCase() === proyectoTexto.toLowerCase());
+  const proyecto_id = proyectoExistente ? proyectoExistente.id : null;
+  const proyecto_texto = proyectoExistente ? null : (proyectoTexto || null);
   let totalVenta = 0, totalCosto = 0;
   RUBROS_BUILDER.forEach(r => r.items.forEach(it => {
     totalCosto += (Number(it.mo) + Number(it.mat)) * Number(it.cantidad);
@@ -2991,7 +3005,7 @@ async function guardarPresupuesto(estadoFinal) {
   const margen_pct = totalVenta > 0 ? Number((((totalVenta - totalCosto) / totalVenta) * 100).toFixed(1)) : null;
 
   const camposComunes = {
-    cliente_id, proyecto_id,
+    cliente_id, proyecto_id, proyecto_texto,
     unidad_negocio: document.getElementById('pre-unidad').value.trim() || null,
     asunto: document.getElementById('pre-asunto').value.trim() || null,
     destinatario_cargo: document.getElementById('pre-dest-cargo').value.trim() || null,

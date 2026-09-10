@@ -1481,6 +1481,23 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   document.getElementById('pre-kpi-rechazado').textContent = fmtMoney(preRechazado);
   const decididos = preAprobado + preRechazado;
   document.getElementById('pre-kpi-aceptacion').textContent = decididos > 0 ? Math.round(preAprobado / decididos * 100) + '%' : '—';
+  // Tier 1.2: codificacion automatica [N] - Presupuesto GS - Cliente - (Locacion) - Asunto.
+  // "Locacion" = Proyecto del cliente: se omite si el cliente tiene un solo
+  // Proyecto registrado (no hay ambiguedad posible), se incluye si tiene mas
+  // de uno (evita confundir presupuestos del mismo cliente en distintas obras).
+  const proyectosPorCliente = {};
+  Object.values(proyectoInfo).forEach(pr => { if (pr.cliente_id) (proyectosPorCliente[pr.cliente_id] = proyectosPorCliente[pr.cliente_id]||[]).push(pr); });
+  function codigoPresupuesto(p, cliTxt) {
+    const partes = [`N°${p.numero ?? '—'}`, 'Presupuesto GS', cliTxt];
+    const locaciones = p.cliente_id ? (proyectosPorCliente[p.cliente_id]||[]) : [];
+    if (locaciones.length > 1) {
+      const loc = p.proyecto_id ? (proyectoInfo[p.proyecto_id] ? proyectoInfo[p.proyecto_id].nombre : null) : (p.proyecto_texto || null);
+      if (loc) partes.push(loc);
+    }
+    if (p.asunto) partes.push(p.asunto);
+    return partes.join(' - ');
+  }
+  window.codigoPresupuesto = codigoPresupuesto;
   document.getElementById('tbl-presupuestos').innerHTML = (presupuestos||[]).map(p => {
     const cli = p.cliente_id ? (clienteNombre[p.cliente_id] || p.cliente_id) : '—';
     const margen = p.margen_pct !== null ? p.margen_pct + '%' : '—';
@@ -1498,7 +1515,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       : '—';
     const numeroTxt = (p.numero ?? '—') + ((p.version||1) > 1 ? ` <span class="tag muted" style="font-size:9px">v${p.version}</span>` : '');
     return `<tr>
-      <td>${numeroTxt}</td><td>${cli}</td><td>${p.asunto||p.unidad_negocio||'—'}</td>
+      <td>${numeroTxt}</td><td>${cli}</td><td>${codigoPresupuesto(p, cli)}</td>
       <td>${fmtMoney(p.monto_cotizado_neto)}</td><td>${margen}</td>
       <td>${costoRealTxt}</td>
       <td><span class="tag ${estadoTag[p.estado]||'muted'}">${p.estado}</span></td>
@@ -3176,7 +3193,7 @@ function generarHTMLDocumento(presu, rubros, firmante) {
         ${presu.destinatario_empresa ? `<div style="text-decoration:underline">${presu.destinatario_empresa}</div>` : (presu.clientes ? `<div style="text-decoration:underline">${presu.clientes.nombre}</div>` : '')}
       </div>
       <div class="ref">
-        <div><b>Ref.:</b> Presupuesto N&deg; ${presu.numero}</div>
+        <div><b>Ref.:</b> ${window.codigoPresupuesto ? window.codigoPresupuesto(presu, presu.clientes ? presu.clientes.nombre : '') : 'Presupuesto N° ' + presu.numero}</div>
         <div style="font-weight:700">${presu.asunto || ''}</div>
       </div>
     </div>

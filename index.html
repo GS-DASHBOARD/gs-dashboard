@@ -226,6 +226,7 @@ tr:hover td{background:var(--bg)}
     <div class="nav-section">Financiero</div>
     <button class="nav-item" onclick="nav(this,'movimientos')"><span class="nav-pip"></span>Movimientos</button>
     <button class="nav-item" onclick="nav(this,'cobros')"><span class="nav-pip"></span>Cobros</button>
+    <button class="nav-item" onclick="nav(this,'pagos')"><span class="nav-pip"></span>Pagos</button>
     <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Cheques</button>
     <button class="nav-item" onclick="nav(this,'gastos')"><span class="nav-pip"></span>Gastos fijos</button>
     <button class="nav-item" onclick="nav(this,'cashflow')"><span class="nav-pip"></span>Liquidez & Cash Flow</button>
@@ -595,6 +596,25 @@ tr:hover td{background:var(--bg)}
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Bruto</th><th>Retenciones</th><th>Neto</th><th>Medio</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-cobros"></tbody></table></div></div>
 </div>
 
+<!-- PAGOS -->
+<div class="page" id="page-pagos">
+  <div class="ph"><div><h1>Pagos</h1><p>Evento contable de pago contra una Factura Recibida — debita la Cuenta Corriente del proveedor al registrarse.</p></div></div>
+  <div class="row-actions" id="pagos-actions" style="display:none"><button class="btn" onclick="toggleForm('pagos')">+ Nuevo pago</button></div>
+  <div class="card" id="pagos-form" style="display:none">
+    <div id="pagos-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field" style="grid-column:1/-1"><label>Factura recibida</label><select id="pago-factura-compra"><option value="">—</option></select></div>
+      <div class="field"><label>Fecha</label><input type="date" id="pago-fecha"></div>
+      <div class="field"><label>Monto</label><input type="number" step="0.01" id="pago-monto"></div>
+      <div class="field"><label>Medio</label><select id="pago-medio"><option>Transferencia</option><option>Cheque</option></select></div>
+      <div class="field" style="grid-column:1/-1"><label>Concepto (opcional)</label><input id="pago-concepto"></div>
+    </div>
+    <button class="btn" id="pagos-btn-guardar" onclick="crearPago()">Guardar</button>
+    <button class="btn ghost" id="pagos-btn-cancelar" onclick="cancelarEdicionPago()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Monto</th><th>Medio</th><th>Estado</th><th>OP</th><th></th></tr></thead><tbody id="tbl-pagos"></tbody></table></div></div>
+</div>
+
 <!-- ACTIVOS -->
 <div class="page" id="page-activos">
   <div class="ph"><div><h1>Activos</h1><p>Inventario gestionado por GS</p></div></div>
@@ -779,7 +799,8 @@ tr:hover td{background:var(--bg)}
     <div id="op-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Proveedor</label><input id="op-proveedor" placeholder="Nombre del proveedor"></div>
-      <div class="field"><label>OC relacionada</label><select id="op-oc"><option value="">—</option></select></div>
+      <div class="field"><label>Factura de compra (obligatoria para aprobar)</label><select id="op-factura-compra"><option value="">—</option></select></div>
+      <div class="field"><label>OC relacionada (opcional)</label><select id="op-oc"><option value="">—</option></select></div>
       <div class="field"><label>Proyecto</label><select id="op-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Fecha</label><input type="date" id="op-fecha"></div>
       <div class="field"><label>Monto</label><input type="number" step="0.01" id="op-monto"></div>
@@ -885,6 +906,7 @@ const PUEDE_EDITAR = {
   tipos_retencion: r => r === 'gonzalo' || r === 'sebastian',
   facturas_compra: r => r === 'gonzalo' || r === 'sebastian',
   cobros: r => r === 'gonzalo' || r === 'sebastian',
+  pagos: r => r === 'gonzalo' || r === 'sebastian',
 };
 
 document.getElementById('hoy').textContent =
@@ -946,6 +968,7 @@ function aplicarPermisosUI() {
   document.getElementById('tipos-retencion-actions').style.display = PUEDE_EDITAR.tipos_retencion(ROL) ? 'flex' : 'none';
   document.getElementById('facturas-compra-actions').style.display = PUEDE_EDITAR.facturas_compra(ROL) ? 'flex' : 'none';
   document.getElementById('cobros-actions').style.display = PUEDE_EDITAR.cobros(ROL) ? 'flex' : 'none';
+  document.getElementById('pagos-actions').style.display = PUEDE_EDITAR.pagos(ROL) ? 'flex' : 'none';
 }
 
 (async function initAuth() {
@@ -1717,8 +1740,25 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${o.medio||'—'}</td>
       <td><span class="tag ${estadoOPTag[o.estado]||'muted'}">${o.estado}</span></td>
       <td>${o.oc_id ? `<button class="btn ghost" onclick="irAModulo('oc')">OC-${window.OC_NUMERO_POR_ID[o.oc_id] ?? ''}</button>` : '—'}</td>
-      <td>${puedeEditarOP ? `${o.estado!=='Pagada' ? `<button class="btn ghost" onclick="marcarOPPagada('${o.id}')">Marcar pagada</button> ` : ''}<button class="btn ghost" onclick="editarOP(window.OP_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOP('${o.id}')">✕</button>` : ''}</td>
+      <td>${puedeEditarOP ? `${o.estado!=='Pagada' ? (o.factura_compra_id ? `<button class="btn ghost" onclick="marcarOPPagada('${o.id}')">Marcar pagada</button> ` : `<span class="tag w" style="font-size:9px" title="Vinculá una Factura de compra para poder pagarla">Sin factura vinculada</span> `) : ''}<button class="btn ghost" onclick="editarOP(window.OP_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOP('${o.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de pago</td></tr>';
+
+  // Pagos
+  const { data: pagos } = await sb.from('pagos').select('*').order('fecha', {ascending:false});
+  window.PAGOS_CACHE = {}; (pagos||[]).forEach(p => window.PAGOS_CACHE[p.id] = p);
+  const estadoPagoTag = { Confirmado: 'ok', Revertido: 'd' };
+  document.getElementById('tbl-pagos').innerHTML = (pagos||[]).map(p => {
+    const fc = window.FACCOMPRA_CACHE[p.factura_compra_id];
+    return `<tr>
+      <td style="font-family:var(--mono)">${p.fecha||'—'}</td>
+      <td>${fc ? (fc.numero||fc.id) : '—'}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(p.monto))}</td>
+      <td>${p.medio||'—'}</td>
+      <td><span class="tag ${estadoPagoTag[p.estado]||'muted'}">${p.estado}</span></td>
+      <td>${p.op_id ? `<button class="btn ghost" onclick="irAModulo('op')">${p.op_id}</button>` : '—'}</td>
+      <td>—</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin pagos registrados</td></tr>';
 
   // Facturas Recibidas (facturas de compra)
   const { data: facsCompra } = await sb.from('facturas_compra').select('*, proveedores(nombre)').order('fecha_recepcion', {ascending:false});
@@ -1730,9 +1770,13 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="font-family:var(--mono)">${f.fecha_vencimiento||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(f.monto))}</td>
       <td><span class="tag ${estadoFacCompraTag[f.estado]||'muted'}">${f.estado}</span></td>
-      <td>${puedeEditarFacCompra ? `<button class="btn ghost" onclick="editarFacturaCompra(window.FACCOMPRA_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFacturaCompra('${f.id}')">✕</button>` : ''}</td>
+      <td>${puedeEditarFacCompra ? `${f.estado!=='Pagada' && f.estado!=='Anulada' ? `<button class="btn ghost" onclick="abrirPagoDesdeFacturaCompra('${f.id}')">Registrar pago</button> ` : ''}<button class="btn ghost" onclick="editarFacturaCompra(window.FACCOMPRA_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFacturaCompra('${f.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin facturas recibidas cargadas</td></tr>';
   const ocSelectFacCompra = document.getElementById('faccompra-oc'); if (ocSelectFacCompra) ocSelectFacCompra.innerHTML = ocOpts;
+  const facCompraOptsOP = '<option value="">—</option>' + (facsCompra||[])
+    .filter(f => f.estado !== 'Anulada')
+    .map(f => `<option value="${f.id}">${f.numero||f.id} · ${f.proveedores ? f.proveedores.nombre : ''} · ${fmtMoney(Number(f.monto))}</option>`).join('');
+  const facCompraSelectOP = document.getElementById('op-factura-compra'); if (facCompraSelectOP) facCompraSelectOP.innerHTML = facCompraOptsOP;
 
   // No conformidades
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});
@@ -2724,6 +2768,7 @@ let EDITANDO_OP_ID = null;
 
 async function crearOP() {
   const proveedorNombre = document.getElementById('op-proveedor').value.trim();
+  const factura_compra_id = document.getElementById('op-factura-compra').value || null;
   const oc_id = document.getElementById('op-oc').value || null;
   const proyecto_id = document.getElementById('op-proyecto').value || null;
   const fecha = document.getElementById('op-fecha').value || null;
@@ -2732,8 +2777,11 @@ async function crearOP() {
   const estado = document.getElementById('op-estado').value;
   const concepto = document.getElementById('op-concepto').value.trim();
   if (!proveedorNombre || !monto) return showErr('op', 'Proveedor y monto son obligatorios.');
+  if ((estado === 'Aprobada' || estado === 'Pagada') && !factura_compra_id) {
+    return showErr('op', 'Una OP no puede aprobarse ni pagarse sin una Factura de compra vinculada.');
+  }
   const proveedor_id = await obtenerOCrearProveedor(proveedorNombre);
-  const payload = { proveedor_id, oc_id, proyecto_id, fecha: fecha||undefined, monto, medio, estado, concepto: concepto||null };
+  const payload = { proveedor_id, factura_compra_id, oc_id, proyecto_id, fecha: fecha||undefined, monto, medio, estado, concepto: concepto||null };
   let opId;
   if (EDITANDO_OP_ID) {
     const { error } = await sb.from('ordenes_pago').update(payload).eq('id', EDITANDO_OP_ID);
@@ -2744,25 +2792,13 @@ async function crearOP() {
     const { error } = await sb.from('ordenes_pago').insert({ id: opId, ...payload });
     if (error) return showErr('op', error.message);
   }
-  if (medio === 'Cheque') await generarChequeDesdeOP(opId);
   location.reload();
-}
-
-async function generarChequeDesdeOP(opId) {
-  const { data: op } = await sb.from('ordenes_pago').select('*, proveedores(nombre)').eq('id', opId).single();
-  if (!op || op.cheque_id) return;
-  const chqId = 'CHQ-' + Date.now();
-  const { error: errChq } = await sb.from('cheques').insert({
-    id: chqId, beneficiario: op.proveedores ? op.proveedores.nombre : null, proveedor_id: op.proveedor_id,
-    proyecto_id: op.proyecto_id, fecha_pago: op.fecha, importe: op.monto, estado: 'Pendiente', concepto: op.concepto,
-  });
-  if (errChq) return;
-  await sb.from('ordenes_pago').update({ cheque_id: chqId }).eq('id', opId);
 }
 
 function editarOP(o) {
   EDITANDO_OP_ID = o.id;
   document.getElementById('op-proveedor').value = o.proveedores ? o.proveedores.nombre : '';
+  document.getElementById('op-factura-compra').value = o.factura_compra_id || '';
   document.getElementById('op-oc').value = o.oc_id || '';
   document.getElementById('op-proyecto').value = o.proyecto_id || '';
   document.getElementById('op-fecha').value = o.fecha || '';
@@ -2793,22 +2829,74 @@ async function eliminarOP(id) {
 async function marcarOPPagada(id) {
   const o = window.OP_CACHE[id];
   if (!o) return;
-  if (o.movimiento_id) {
-    const { error: errMov } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: new Date().toISOString().slice(0,10) }).eq('id', o.movimiento_id);
-    if (errMov) return alert('No se pudo actualizar el movimiento: ' + errMov.message);
-  } else {
-    const movId = 'MOV-' + Date.now();
-    const { error: errIns } = await sb.from('movimientos').insert({
-      id: movId, fecha: new Date().toISOString().slice(0,10), tipo: 'EGRESO', categoria: 'Pago a proveedor',
-      concepto: (o.concepto || 'Pago') + (o.proveedores ? ' - ' + o.proveedores.nombre : ''),
-      medio: o.medio, monto: o.monto, estado: 'CANCELADO', fuente: 'Portal GS OS',
-    });
-    if (errIns) return alert('No se pudo crear el movimiento: ' + errIns.message);
-    await sb.from('ordenes_pago').update({ movimiento_id: movId }).eq('id', id);
+  if (!o.factura_compra_id) return alert('Esta OP no tiene una Factura de compra vinculada -- no se puede pagar.');
+  const { data: pagoExistente } = await sb.from('pagos').select('id').eq('op_id', id).maybeSingle();
+  if (!pagoExistente) {
+    const { error } = await registrarPago(o.factura_compra_id, o.monto, o.medio, new Date().toISOString().slice(0,10), id, o.concepto);
+    if (error) return alert('No se pudo registrar el pago: ' + error.message);
   }
   const { error } = await sb.from('ordenes_pago').update({ estado: 'Pagada' }).eq('id', id);
   if (error) return alert('No se pudo actualizar la OP: ' + error.message);
   location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// PAGOS — evento contable de pago contra una Factura de compra. Reemplaza
+// a la vieja generarChequeDesdeOP()+marcarOPPagada() escribiendo movimientos
+// directo. Fase 4 del modulo financiero: mata el bug real de produccion
+// donde una OP con medio Cheque generaba un Cheque Y, por separado, un
+// Movimiento, sin ningun vinculo entre ambos (doble conteo en la
+// proyeccion de caja a 45 dias). Ahora el Cheque nace SIEMPRE desde un
+// Pago, nunca directo de una OP.
+// ═══════════════════════════════════════════════
+async function registrarPago(facturaCompraId, monto, medio, fecha, opId, concepto) {
+  const fc = window.FACCOMPRA_CACHE ? window.FACCOMPRA_CACHE[facturaCompraId] : null;
+  const id = 'PAGO-' + Date.now();
+  const { error } = await sb.from('pagos').insert({
+    id, factura_compra_id: facturaCompraId, fecha, monto, medio, op_id: opId || null, concepto: concepto || null,
+  });
+  if (error) return { error };
+  if (medio === 'Transferencia') {
+    const movId = 'MOV-' + Date.now();
+    const { error: errMov } = await sb.from('movimientos').insert({
+      id: movId, fecha, tipo: 'EGRESO', categoria: 'Pago a proveedor', proyecto_id: fc ? fc.proyecto_id : null,
+      concepto: 'Pago factura ' + (fc ? (fc.numero || fc.id) : ''), monto, estado: 'CANCELADO', fuente: 'Portal GS OS',
+    });
+    if (!errMov) await sb.from('pagos').update({ movimiento_id: movId }).eq('id', id);
+  } else if (medio === 'Cheque') {
+    const chqId = 'CHQ-' + Date.now();
+    const proveedorNombre = fc && fc.proveedores ? fc.proveedores.nombre : null;
+    const { error: errChq } = await sb.from('cheques').insert({
+      id: chqId, beneficiario: proveedorNombre, proveedor_id: fc ? fc.proveedor_id : null,
+      proyecto_id: fc ? fc.proyecto_id : null, fecha_pago: fecha, importe: monto, estado: 'Emitido',
+      concepto: 'Pago factura ' + (fc ? (fc.numero || fc.id) : ''), pago_id: id,
+    });
+    if (!errChq) await sb.from('pagos').update({ cheque_id: chqId }).eq('id', id);
+  }
+  return { id };
+}
+
+async function crearPago() {
+  const factura_compra_id = document.getElementById('pago-factura-compra').value;
+  const monto = Number(document.getElementById('pago-monto').value);
+  const medio = document.getElementById('pago-medio').value;
+  const fecha = document.getElementById('pago-fecha').value || new Date().toISOString().slice(0,10);
+  const concepto = document.getElementById('pago-concepto').value.trim();
+  if (!factura_compra_id || !monto) return showErr('pagos', 'Factura de compra y monto son obligatorios.');
+  const { error } = await registrarPago(factura_compra_id, monto, medio, fecha, null, concepto || null);
+  if (error) return showErr('pagos', error.message);
+  location.reload();
+}
+
+function abrirPagoDesdeFacturaCompra(facturaCompraId) {
+  irAModulo('pagos');
+  document.getElementById('pagos-form').style.display = 'block';
+  document.getElementById('pago-factura-compra').value = facturaCompraId;
+  document.getElementById('pago-fecha').value = new Date().toISOString().slice(0,10);
+}
+
+function cancelarEdicionPago() {
+  document.getElementById('pagos-form').style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════

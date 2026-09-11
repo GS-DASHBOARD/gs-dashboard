@@ -236,6 +236,7 @@ tr:hover td{background:var(--bg)}
     <div class="nav-section">Compras</div>
     <button class="nav-item" onclick="nav(this,'oc')"><span class="nav-pip"></span>Órdenes de Compra</button>
     <button class="nav-item" onclick="nav(this,'op')"><span class="nav-pip"></span>Órdenes de Pago</button>
+    <button class="nav-item" onclick="nav(this,'facturas-compra')"><span class="nav-pip"></span>Facturas Recibidas</button>
     <div class="nav-section">Activos y Mantenimiento</div>
     <button class="nav-item" onclick="nav(this,'activos')"><span class="nav-pip"></span>Activos</button>
     <button class="nav-item" onclick="nav(this,'mtto')"><span class="nav-pip"></span>Planes de Mantenimiento</button>
@@ -761,6 +762,30 @@ tr:hover td{background:var(--bg)}
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Concepto</th><th>Monto</th><th>Medio</th><th>Estado</th><th>OC</th><th></th></tr></thead><tbody id="tbl-op"></tbody></table></div></div>
 </div>
 
+<!-- FACTURAS RECIBIDAS (facturas de compra) -->
+<div class="page" id="page-facturas-compra">
+  <div class="ph"><div><h1>Facturas Recibidas</h1><p>Devengado del lado de Compras — espejo de Facturas Emitidas. La OC es respaldo opcional, no un paso obligatorio previo.</p></div></div>
+  <div class="row-actions" id="facturas-compra-actions" style="display:none"><button class="btn" onclick="toggleForm('facturas-compra')">+ Nueva factura recibida</button></div>
+  <div class="card" id="facturas-compra-form" style="display:none">
+    <div id="facturas-compra-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Proveedor</label><input id="faccompra-proveedor" placeholder="Nombre del proveedor"></div>
+      <div class="field"><label>Proyecto</label><select id="faccompra-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>OC relacionada (opcional)</label><select id="faccompra-oc"><option value="">—</option></select></div>
+      <div class="field"><label>N° de comprobante</label><input id="faccompra-numero"></div>
+      <div class="field"><label>Tipo de comprobante</label><select id="faccompra-tipo-comprobante"><option value="">—</option><option>A</option><option>B</option><option>C</option></select></div>
+      <div class="field"><label>Fecha de recepción</label><input type="date" id="faccompra-fecha-recepcion"></div>
+      <div class="field"><label>Fecha de vencimiento</label><input type="date" id="faccompra-fecha-vencimiento"></div>
+      <div class="field"><label>Monto</label><input type="number" step="0.01" id="faccompra-monto"></div>
+      <div class="field"><label>Estado</label><select id="faccompra-estado"><option>Recibida</option><option>Pagada</option><option>Vencida</option><option>Anulada</option></select></div>
+      <div class="field" style="grid-column:1/-1"><label>Concepto</label><input id="faccompra-concepto"></div>
+    </div>
+    <button class="btn" id="facturas-compra-btn-guardar" onclick="crearFacturaCompra()">Guardar</button>
+    <button class="btn ghost" id="facturas-compra-btn-cancelar" onclick="cancelarEdicionFacturaCompra()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Tipo</th><th>Proveedor</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-facturas-compra"></tbody></table></div></div>
+</div>
+
 <!-- CALIDAD -->
 <div class="page" id="page-calidad">
   <div class="ph"><div><h1>No <span>Conformidades</span></h1><p>Registro para el proceso de certificación ISO 9001</p></div></div>
@@ -827,6 +852,7 @@ const PUEDE_EDITAR = {
   ordenes_pago: r => r === 'gonzalo' || r === 'sebastian',
   proveedores: r => r === 'gonzalo' || r === 'sebastian',
   tipos_retencion: r => r === 'gonzalo' || r === 'sebastian',
+  facturas_compra: r => r === 'gonzalo' || r === 'sebastian',
 };
 
 document.getElementById('hoy').textContent =
@@ -886,6 +912,7 @@ function aplicarPermisosUI() {
   document.getElementById('op-actions').style.display = PUEDE_EDITAR.ordenes_pago(ROL) ? 'flex' : 'none';
   document.getElementById('proveedores-actions').style.display = PUEDE_EDITAR.proveedores(ROL) ? 'flex' : 'none';
   document.getElementById('tipos-retencion-actions').style.display = PUEDE_EDITAR.tipos_retencion(ROL) ? 'flex' : 'none';
+  document.getElementById('facturas-compra-actions').style.display = PUEDE_EDITAR.facturas_compra(ROL) ? 'flex' : 'none';
 }
 
 (async function initAuth() {
@@ -1660,6 +1687,20 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarOP ? `${o.estado!=='Pagada' ? `<button class="btn ghost" onclick="marcarOPPagada('${o.id}')">Marcar pagada</button> ` : ''}<button class="btn ghost" onclick="editarOP(window.OP_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOP('${o.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de pago</td></tr>';
 
+  // Facturas Recibidas (facturas de compra)
+  const { data: facsCompra } = await sb.from('facturas_compra').select('*, proveedores(nombre)').order('fecha_recepcion', {ascending:false});
+  window.FACCOMPRA_CACHE = {}; (facsCompra||[]).forEach(f => window.FACCOMPRA_CACHE[f.id] = f);
+  const puedeEditarFacCompra = PUEDE_EDITAR.facturas_compra(ROL);
+  const estadoFacCompraTag = { Recibida:'w', Pagada:'ok', Vencida:'d', Anulada:'muted' };
+  document.getElementById('tbl-facturas-compra').innerHTML = (facsCompra||[]).map(f => `<tr>
+      <td>${f.numero||'—'}</td><td>${f.tipo_comprobante||'—'}</td><td>${f.proveedores ? f.proveedores.nombre : '—'}</td>
+      <td style="font-family:var(--mono)">${f.fecha_vencimiento||'—'}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(f.monto))}</td>
+      <td><span class="tag ${estadoFacCompraTag[f.estado]||'muted'}">${f.estado}</span></td>
+      <td>${puedeEditarFacCompra ? `<button class="btn ghost" onclick="editarFacturaCompra(window.FACCOMPRA_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFacturaCompra('${f.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin facturas recibidas cargadas</td></tr>';
+  const ocSelectFacCompra = document.getElementById('faccompra-oc'); if (ocSelectFacCompra) ocSelectFacCompra.innerHTML = ocOpts;
+
   // No conformidades
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});
   if (ncs && ncs.length > 0) {
@@ -1799,7 +1840,7 @@ function poblarSelectsClientesProyectos() {
     const el = document.getElementById(id);
     if (el) el.innerHTML = clienteOpts;
   });
-  ['mov-proyecto','fac-proyecto','oc-proyecto','act-proyecto','op-proyecto','chq-proyecto','chqr-proyecto'].forEach(id => {
+  ['mov-proyecto','fac-proyecto','oc-proyecto','act-proyecto','op-proyecto','chq-proyecto','chqr-proyecto','faccompra-proyecto'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = proyectoOpts;
   });
@@ -2709,6 +2750,73 @@ async function marcarOPPagada(id) {
   }
   const { error } = await sb.from('ordenes_pago').update({ estado: 'Pagada' }).eq('id', id);
   if (error) return alert('No se pudo actualizar la OP: ' + error.message);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// FACTURAS RECIBIDAS (facturas de compra) — devengado de Compras.
+// Fase 2 del modulo financiero: CRUD puro, todavia no genera Pagos ni
+// Movimientos ni toca Cuenta Corriente (eso llega en fases posteriores).
+// ═══════════════════════════════════════════════
+let EDITANDO_FACCOMPRA_ID = null;
+
+async function crearFacturaCompra() {
+  const proveedorNombre = document.getElementById('faccompra-proveedor').value.trim();
+  const proyecto_id = document.getElementById('faccompra-proyecto').value || null;
+  const oc_id = document.getElementById('faccompra-oc').value || null;
+  const numero = document.getElementById('faccompra-numero').value.trim();
+  const tipo_comprobante = document.getElementById('faccompra-tipo-comprobante').value || null;
+  const fecha_recepcion = document.getElementById('faccompra-fecha-recepcion').value || undefined;
+  const fecha_vencimiento = document.getElementById('faccompra-fecha-vencimiento').value || null;
+  const monto = Number(document.getElementById('faccompra-monto').value);
+  const estado = document.getElementById('faccompra-estado').value;
+  const concepto = document.getElementById('faccompra-concepto').value.trim();
+  if (!proveedorNombre || !monto) return showErr('facturas-compra', 'Proveedor y monto son obligatorios.');
+  const proveedor_id = await obtenerOCrearProveedor(proveedorNombre);
+  const payload = {
+    proveedor_id, proyecto_id, oc_id, numero: numero || null, tipo_comprobante,
+    fecha_recepcion, fecha_vencimiento, monto, estado, concepto: concepto || null,
+  };
+  if (EDITANDO_FACCOMPRA_ID) {
+    const { error } = await sb.from('facturas_compra').update(payload).eq('id', EDITANDO_FACCOMPRA_ID);
+    if (error) return showErr('facturas-compra', error.message);
+  } else {
+    const id = 'FACCOMPRA-' + Date.now();
+    const { error } = await sb.from('facturas_compra').insert({ id, ...payload });
+    if (error) return showErr('facturas-compra', error.message);
+  }
+  location.reload();
+}
+
+function editarFacturaCompra(f) {
+  EDITANDO_FACCOMPRA_ID = f.id;
+  document.getElementById('faccompra-proveedor').value = f.proveedores ? f.proveedores.nombre : '';
+  document.getElementById('faccompra-proyecto').value = f.proyecto_id || '';
+  document.getElementById('faccompra-oc').value = f.oc_id || '';
+  document.getElementById('faccompra-numero').value = f.numero || '';
+  document.getElementById('faccompra-tipo-comprobante').value = f.tipo_comprobante || '';
+  document.getElementById('faccompra-fecha-recepcion').value = f.fecha_recepcion || '';
+  document.getElementById('faccompra-fecha-vencimiento').value = f.fecha_vencimiento || '';
+  document.getElementById('faccompra-monto').value = f.monto || '';
+  document.getElementById('faccompra-estado').value = f.estado || 'Recibida';
+  document.getElementById('faccompra-concepto').value = f.concepto || '';
+  document.getElementById('facturas-compra-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('facturas-compra-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('facturas-compra-form').style.display = 'block';
+  document.getElementById('facturas-compra-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionFacturaCompra() {
+  EDITANDO_FACCOMPRA_ID = null;
+  document.getElementById('facturas-compra-btn-guardar').textContent = 'Guardar';
+  document.getElementById('facturas-compra-btn-cancelar').style.display = 'none';
+  document.getElementById('facturas-compra-form').style.display = 'none';
+}
+
+async function eliminarFacturaCompra(id) {
+  if (!confirm('¿Eliminar esta factura recibida? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('facturas_compra').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
   location.reload();
 }
 

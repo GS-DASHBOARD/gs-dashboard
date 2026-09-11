@@ -232,6 +232,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'cashflow')"><span class="nav-pip"></span>Liquidez & Cash Flow</button>
     <button class="nav-item" onclick="nav(this,'rigidez')"><span class="nav-pip"></span>Rigidez de estructura</button>
     <button class="nav-item" onclick="nav(this,'cobranzas')"><span class="nav-pip"></span>Cobranzas & DSO</button>
+    <button class="nav-item" onclick="nav(this,'cuenta-corriente')"><span class="nav-pip"></span>Cuenta Corriente</button>
     <div class="nav-section">Comercial</div>
     <button class="nav-item" onclick="nav(this,'presupuestos')"><span class="nav-pip"></span>Presupuestos</button>
     <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
@@ -557,7 +558,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Fecha de emisión</label><input type="date" id="fac-emision"></div>
       <div class="field"><label>Fecha de vencimiento</label><input type="date" id="fac-vencimiento"></div>
       <div class="field"><label>Monto</label><input type="number" step="0.01" id="fac-monto"></div>
-      <div class="field"><label>Estado</label><select id="fac-estado"><option>Pendiente de emitir</option><option>Emitida</option><option>Cobrada</option><option>Vencida</option><option>Anulada</option></select></div>
+      <div class="field"><label>Estado (calculado, no editable)</label><input id="fac-estado" readonly style="background:var(--s2);color:var(--muted)"></div>
       <div class="field"><label>Concepto</label><input id="fac-concepto"></div>
     </div>
     <button class="btn" id="fac-btn-guardar" onclick="crearFactura()">Guardar</button>
@@ -593,7 +594,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="cobros-btn-guardar" onclick="crearCobro()" style="margin-top:12px">Guardar</button>
     <button class="btn ghost" id="cobros-btn-cancelar" onclick="cancelarEdicionCobro()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Bruto</th><th>Retenciones</th><th>Neto</th><th>Medio</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-cobros"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Bruto</th><th>Retenciones</th><th>Neto</th><th>Medio</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-cobros-registrados"></tbody></table></div></div>
 </div>
 
 <!-- PAGOS -->
@@ -613,6 +614,17 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="pagos-btn-cancelar" onclick="cancelarEdicionPago()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Monto</th><th>Medio</th><th>Estado</th><th>OP</th><th></th></tr></thead><tbody id="tbl-pagos"></tbody></table></div></div>
+</div>
+
+<!-- CUENTA CORRIENTE (solo lectura, calculada) -->
+<div class="page" id="page-cuenta-corriente">
+  <div class="ph"><div><h1>Cuenta <span>Corriente</span></h1><p>Saldo calculado — Facturas emitidas/recibidas menos Cobros/Pagos confirmados. No editable a mano.</p></div></div>
+  <div class="card"><div class="card-ttl">Clientes</div><div class="card-sub">saldo positivo = el cliente nos debe</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Total facturado</th><th>Cobrado neto</th><th>Saldo</th></tr></thead><tbody id="tbl-cuenta-corriente-cliente"></tbody></table></div>
+  </div>
+  <div class="card"><div class="card-ttl">Proveedores</div><div class="card-sub">saldo positivo = le debemos al proveedor</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Proveedor</th><th>Total facturado</th><th>Pagado</th><th>Saldo</th></tr></thead><tbody id="tbl-cuenta-corriente-proveedor"></tbody></table></div>
+  </div>
 </div>
 
 <!-- ACTIVOS -->
@@ -1783,6 +1795,27 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin pagos registrados</td></tr>';
 
+  // Cuenta Corriente (fase 6, vistas calculadas -- solo lectura)
+  const { data: ccCliente } = await sb.from('cuenta_corriente_cliente').select('*').order('nombre');
+  document.getElementById('tbl-cuenta-corriente-cliente').innerHTML = (ccCliente||[])
+    .filter(c => Number(c.total_facturado) !== 0)
+    .map(c => `<tr>
+      <td>${c.nombre}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(c.total_facturado))}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(c.total_cobrado_neto))}</td>
+      <td style="font-family:var(--mono);font-weight:700">${fmtMoney(Number(c.saldo))}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
+
+  const { data: ccProveedor } = await sb.from('cuenta_corriente_proveedor').select('*').order('nombre');
+  document.getElementById('tbl-cuenta-corriente-proveedor').innerHTML = (ccProveedor||[])
+    .filter(p => Number(p.total_facturado) !== 0)
+    .map(p => `<tr>
+      <td>${p.nombre}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(p.total_facturado))}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(p.total_pagado))}</td>
+      <td style="font-family:var(--mono);font-weight:700">${fmtMoney(Number(p.saldo))}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
+
   // No conformidades
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});
   if (ncs && ncs.length > 0) {
@@ -1888,7 +1921,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="font-family:var(--mono)">${f.fecha_vencimiento||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(f.monto))}</td>
       <td><span class="tag ${estadoFacTag[f.estado]||'muted'}">${f.estado}</span></td>
-      <td>${puedeEditarFac ? `${f.estado==='Pendiente de emitir' ? `<button class="btn" onclick="registrarEmisionFactura(window.FACS_CACHE['${f.id}'])">Registrar emisión</button> ` : ''}${f.estado!=='Cobrada' && f.estado!=='Pendiente de emitir' && f.estado!=='Anulada' ? `<button class="btn ghost" onclick="abrirCobroDesdeFactura('${f.id}')">Registrar cobro</button> ` : ''}<button class="btn ghost" onclick="editarFactura(window.FACS_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFactura('${f.id}')">✕</button>` : ''}</td>
+      <td>${puedeEditarFac ? `${f.estado==='Pendiente de emitir' ? `<button class="btn" onclick="registrarEmisionFactura('${f.id}')">Registrar emisión</button> ` : ''}${f.estado!=='Cobrada' && f.estado!=='Pendiente de emitir' && f.estado!=='Anulada' ? `<button class="btn ghost" onclick="abrirCobroDesdeFactura('${f.id}')">Registrar cobro</button> ` : ''}${f.estado!=='Anulada' && f.estado!=='Cobrada' ? `<button class="btn ghost" onclick="anularFactura('${f.id}')">Anular</button> ` : ''}<button class="btn ghost" onclick="editarFactura(window.FACS_CACHE['${f.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarFactura('${f.id}')">✕</button>` : ''}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin facturas</td></tr>';
   const facOptsCobro = '<option value="">—</option>' + (facturas||[])
@@ -1900,7 +1933,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   const { data: cobros } = await sb.from('cobros').select('*, cobro_retenciones(monto, tipos_retencion(nombre))').order('fecha', {ascending:false});
   window.COBROS_CACHE = {}; (cobros||[]).forEach(c => window.COBROS_CACHE[c.id] = c);
   const estadoCobroTag = { Confirmado: 'ok', Revertido: 'd' };
-  document.getElementById('tbl-cobros').innerHTML = (cobros||[]).map(c => {
+  document.getElementById('tbl-cobros-registrados').innerHTML = (cobros||[]).map(c => {
     const f = window.FACS_CACHE[c.factura_id];
     const retTxt = (c.cobro_retenciones||[]).length
       ? (c.cobro_retenciones||[]).map(r => `${r.tipos_retencion ? r.tipos_retencion.nombre : '—'} ${fmtMoney(Number(r.monto))}`).join(', ')
@@ -3651,10 +3684,12 @@ async function crearFactura() {
   const fecha_emision = document.getElementById('fac-emision').value || null;
   const fecha_vencimiento = document.getElementById('fac-vencimiento').value || null;
   const monto = Number(document.getElementById('fac-monto').value);
-  const estado = document.getElementById('fac-estado').value;
   const concepto = document.getElementById('fac-concepto').value.trim();
   if (!monto) return showErr('facturas', 'El monto es obligatorio.');
-  const payload = { numero: numero||null, tipo_comprobante, cliente_id, proyecto_id, fecha_emision: fecha_emision||undefined, fecha_vencimiento, monto, estado, concepto: concepto||null };
+  // Fase 6: el estado ya no se envia desde acá -- se deriva solo del saldo
+  // pendiente (trigger sobre cobros) o se cambia con acciones dedicadas
+  // (registrarEmisionFactura/anularFactura), nunca desde este form general.
+  const payload = { numero: numero||null, tipo_comprobante, cliente_id, proyecto_id, fecha_emision: fecha_emision||undefined, fecha_vencimiento, monto, concepto: concepto||null };
   if (EDITANDO_FAC_ID) {
     const { error } = await sb.from('facturas').update(payload).eq('id', EDITANDO_FAC_ID);
     if (error) return showErr('facturas', error.message);
@@ -3683,11 +3718,18 @@ function editarFactura(f) {
   document.getElementById('facturas-form').scrollIntoView({ behavior: 'smooth' });
 }
 
-function registrarEmisionFactura(f) {
-  editarFactura(f);
-  document.getElementById('fac-estado').value = 'Emitida';
-  document.getElementById('fac-emision').value = new Date().toISOString().slice(0,10);
-  document.getElementById('fac-btn-guardar').textContent = 'Registrar emisión';
+async function registrarEmisionFactura(id) {
+  if (!confirm('¿Registrar la emisión de esta factura? Pasa de "Pendiente de emitir" a "Emitida" con fecha de hoy.')) return;
+  const { error } = await sb.from('facturas').update({ estado: 'Emitida', fecha_emision: new Date().toISOString().slice(0,10) }).eq('id', id);
+  if (error) return alert('No se pudo registrar la emisión: ' + error.message);
+  location.reload();
+}
+
+async function anularFactura(id) {
+  if (!confirm('¿Anular esta factura? No se puede deshacer desde acá -- quedaría excluida de la Cuenta Corriente y de la proyección de caja.')) return;
+  const { error } = await sb.from('facturas').update({ estado: 'Anulada' }).eq('id', id);
+  if (error) return alert('No se pudo anular: ' + error.message);
+  location.reload();
 }
 
 function cancelarEdicionFactura() {

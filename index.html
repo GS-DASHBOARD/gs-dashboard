@@ -1764,6 +1764,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     .filter(f => f.estado !== 'Anulada')
     .map(f => `<option value="${f.id}">${f.numero||f.id} · ${f.proveedores ? f.proveedores.nombre : ''} · ${fmtMoney(Number(f.monto))}</option>`).join('');
   const facCompraSelectOP = document.getElementById('op-factura-compra'); if (facCompraSelectOP) facCompraSelectOP.innerHTML = facCompraOptsOP;
+  const facCompraSelectPago = document.getElementById('pago-factura-compra'); if (facCompraSelectPago) facCompraSelectPago.innerHTML = facCompraOptsOP;
 
   // Pagos
   const { data: pagos } = await sb.from('pagos').select('*').order('fecha', {ascending:false});

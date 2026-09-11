@@ -234,6 +234,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'cobranzas')"><span class="nav-pip"></span>Cobranzas & DSO</button>
     <button class="nav-item" onclick="nav(this,'cuenta-corriente')"><span class="nav-pip"></span>Cuenta Corriente</button>
     <button class="nav-item" onclick="nav(this,'antiguedad')"><span class="nav-pip"></span>Antigüedad & Retenciones</button>
+    <button class="nav-item" onclick="nav(this,'cierre-periodo')"><span class="nav-pip"></span>Cierre de Período</button>
     <div class="nav-section">Comercial</div>
     <button class="nav-item" onclick="nav(this,'presupuestos')"><span class="nav-pip"></span>Presupuestos</button>
     <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
@@ -642,6 +643,19 @@ tr:hover td{background:var(--bg)}
   </div>
 </div>
 
+<!-- CIERRE DE PERÍODO -->
+<div class="page" id="page-cierre-periodo">
+  <div class="ph"><div><h1>Cierre de <span>Período</span></h1><p>Una vez cerrado un mes, sus movimientos bancarios quedan bloqueados para editar o eliminar hasta reabrirlo.</p></div></div>
+  <div class="card" id="cierre-periodo-actions" style="display:none">
+    <div id="cierre-periodo-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Mes a cerrar</label><input type="month" id="cierre-mes"></div>
+    </div>
+    <button class="btn" onclick="cerrarPeriodo()">Cerrar período</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Período</th><th>Cerrado por</th><th>Fecha de cierre</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-cierres-periodo"></tbody></table></div></div>
+</div>
+
 <!-- ACTIVOS -->
 <div class="page" id="page-activos">
   <div class="ph"><div><h1>Activos</h1><p>Inventario gestionado por GS</p></div></div>
@@ -934,6 +948,7 @@ const PUEDE_EDITAR = {
   facturas_compra: r => r === 'gonzalo' || r === 'sebastian',
   cobros: r => r === 'gonzalo' || r === 'sebastian',
   pagos: r => r === 'gonzalo' || r === 'sebastian',
+  cierres_periodo: r => r === 'gonzalo' || r === 'sebastian',
 };
 
 document.getElementById('hoy').textContent =
@@ -996,6 +1011,7 @@ function aplicarPermisosUI() {
   document.getElementById('facturas-compra-actions').style.display = PUEDE_EDITAR.facturas_compra(ROL) ? 'flex' : 'none';
   document.getElementById('cobros-actions').style.display = PUEDE_EDITAR.cobros(ROL) ? 'flex' : 'none';
   document.getElementById('pagos-actions').style.display = PUEDE_EDITAR.pagos(ROL) ? 'flex' : 'none';
+  document.getElementById('cierre-periodo-actions').style.display = PUEDE_EDITAR.cierres_periodo(ROL) ? '' : 'none';
 }
 
 (async function initAuth() {
@@ -1940,6 +1956,17 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${r.cantidad}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(r.monto_total))}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin retenciones registradas</td></tr>';
+
+  // Fase 10: cierre de periodo
+  const { data: cierres } = await sb.from('cierres_periodo').select('*').order('periodo', { ascending: false });
+  const puedeEditarCierre = PUEDE_EDITAR.cierres_periodo(ROL);
+  document.getElementById('tbl-cierres-periodo').innerHTML = (cierres||[]).map(c => `<tr>
+      <td>${new Date(c.periodo+'T00:00:00').toLocaleDateString('es-AR',{month:'long',year:'numeric'})}</td>
+      <td>${c.cerrado_por||'—'}</td>
+      <td>${c.fecha_cierre ? new Date(c.fecha_cierre).toLocaleDateString('es-AR') : '—'}</td>
+      <td><span class="tag ${c.reabierto?'w':'ok'}">${c.reabierto?'Reabierto':'Cerrado'}</span></td>
+      <td>${puedeEditarCierre && !c.reabierto ? `<button class="btn ghost" onclick="reabrirPeriodo('${c.id}')">Reabrir</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin períodos cerrados</td></tr>';
 
   // No conformidades
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});
@@ -3110,6 +3137,32 @@ function abrirPagoDesdeFacturaCompra(facturaCompraId) {
 
 function cancelarEdicionPago() {
   document.getElementById('pagos-form').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// CIERRE DE PERÍODO (fase 10). Bloquea UPDATE/DELETE de movimientos del
+// mes cerrado (trg_bloquear_movimiento_cerrado) -- reabrir nunca borra el
+// registro del cierre, solo lo marca reabierto=true para dejar historia.
+// ═══════════════════════════════════════════════
+async function cerrarPeriodo() {
+  const mes = document.getElementById('cierre-mes').value;
+  if (!mes) return showErr('cierre-periodo', 'Elegí un mes.');
+  const periodo = mes + '-01';
+  const { data: existente } = await sb.from('cierres_periodo').select('*').eq('periodo', periodo).maybeSingle();
+  if (existente && !existente.reabierto) return showErr('cierre-periodo', 'Ese período ya está cerrado.');
+  const payload = { cerrado_por: ROL, fecha_cierre: new Date().toISOString(), reabierto: false };
+  const { error } = existente
+    ? await sb.from('cierres_periodo').update(payload).eq('id', existente.id)
+    : await sb.from('cierres_periodo').insert({ id: 'CIERRE-' + Date.now(), periodo, ...payload });
+  if (error) return showErr('cierre-periodo', error.message);
+  location.reload();
+}
+
+async function reabrirPeriodo(id) {
+  if (!confirm('¿Reabrir este período? Sus movimientos vuelven a ser editables.')) return;
+  const { error } = await sb.from('cierres_periodo').update({ reabierto: true, reabierto_por: ROL, fecha_reapertura: new Date().toISOString() }).eq('id', id);
+  if (error) return alert('No se pudo reabrir: ' + error.message);
+  location.reload();
 }
 
 // ═══════════════════════════════════════════════

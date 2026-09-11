@@ -246,6 +246,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
     <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
     <button class="nav-item" onclick="nav(this,'proveedores')"><span class="nav-pip"></span>Proveedores</button>
+    <button class="nav-item" onclick="nav(this,'tipos-retencion')"><span class="nav-pip"></span>Tipos de Retención</button>
   </nav>
   <div class="sidebar-bottom">
     <div class="status-row">
@@ -422,6 +423,24 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="proveedores-btn-cancelar" onclick="cancelarEdicionProveedor()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>CUIT</th><th>Rubro</th><th></th></tr></thead><tbody id="tbl-proveedores"></tbody></table></div></div>
+</div>
+
+<!-- TIPOS DE RETENCION -->
+<div class="page" id="page-tipos-retencion">
+  <div class="ph"><div><h1>Tipos de Retención</h1><p>Catálogo configurable — usado por Cobros para descontar retenciones (IIBB, Ganancias, IVA, SUSS, etc.)</p></div></div>
+  <div class="row-actions" id="tipos-retencion-actions" style="display:none"><button class="btn" onclick="toggleForm('tipos-retencion')">+ Nuevo tipo</button></div>
+  <div class="card" id="tipos-retencion-form" style="display:none">
+    <div id="tipos-retencion-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Nombre</label><input id="tret-nombre"></div>
+      <div class="field"><label>% sugerido</label><input type="number" step="0.01" id="tret-porcentaje"></div>
+      <div class="field"><label>Aplica a</label><select id="tret-aplica-a"><option value="cobro">Cobro</option><option value="pago">Pago</option><option value="ambos">Ambos</option></select></div>
+      <div class="field"><label>Activo</label><select id="tret-activo"><option value="true">Sí</option><option value="false">No</option></select></div>
+    </div>
+    <button class="btn" id="tipos-retencion-btn-guardar" onclick="crearTipoRetencion()">Guardar</button>
+    <button class="btn ghost" id="tipos-retencion-btn-cancelar" onclick="cancelarEdicionTipoRetencion()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>% sugerido</th><th>Aplica a</th><th>Activo</th><th></th></tr></thead><tbody id="tbl-tipos-retencion"></tbody></table></div></div>
 </div>
 
 <!-- MOVIMIENTOS -->
@@ -807,6 +826,7 @@ const PUEDE_EDITAR = {
   ordenes_compra: r => r === 'gonzalo' || r === 'sebastian',
   ordenes_pago: r => r === 'gonzalo' || r === 'sebastian',
   proveedores: r => r === 'gonzalo' || r === 'sebastian',
+  tipos_retencion: r => r === 'gonzalo' || r === 'sebastian',
 };
 
 document.getElementById('hoy').textContent =
@@ -865,6 +885,7 @@ function aplicarPermisosUI() {
   document.getElementById('oc-actions').style.display = PUEDE_EDITAR.ordenes_compra(ROL) ? 'flex' : 'none';
   document.getElementById('op-actions').style.display = PUEDE_EDITAR.ordenes_pago(ROL) ? 'flex' : 'none';
   document.getElementById('proveedores-actions').style.display = PUEDE_EDITAR.proveedores(ROL) ? 'flex' : 'none';
+  document.getElementById('tipos-retencion-actions').style.display = PUEDE_EDITAR.tipos_retencion(ROL) ? 'flex' : 'none';
 }
 
 (async function initAuth() {
@@ -1588,6 +1609,18 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${p.nombre}</td><td>${p.cuit||'—'}</td><td>${p.rubro||'—'}</td>
       <td>${puedeEditarProv ? `<button class="btn ghost" onclick="editarProveedor(window.PROVEEDORES_CACHE['${p.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarProveedor('${p.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin proveedores cargados</td></tr>';
+
+  // Tipos de Retención
+  const { data: tiposRetencion } = await sb.from('tipos_retencion').select('*').order('nombre');
+  window.TIPOS_RETENCION_CACHE = {}; (tiposRetencion||[]).forEach(t => window.TIPOS_RETENCION_CACHE[t.id] = t);
+  const puedeEditarTRet = PUEDE_EDITAR.tipos_retencion(ROL);
+  const aplicaATxt = { cobro: 'Cobro', pago: 'Pago', ambos: 'Ambos' };
+  document.getElementById('tbl-tipos-retencion').innerHTML = (tiposRetencion||[]).map(t => `<tr>
+      <td>${t.nombre}</td><td>${t.porcentaje_sugerido != null ? t.porcentaje_sugerido + '%' : '—'}</td>
+      <td>${aplicaATxt[t.aplica_a] || t.aplica_a}</td>
+      <td><span class="tag ${t.activo ? 'ok' : 'muted'}">${t.activo ? 'Sí' : 'No'}</span></td>
+      <td>${puedeEditarTRet ? `<button class="btn ghost" onclick="editarTipoRetencion(window.TIPOS_RETENCION_CACHE['${t.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarTipoRetencion('${t.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin tipos de retención cargados</td></tr>';
 
   // Órdenes de Compra
   const { data: ocs } = await sb.from('ordenes_compra').select('*, proveedores(nombre)').order('numero',{ascending:false});
@@ -2480,6 +2513,55 @@ async function obtenerOCrearProveedor(nombre) {
   const { error } = await sb.from('proveedores').insert({ id, nombre });
   if (error) { console.error(error); return null; }
   return id;
+}
+
+// ═══════════════════════════════════════════════
+// TIPOS DE RETENCIÓN
+// ═══════════════════════════════════════════════
+let EDITANDO_TRET_ID = null;
+
+async function crearTipoRetencion() {
+  const nombre = document.getElementById('tret-nombre').value.trim();
+  const porcentajeStr = document.getElementById('tret-porcentaje').value.trim();
+  const aplica_a = document.getElementById('tret-aplica-a').value;
+  const activo = document.getElementById('tret-activo').value === 'true';
+  if (!nombre) return showErr('tipos-retencion', 'El nombre es obligatorio.');
+  const payload = { nombre, porcentaje_sugerido: porcentajeStr ? Number(porcentajeStr) : null, aplica_a, activo };
+  if (EDITANDO_TRET_ID) {
+    const { error } = await sb.from('tipos_retencion').update(payload).eq('id', EDITANDO_TRET_ID);
+    if (error) return showErr('tipos-retencion', error.message);
+  } else {
+    const id = 'TRET-' + Date.now();
+    const { error } = await sb.from('tipos_retencion').insert({ id, ...payload });
+    if (error) return showErr('tipos-retencion', error.message);
+  }
+  location.reload();
+}
+
+function editarTipoRetencion(t) {
+  EDITANDO_TRET_ID = t.id;
+  document.getElementById('tret-nombre').value = t.nombre || '';
+  document.getElementById('tret-porcentaje').value = t.porcentaje_sugerido != null ? t.porcentaje_sugerido : '';
+  document.getElementById('tret-aplica-a').value = t.aplica_a || 'cobro';
+  document.getElementById('tret-activo').value = t.activo ? 'true' : 'false';
+  document.getElementById('tipos-retencion-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('tipos-retencion-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('tipos-retencion-form').style.display = 'block';
+  document.getElementById('tipos-retencion-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionTipoRetencion() {
+  EDITANDO_TRET_ID = null;
+  document.getElementById('tipos-retencion-btn-guardar').textContent = 'Guardar';
+  document.getElementById('tipos-retencion-btn-cancelar').style.display = 'none';
+  document.getElementById('tipos-retencion-form').style.display = 'none';
+}
+
+async function eliminarTipoRetencion(id) {
+  if (!confirm('¿Eliminar este tipo de retención? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('tipos_retencion').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
 }
 
 // ═══════════════════════════════════════════════

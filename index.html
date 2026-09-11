@@ -890,7 +890,7 @@ const SUPABASE_URL = "https://ffkatmjtoevuthrztvkb.supabase.co";
 const SUPABASE_KEY = "sb_publishable_XvYuWpq2KejWLnxGlc8JoQ_ZAPhRrWO";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let DATA = { fixner:[], banco:[], gastos:[], dashboard:[] };
+let DATA = { fixner:[], banco:[], gastos:[], dashboard:[], chequesRecibidos:[], facturasPendientes:[], facturasCompraPendientes:[], clienteNombre:{} };
 let CHARTS = {};
 let ROL = null;
 let SESSION = null;
@@ -1035,6 +1035,7 @@ async function cargarTodo() {
     const proyectos = proyectosR.data || [];
     const clienteNombre = {}; clientes.forEach(c => clienteNombre[c.id] = c.nombre);
     const proyectoInfo = {}; proyectos.forEach(p => proyectoInfo[p.id] = p);
+    DATA.clienteNombre = clienteNombre;
 
     setMsg('Leyendo movimientos...');
     const { data: movs } = await sb.from('movimientos').select('*');
@@ -1054,7 +1055,10 @@ async function cargarTodo() {
     });
 
     setMsg('Leyendo cheques...');
-    const { data: cheques } = await sb.from('cheques').select('*');
+    // Fase 7: solo cheques emitidos que todavia no impactaron el banco real
+    // (Debitado/Rechazado ya estan reflejados como Movimiento CANCELADO o
+    // revirtieron su Pago -- incluirlos aca otra vez seria doble conteo).
+    const { data: cheques } = await sb.from('cheques').select('*').in('estado', ['Emitido', 'En cartera']);
     DATA.banco = (cheques || []).map(c => {
       const row = [];
       row[0] = c.numero_cheque; row[1] = c.beneficiario;
@@ -1062,6 +1066,18 @@ async function cargarTodo() {
       row[38] = Number(c.importe); row[6] = Number(c.importe);
       return row;
     });
+
+    setMsg('Leyendo cheques recibidos en cartera...');
+    const { data: chqRecibidos } = await sb.from('cheques_recibidos').select('*').eq('estado', 'En cartera');
+    DATA.chequesRecibidos = chqRecibidos || [];
+
+    setMsg('Leyendo facturas y facturas de compra pendientes...');
+    const [facPendR, facCompraPendR] = await Promise.all([
+      sb.from('facturas_saldo_pendiente').select('*').gt('saldo_pendiente', 0),
+      sb.from('facturas_compra_saldo_pendiente').select('*').gt('saldo_pendiente', 0),
+    ]);
+    DATA.facturasPendientes = facPendR.data || [];
+    DATA.facturasCompraPendientes = facCompraPendR.data || [];
 
     setMsg('Leyendo costos fijos...');
     const { data: gastos } = await sb.from('costos_fijos').select('*').eq('activo', true);
@@ -1117,7 +1133,7 @@ function calcKPIs() {
     saldoBanco: 0, cobros30d:0, pagos30d:0, cobros7d:0, pagos7d:0,
     cheques30d:0, cheques7d:0, costosFijos:0, rigidez:0,
     vencido:0, vencidoCount:0, porVencer7d:0,
-    movimientos:[], gastosList:[],
+    movimientos:[], gastosList:[], cobrosProgramados:[],
     saldosProyectados:[],
     obras:{cobros:0,pagos:0,movs:[]},
     mant:{cobros:0,pagos:0,movs:[]},
@@ -1128,6 +1144,11 @@ function calcKPIs() {
     k.saldoBanco = parseNum(DATA.dashboard[0][1]);
   }
 
+  // Fase 7: solo Movimientos CANCELADO son evento bancario real. Un
+  // movimiento manual PENDIENTE/PROYECTADO ya no representa "lo esperado" --
+  // eso ahora vive en facturas_saldo_pendiente / cheques en cartera (fases
+  // 3-6), asi que contarlo aca otra vez seria doble conteo o, peor, un
+  // numero que nunca se actualiza solo cuando el cobro/pago real ocurre.
   DATA.fixner.forEach(row => {
     if (!row[0]) return;
     const fecha = parseDate(row[0]);
@@ -1138,20 +1159,18 @@ function calcKPIs() {
     const cliente = row[3] || row[4] || '';
     const proyecto = row[5] || row[6] || '';
     const concepto = row[8] || '';
+    const cancelado = row[11] === 'CANCELADO';
 
     k.movimientos.push({fecha, imp, diff, tipo, cliente, proyecto, concepto, row});
 
-    if (diff !== null && diff >= 0 && diff <= 30) {
+    if (cancelado && diff !== null && diff >= 0 && diff <= 30) {
       if (imp > 0) k.cobros30d += imp; else k.pagos30d += Math.abs(imp);
     }
-    if (diff !== null && diff >= 0 && diff <= 7) {
+    if (cancelado && diff !== null && diff >= 0 && diff <= 7) {
       if (imp > 0) k.cobros7d += imp; else k.pagos7d += Math.abs(imp);
     }
-    if (diff !== null && diff < 0 && imp > 0 && row[11] !== 'CANCELADO') {
-      k.vencido += imp; k.vencidoCount++;
-    }
-    if (diff !== null && diff > 0 && diff <= 7 && imp > 0) {
-      k.porVencer7d += imp;
+    if (cancelado && imp > 0 && diff !== null && diff >= 0) {
+      k.cobrosProgramados.push({fecha, imp, nombre: cliente || concepto || '—'});
     }
 
     const tipoArea = tipo + ' ' + proyecto.toLowerCase();
@@ -1176,6 +1195,48 @@ function calcKPIs() {
     if (diff !== null && diff >= 0 && diff <= 30) k.cheques30d += imp;
     if (diff !== null && diff >= 0 && diff <= 7) k.cheques7d += imp;
   });
+
+  // Fase 7: lo "esperado" real hoy son facturas pendientes de cobro y
+  // cheques recibidos en cartera (fases 3-6) -- una factura con Cobro ya
+  // registrado (Cheque incluido) sale de facturas_saldo_pendiente al
+  // instante, asi que nunca se cuenta dos veces por los dos caminos.
+  const clienteNombre = DATA.clienteNombre || {};
+  DATA.facturasPendientes.forEach(f => {
+    const fecha = parseDate(f.fecha_vencimiento);
+    if (!fecha) return;
+    const imp = parseNum(f.saldo_pendiente);
+    const diff = diffDias(fecha);
+    if (diff !== null && diff >= 0 && diff <= 30) k.cobros30d += imp;
+    if (diff !== null && diff >= 0 && diff <= 7) k.cobros7d += imp;
+    if (diff !== null && diff < 0) { k.vencido += imp; k.vencidoCount++; }
+    if (diff !== null && diff > 0 && diff <= 7) k.porVencer7d += imp;
+    if (diff !== null && diff >= 0) {
+      k.cobrosProgramados.push({fecha, imp, nombre: clienteNombre[f.cliente_id] || f.cliente_id || '—'});
+    }
+  });
+
+  DATA.chequesRecibidos.forEach(c => {
+    const fecha = parseDate(c.fecha_cobro);
+    if (!fecha) return;
+    const imp = parseNum(c.importe);
+    const diff = diffDias(fecha);
+    if (diff !== null && diff >= 0 && diff <= 30) k.cobros30d += imp;
+    if (diff !== null && diff >= 0 && diff <= 7) k.cobros7d += imp;
+    if (diff !== null && diff >= 0) {
+      k.cobrosProgramados.push({fecha, imp, nombre: c.librador || '—'});
+    }
+  });
+
+  DATA.facturasCompraPendientes.forEach(fc => {
+    const fecha = parseDate(fc.fecha_vencimiento);
+    if (!fecha) return;
+    const imp = parseNum(fc.saldo_pendiente);
+    const diff = diffDias(fecha);
+    if (diff !== null && diff >= 0 && diff <= 30) k.pagos30d += imp;
+    if (diff !== null && diff >= 0 && diff <= 7) k.pagos7d += imp;
+  });
+
+  k.cobrosProgramados.sort((a,b) => a.fecha - b.fecha);
 
   const mesActual = hoy.getMonth() + 1;
   const mesAplica = (meses, mes) => !meses || !meses.length || meses.includes(mes);
@@ -1202,6 +1263,7 @@ function calcKPIs() {
     dia.setHours(0,0,0,0);
     if (d > 0) {
       DATA.fixner.forEach(row => {
+        if (row[11] !== 'CANCELADO') return;
         const f = parseDate(row[0]); if (!f) return;
         f.setHours(0,0,0,0);
         if (f.getTime() === dia.getTime()) {
@@ -1214,6 +1276,21 @@ function calcKPIs() {
         if (f.getTime() === dia.getTime()) {
           saldoAcum -= parseNum(row[38] !== undefined ? row[38] : row[6]);
         }
+      });
+      DATA.chequesRecibidos.forEach(c => {
+        const f = parseDate(c.fecha_cobro); if (!f) return;
+        f.setHours(0,0,0,0);
+        if (f.getTime() === dia.getTime()) saldoAcum += parseNum(c.importe);
+      });
+      DATA.facturasPendientes.forEach(fac => {
+        const f = parseDate(fac.fecha_vencimiento); if (!f) return;
+        f.setHours(0,0,0,0);
+        if (f.getTime() === dia.getTime()) saldoAcum += parseNum(fac.saldo_pendiente);
+      });
+      DATA.facturasCompraPendientes.forEach(fc => {
+        const f = parseDate(fc.fecha_vencimiento); if (!f) return;
+        f.setHours(0,0,0,0);
+        if (f.getTime() === dia.getTime()) saldoAcum -= parseNum(fc.saldo_pendiente);
       });
       DATA.gastos.forEach(row => {
         if (parseInt(row[2]) === dia.getDate() && mesAplica(row[4], dia.getMonth()+1)) saldoAcum -= parseNum(row[1]);
@@ -1259,7 +1336,7 @@ function renderOverview(k) {
     cont.innerHTML += `<div class="alert d"><span class="alert-ico">▲</span><div><div class="alert-ttl">Saldo bancario negativo — acción requerida</div><div class="alert-msg">Saldo actual <strong>${fmtMoney(k.saldoBanco)}</strong>. Cheques próximos 7d: <strong>${fmtMoney(k.cheques7d)}</strong>.</div></div></div>`;
   }
   if (k.vencidoCount > 0) {
-    cont.innerHTML += `<div class="alert d"><span class="alert-ico">▲</span><div><div class="alert-ttl">Cobros vencidos sin registrar</div><div class="alert-msg"><strong>${k.vencidoCount} movimiento(s)</strong> con fecha pasada e importe positivo: <strong>${fmtMoney(k.vencido)}</strong>.</div></div></div>`;
+    cont.innerHTML += `<div class="alert d"><span class="alert-ico">▲</span><div><div class="alert-ttl">Facturas vencidas sin cobrar</div><div class="alert-msg"><strong>${k.vencidoCount} factura(s)</strong> con vencimiento pasado y saldo pendiente: <strong>${fmtMoney(k.vencido)}</strong>.</div></div></div>`;
   }
   if (k.sinCobros30d) {
     cont.innerHTML += `<div class="alert d"><span class="alert-ico">▲</span><div><div class="alert-ttl">Rigidez estructural crítica — sin cobros proyectados</div><div class="alert-msg">Costos fijos: <strong>${fmtMoney(k.costosFijos)}</strong> con <strong>$0</strong> de cobros en los próximos 30 días. No hay facturación cubriendo la estructura.</div></div></div>`;
@@ -1399,16 +1476,15 @@ function renderCashflow(k) {
   }).join('') : '<p style="font-size:12px;color:var(--muted);padding:12px 0">Sin cheques pendientes cargados.</p>';
 
   const tlCobros = document.getElementById('tl-cobros');
-  const cobros = k.movimientos
-    .filter(m=>m.imp > 0 && m.diff !== null && m.diff >= 0)
-    .sort((a,b)=>a.fecha-b.fecha).slice(0,8);
+  const cobros = k.cobrosProgramados.slice(0,8);
   tlCobros.innerHTML = cobros.length > 0 ? cobros.map(c => {
-    const cls = c.diff <= 3 ? 'prox' : 'futuro';
+    const diff = diffDias(c.fecha);
+    const cls = diff <= 3 ? 'prox' : 'futuro';
     return `<div class="hito">
       <span class="hito-fecha">${fmtFecha(c.fecha)}</span>
       <span class="hito-dot ${cls}"></span>
       <div class="hito-content">
-        <span class="hito-name">${(c.cliente||c.concepto||'—').substring(0,28)}</span>
+        <span class="hito-name">${String(c.nombre).substring(0,28)}</span>
         <span class="hito-monto" style="color:var(--good)">+${fmtMoney(c.imp)}</span>
       </div>
     </div>`;
@@ -3672,10 +3748,9 @@ function fmtMoneyPlain(n) {
 
 let EDITANDO_FAC_ID = null;
 
-// Genera (o actualiza) el movimiento PROYECTADO de cobro esperado para una
-// factura recién emitida, para que sume a "Cobros próx. 30d" y al cash flow
-// sin esperar a que se cobre. 'Pendiente de emitir'/'Anulada' todavía no son
-// un cobro esperado real, no generan movimiento.
+// Facturas es puro devengado -- no crea Movimiento. Lo que suma a "Cobros
+// próx. 30d" y al cash flow antes de cobrarse es facturas_saldo_pendiente
+// (vista, fase 6), leída directo en calcKPIs (fase 7).
 async function crearFactura() {
   const numero = document.getElementById('fac-numero').value.trim();
   const tipo_comprobante = document.getElementById('fac-tipo-comprobante').value;

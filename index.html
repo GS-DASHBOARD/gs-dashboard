@@ -1743,24 +1743,11 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarOP ? `${o.estado!=='Pagada' ? (o.factura_compra_id ? `<button class="btn ghost" onclick="marcarOPPagada('${o.id}')">Marcar pagada</button> ` : `<span class="tag w" style="font-size:9px" title="Vinculá una Factura de compra para poder pagarla">Sin factura vinculada</span> `) : ''}<button class="btn ghost" onclick="editarOP(window.OP_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOP('${o.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de pago</td></tr>';
 
-  // Pagos
-  const { data: pagos } = await sb.from('pagos').select('*').order('fecha', {ascending:false});
-  window.PAGOS_CACHE = {}; (pagos||[]).forEach(p => window.PAGOS_CACHE[p.id] = p);
-  const estadoPagoTag = { Confirmado: 'ok', Revertido: 'd' };
-  document.getElementById('tbl-pagos').innerHTML = (pagos||[]).map(p => {
-    const fc = window.FACCOMPRA_CACHE[p.factura_compra_id];
-    return `<tr>
-      <td style="font-family:var(--mono)">${p.fecha||'—'}</td>
-      <td>${fc ? (fc.numero||fc.id) : '—'}</td>
-      <td style="font-family:var(--mono)">${fmtMoney(Number(p.monto))}</td>
-      <td>${p.medio||'—'}</td>
-      <td><span class="tag ${estadoPagoTag[p.estado]||'muted'}">${p.estado}</span></td>
-      <td>${p.op_id ? `<button class="btn ghost" onclick="irAModulo('op')">${p.op_id}</button>` : '—'}</td>
-      <td>—</td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin pagos registrados</td></tr>';
-
-  // Facturas Recibidas (facturas de compra)
+  // Facturas Recibidas (facturas de compra) -- va antes de Pagos porque
+  // Pagos lee window.FACCOMPRA_CACHE (bug real: quedo insertado despues por
+  // error una vez, tiraba "Cannot read properties of undefined" a mitad de
+  // cargarModulosGestion() y dejaba sin poblar todo lo que venia despues,
+  // incluido el select de Factura de compra del formulario de OP).
   const { data: facsCompra } = await sb.from('facturas_compra').select('*, proveedores(nombre)').order('fecha_recepcion', {ascending:false});
   window.FACCOMPRA_CACHE = {}; (facsCompra||[]).forEach(f => window.FACCOMPRA_CACHE[f.id] = f);
   const puedeEditarFacCompra = PUEDE_EDITAR.facturas_compra(ROL);
@@ -1777,6 +1764,23 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     .filter(f => f.estado !== 'Anulada')
     .map(f => `<option value="${f.id}">${f.numero||f.id} · ${f.proveedores ? f.proveedores.nombre : ''} · ${fmtMoney(Number(f.monto))}</option>`).join('');
   const facCompraSelectOP = document.getElementById('op-factura-compra'); if (facCompraSelectOP) facCompraSelectOP.innerHTML = facCompraOptsOP;
+
+  // Pagos
+  const { data: pagos } = await sb.from('pagos').select('*').order('fecha', {ascending:false});
+  window.PAGOS_CACHE = {}; (pagos||[]).forEach(p => window.PAGOS_CACHE[p.id] = p);
+  const estadoPagoTag = { Confirmado: 'ok', Revertido: 'd' };
+  document.getElementById('tbl-pagos').innerHTML = (pagos||[]).map(p => {
+    const fc = window.FACCOMPRA_CACHE[p.factura_compra_id];
+    return `<tr>
+      <td style="font-family:var(--mono)">${p.fecha||'—'}</td>
+      <td>${fc ? (fc.numero||fc.id) : '—'}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(p.monto))}</td>
+      <td>${p.medio||'—'}</td>
+      <td><span class="tag ${estadoPagoTag[p.estado]||'muted'}">${p.estado}</span></td>
+      <td>${p.op_id ? `<button class="btn ghost" onclick="irAModulo('op')">${p.op_id}</button>` : '—'}</td>
+      <td>—</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin pagos registrados</td></tr>';
 
   // No conformidades
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});

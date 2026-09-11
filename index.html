@@ -1490,11 +1490,14 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   function codigoPresupuesto(p, cliTxt) {
     const partes = [`N°${p.numero ?? '—'}`, 'Presupuesto GS', cliTxt];
     const locaciones = p.cliente_id ? (proyectosPorCliente[p.cliente_id]||[]) : [];
+    let loc = null;
     if (locaciones.length > 1) {
-      const loc = p.proyecto_id ? (proyectoInfo[p.proyecto_id] ? proyectoInfo[p.proyecto_id].nombre : null) : (p.proyecto_texto || null);
+      loc = p.proyecto_id ? (proyectoInfo[p.proyecto_id] ? proyectoInfo[p.proyecto_id].nombre : null) : (p.proyecto_texto || null);
       if (loc) partes.push(loc);
     }
-    if (p.asunto) partes.push(p.asunto);
+    // Si el Asunto quedó igual a la locación (pasa seguido: se usa el mismo
+    // nombre para ambos) no repetirlo -- ya está mostrado como locación.
+    if (p.asunto && p.asunto.trim().toLowerCase() !== (loc||'').trim().toLowerCase()) partes.push(p.asunto);
     return partes.join(' - ');
   }
   window.codigoPresupuesto = codigoPresupuesto;
@@ -3050,6 +3053,12 @@ async function guardarPresupuesto(estadoFinal) {
   } else if (editandoBase && esNuevaVersion) {
     // Ya fue enviado/aprobado/rechazado: la edición genera una versión nueva,
     // conserva el mismo N° visible y archiva la anterior (vigente = false).
+    // El numero visible solo tiene que ser unico entre vigentes (indice
+    // parcial) -- por eso hay que archivar la version vieja ANTES de
+    // insertar la nueva, nunca al reves, o las dos filas quedan vigente=true
+    // al mismo tiempo y el insert choca contra esa unicidad.
+    const { error: errArchivar } = await sb.from('presupuestos').update({ vigente: false }).eq('id', EDITANDO_PRE_ID);
+    if (errArchivar) return showErr('presupuestos', errArchivar.message);
     id = 'PRE-' + Date.now();
     const { error } = await sb.from('presupuestos').insert({
       id, ...camposComunes, estado: 'Borrador',
@@ -3058,8 +3067,13 @@ async function guardarPresupuesto(estadoFinal) {
       presupuesto_base_id: editandoBase.presupuesto_base_id || editandoBase.id,
       vigente: true,
     });
-    if (error) return showErr('presupuestos', error.message);
-    await sb.from('presupuestos').update({ vigente: false }).eq('id', EDITANDO_PRE_ID);
+    if (error) {
+      // Si el insert de la version nueva falla, no dejar la anterior
+      // archivada sin reemplazo -- se revierte a vigente para no perder el
+      // presupuesto de vista.
+      await sb.from('presupuestos').update({ vigente: true }).eq('id', EDITANDO_PRE_ID);
+      return showErr('presupuestos', error.message);
+    }
   } else {
     id = 'PRE-' + Date.now();
     const { error } = await sb.from('presupuestos').insert({ id, ...camposComunes, estado: 'Borrador' });

@@ -233,6 +233,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'rigidez')"><span class="nav-pip"></span>Rigidez de estructura</button>
     <button class="nav-item" onclick="nav(this,'cobranzas')"><span class="nav-pip"></span>Cobranzas & DSO</button>
     <button class="nav-item" onclick="nav(this,'cuenta-corriente')"><span class="nav-pip"></span>Cuenta Corriente</button>
+    <button class="nav-item" onclick="nav(this,'antiguedad')"><span class="nav-pip"></span>Antigüedad & Retenciones</button>
     <div class="nav-section">Comercial</div>
     <button class="nav-item" onclick="nav(this,'presupuestos')"><span class="nav-pip"></span>Presupuestos</button>
     <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
@@ -624,6 +625,20 @@ tr:hover td{background:var(--bg)}
   </div>
   <div class="card"><div class="card-ttl">Proveedores</div><div class="card-sub">saldo positivo = le debemos al proveedor</div>
     <div class="tbl-wrap"><table><thead><tr><th>Proveedor</th><th>Total facturado</th><th>Pagado</th><th>Saldo</th></tr></thead><tbody id="tbl-cuenta-corriente-proveedor"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ANTIGÜEDAD DE SALDOS + RETENCIONES A RENDIR (solo lectura, calculada) -->
+<div class="page" id="page-antiguedad">
+  <div class="ph"><div><h1>Antigüedad <span>de Saldos</span></h1><p>Saldo pendiente por antigüedad de vencimiento, más retenciones a rendir. No editable a mano.</p></div></div>
+  <div class="card"><div class="card-ttl">Clientes</div><div class="card-sub">saldo pendiente por antigüedad de vencimiento</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>No vencido</th><th>0-30 días</th><th>31-60 días</th><th>61+ días</th><th>Total</th></tr></thead><tbody id="tbl-antiguedad-cliente"></tbody></table></div>
+  </div>
+  <div class="card"><div class="card-ttl">Proveedores</div><div class="card-sub">saldo pendiente por antigüedad de vencimiento</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Proveedor</th><th>No vencido</th><th>0-30 días</th><th>31-60 días</th><th>61+ días</th><th>Total</th></tr></thead><tbody id="tbl-antiguedad-proveedor"></tbody></table></div>
+  </div>
+  <div class="card"><div class="card-ttl">Retenciones a rendir</div><div class="card-sub">por tipo y mes del cobro — para el contador</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Período</th><th>Tipo</th><th>Cantidad</th><th>Monto</th></tr></thead><tbody id="tbl-retenciones-rendir"></tbody></table></div>
   </div>
 </div>
 
@@ -1891,6 +1906,40 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="font-family:var(--mono)">${fmtMoney(Number(p.total_pagado))}</td>
       <td style="font-family:var(--mono);font-weight:700">${fmtMoney(Number(p.saldo))}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
+
+  // Fase 8: antiguedad de saldos + retenciones a rendir (solo lectura)
+  const { data: antCliente } = await sb.from('antiguedad_saldos_cliente').select('*').order('nombre');
+  document.getElementById('tbl-antiguedad-cliente').innerHTML = (antCliente||[])
+    .filter(c => Number(c.total) !== 0)
+    .map(c => `<tr>
+      <td>${c.nombre}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(c.no_vencido))}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(c.vencido_0_30))}</td>
+      <td style="font-family:var(--mono);${Number(c.vencido_31_60)>0?'color:var(--warn)':''}">${fmtMoney(Number(c.vencido_31_60))}</td>
+      <td style="font-family:var(--mono);${Number(c.vencido_61_mas)>0?'color:var(--danger)':''}">${fmtMoney(Number(c.vencido_61_mas))}</td>
+      <td style="font-family:var(--mono);font-weight:700">${fmtMoney(Number(c.total))}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin saldos pendientes</td></tr>';
+
+  const { data: antProveedor } = await sb.from('antiguedad_saldos_proveedor').select('*').order('nombre');
+  document.getElementById('tbl-antiguedad-proveedor').innerHTML = (antProveedor||[])
+    .filter(p => Number(p.total) !== 0)
+    .map(p => `<tr>
+      <td>${p.nombre}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(p.no_vencido))}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(p.vencido_0_30))}</td>
+      <td style="font-family:var(--mono);${Number(p.vencido_31_60)>0?'color:var(--warn)':''}">${fmtMoney(Number(p.vencido_31_60))}</td>
+      <td style="font-family:var(--mono);${Number(p.vencido_61_mas)>0?'color:var(--danger)':''}">${fmtMoney(Number(p.vencido_61_mas))}</td>
+      <td style="font-family:var(--mono);font-weight:700">${fmtMoney(Number(p.total))}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin saldos pendientes</td></tr>';
+
+  const { data: retenciones } = await sb.from('retenciones_a_rendir').select('*');
+  document.getElementById('tbl-retenciones-rendir').innerHTML = (retenciones||[])
+    .map(r => `<tr>
+      <td>${new Date(r.periodo+'T00:00:00').toLocaleDateString('es-AR',{month:'short',year:'numeric'})}</td>
+      <td>${r.tipo_retencion}</td>
+      <td>${r.cantidad}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(Number(r.monto_total))}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin retenciones registradas</td></tr>';
 
   // No conformidades
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});

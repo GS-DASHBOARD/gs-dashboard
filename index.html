@@ -1808,7 +1808,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="font-family:var(--mono)">${c.fecha_pago||'—'}</td><td>${c.beneficiario||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(c.importe))}</td>
       <td><span class="tag ${estadoChqTag[c.estado]||'muted'}">${c.estado}</span></td>
-      <td>${puedeEditarChq ? `<button class="btn ghost" onclick="editarCheque(window.CHEQUES_CACHE['${c.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarCheque('${c.id}')">✕</button>` : ''}</td>
+      <td>${puedeEditarChq ? `${c.estado==='Emitido' || c.estado==='En cartera' ? `<button class="btn" onclick="debitarCheque('${c.id}')">Debitar</button> <button class="btn ghost" onclick="rechazarCheque('${c.id}')">Rechazar</button> ` : ''}<button class="btn ghost" onclick="editarCheque(window.CHEQUES_CACHE['${c.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarCheque('${c.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin cheques</td></tr>';
 
   // Cheques recibidos (de clientes)
@@ -2399,14 +2399,19 @@ async function eliminarChequeRecibido(id) {
 async function depositarChequeRecibido(id) {
   const c = window.CHEQUES_RECIBIDOS_CACHE[id];
   if (!c) return;
-  if (!confirm('¿Marcar este cheque como depositado? Se va a generar el movimiento de ingreso correspondiente.')) return;
+  // Fase 5 del modulo financiero: la fecha del Movimiento tiene que ser la
+  // fecha real de acreditacion bancaria, no la de emision/creacion del
+  // cheque -- antes se usaba siempre "hoy", perdiendo la fecha real de
+  // conciliacion.
+  const fechaReal = prompt('Fecha real de acreditación bancaria (no la fecha de emisión):', new Date().toISOString().slice(0,10));
+  if (!fechaReal) return;
   if (c.movimiento_id) {
-    const { error: errMov } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: new Date().toISOString().slice(0,10) }).eq('id', c.movimiento_id);
+    const { error: errMov } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: fechaReal }).eq('id', c.movimiento_id);
     if (errMov) return alert('No se pudo actualizar el movimiento: ' + errMov.message);
   } else {
     const movId = 'MOV-' + Date.now();
     const { error: errIns } = await sb.from('movimientos').insert({
-      id: movId, fecha: new Date().toISOString().slice(0,10), tipo: 'INGRESO', categoria: 'Cheque recibido',
+      id: movId, fecha: fechaReal, tipo: 'INGRESO', categoria: 'Cheque recibido',
       cliente_id: c.cliente_id, proyecto_id: c.proyecto_id,
       concepto: (c.concepto || 'Cheque recibido') + ' - ' + c.librador,
       monto: c.importe, estado: 'CANCELADO', fuente: 'Portal GS OS',
@@ -2420,9 +2425,50 @@ async function depositarChequeRecibido(id) {
 }
 
 async function rechazarChequeRecibido(id) {
-  if (!confirm('¿Marcar este cheque como rechazado? No genera movimiento y queda registrado para reclamarlo.')) return;
+  if (!confirm('¿Marcar este cheque como rechazado? No genera movimiento y el Cobro asociado vuelve a quedar pendiente en la Cuenta Corriente del cliente.')) return;
+  const c = window.CHEQUES_RECIBIDOS_CACHE[id];
   const { error } = await sb.from('cheques_recibidos').update({ estado: 'Rechazado' }).eq('id', id);
   if (error) return alert('No se pudo actualizar: ' + error.message);
+  // Reversion automatica del Cobro (decision confirmada con el usuario):
+  // un cheque rebotado no requiere re-gestion manual del Cobro, vuelve a
+  // saldo pendiente solo.
+  if (c && c.cobro_id) await sb.from('cobros').update({ estado: 'Revertido' }).eq('id', c.cobro_id);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// CONCILIACIÓN DE CHEQUES EMITIDOS (fase 5) -- mismo patron que
+// depositarChequeRecibido/rechazarChequeRecibido, para el lado de pagos.
+// ═══════════════════════════════════════════════
+async function debitarCheque(id) {
+  const c = window.CHEQUES_CACHE[id];
+  if (!c) return;
+  const fechaReal = prompt('Fecha real de débito bancario (no la fecha de emisión):', new Date().toISOString().slice(0,10));
+  if (!fechaReal) return;
+  if (c.movimiento_id) {
+    const { error: errMov } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: fechaReal }).eq('id', c.movimiento_id);
+    if (errMov) return alert('No se pudo actualizar el movimiento: ' + errMov.message);
+  } else {
+    const movId = 'MOV-' + Date.now();
+    const { error: errIns } = await sb.from('movimientos').insert({
+      id: movId, fecha: fechaReal, tipo: 'EGRESO', categoria: 'Cheque emitido', proyecto_id: c.proyecto_id,
+      concepto: (c.concepto || 'Cheque emitido') + (c.beneficiario ? ' - ' + c.beneficiario : ''),
+      monto: c.importe, estado: 'CANCELADO', fuente: 'Portal GS OS',
+    });
+    if (errIns) return alert('No se pudo crear el movimiento: ' + errIns.message);
+    await sb.from('cheques').update({ movimiento_id: movId }).eq('id', id);
+  }
+  const { error } = await sb.from('cheques').update({ estado: 'Debitado' }).eq('id', id);
+  if (error) return alert('No se pudo actualizar el cheque: ' + error.message);
+  location.reload();
+}
+
+async function rechazarCheque(id) {
+  if (!confirm('¿Marcar este cheque como rechazado? El Pago asociado vuelve a quedar pendiente.')) return;
+  const c = window.CHEQUES_CACHE[id];
+  const { error } = await sb.from('cheques').update({ estado: 'Rechazado' }).eq('id', id);
+  if (error) return alert('No se pudo actualizar: ' + error.message);
+  if (c && c.pago_id) await sb.from('pagos').update({ estado: 'Revertido' }).eq('id', c.pago_id);
   location.reload();
 }
 

@@ -8,7 +8,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<!-- Sin pin de versión a propósito: jsdelivr empezó a devolver 404 para
+     qrcode@1.5.3 y también para @1.5.4 (confirmado 2026-09-11, no es un
+     problema de versión vieja), mientras la ruta sin versión sigue
+     resolviendo bien. Si esto vuelve a fallar, resolver primero contra
+     https://data.jsdelivr.com/v1/packages/npm/qrcode antes de pinear de nuevo. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 <style>
 :root{
   --bg:#f5f4f1;--white:#fff;--s2:#f0eeea;--s3:#e8e5e0;
@@ -664,13 +669,21 @@ tr:hover td{background:var(--bg)}
     <div id="activos-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Nombre</label><input id="act-nombre"></div>
-      <div class="field"><label>Categoría / tipo</label><input id="act-categoria" placeholder="Caldera, Tablero eléctrico..." oninput="sugerirCodigoActivo()"></div>
+      <div class="field"><label>Tipo de instalación</label><input id="act-tipo-instalacion" placeholder="HVAC, Eléctrica, Sanitaria..." oninput="sugerirCodigoActivo()"></div>
+      <div class="field"><label>Categoría / familia</label><input id="act-categoria" placeholder="Caldera, Tablero eléctrico..." oninput="sugerirCodigoActivo()"></div>
       <div class="field"><label>Cliente</label><select id="act-cliente" onchange="sugerirCodigoActivo()"><option value="">—</option></select></div>
       <div class="field"><label>Proyecto</label><select id="act-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Ubicación</label><input id="act-ubicacion" placeholder="Planta baja, sala de máquinas..."></div>
       <div class="field"><label>Código (auto, editable)</label><input id="act-codigo" placeholder="Se sugiere solo"></div>
+      <div class="field"><label>Marca</label><input id="act-marca"></div>
+      <div class="field"><label>Modelo</label><input id="act-modelo"></div>
+      <div class="field"><label>N° de serie</label><input id="act-serie"></div>
+      <div class="field"><label>Fecha de fabricación</label><input type="date" id="act-fecha-fab"></div>
+      <div class="field"><label>Fecha de compra</label><input type="date" id="act-fecha-compra"></div>
       <div class="field"><label>Fecha de instalación</label><input type="date" id="act-fecha-inst"></div>
       <div class="field"><label>Vida útil estimada (meses)</label><input type="number" id="act-vida-util"></div>
+      <div class="field"><label>Costo de adquisición</label><input type="number" id="act-costo"></div>
+      <div class="field"><label>Garantía hasta</label><input type="date" id="act-garantia"></div>
       <div class="field"><label>Criticidad</label>
         <select id="act-criticidad"><option>Alta</option><option selected>Media</option><option>Baja</option></select>
       </div>
@@ -2203,31 +2216,49 @@ function siglas(texto, n) {
 }
 
 function sugerirCodigoActivo() {
+  // Código estructurado: CLIENTE-TIPOINSTALACION-FAMILIA-NRO (ej. RIVER-HVAC-BOMBA-001).
+  // El NRO es secuencial dentro de esa combinación cliente+tipo+familia, no global.
   if (EDITANDO_ACT_ID) return;
   const codigoEl = document.getElementById('act-codigo');
   if (codigoEl.value.trim()) return;
   const clienteSel = document.getElementById('act-cliente');
   const clienteNombre = clienteSel.options[clienteSel.selectedIndex] ? clienteSel.options[clienteSel.selectedIndex].text : '';
+  const tipoInstalacion = document.getElementById('act-tipo-instalacion').value;
   const categoria = document.getElementById('act-categoria').value;
-  if (clienteNombre === '—' || !clienteNombre) return;
+  if (clienteNombre === '—' || !clienteNombre || !tipoInstalacion || !categoria) return;
   const cliSig = siglas(clienteNombre, 4);
+  const tipoSig = siglas(tipoInstalacion, 4);
   const catSig = siglas(categoria, 4);
-  const yaCount = (window.ACTIVOS || []).filter(a => a.cliente_id === clienteSel.value).length + 1;
-  codigoEl.value = `${cliSig}-${catSig}-${String(yaCount).padStart(3, '0')}`;
+  const yaCount = (window.ACTIVOS || []).filter(a =>
+    a.cliente_id === clienteSel.value &&
+    (a.tipo_instalacion || '').toLowerCase() === tipoInstalacion.toLowerCase() &&
+    (a.categoria || '').toLowerCase() === categoria.toLowerCase()
+  ).length + 1;
+  codigoEl.value = `${cliSig}-${tipoSig}-${catSig}-${String(yaCount).padStart(3, '0')}`;
 }
 
 async function crearActivo() {
   const nombre = document.getElementById('act-nombre').value.trim();
+  const tipo_instalacion = document.getElementById('act-tipo-instalacion').value.trim();
   const categoria = document.getElementById('act-categoria').value.trim();
   const cliente_id = document.getElementById('act-cliente').value || null;
   const proyecto_id = document.getElementById('act-proyecto').value || null;
   const ubicacion = document.getElementById('act-ubicacion').value.trim();
   const codigo = document.getElementById('act-codigo').value.trim();
+  const marca = document.getElementById('act-marca').value.trim();
+  const modelo = document.getElementById('act-modelo').value.trim();
+  const numero_serie = document.getElementById('act-serie').value.trim();
+  const fecha_fabricacion = document.getElementById('act-fecha-fab').value || null;
+  const fecha_compra = document.getElementById('act-fecha-compra').value || null;
   const fecha_instalacion = document.getElementById('act-fecha-inst').value || null;
   const vida_util_estimada_meses = Number(document.getElementById('act-vida-util').value) || null;
+  const costo_adquisicion = Number(document.getElementById('act-costo').value) || null;
+  const garantia_hasta = document.getElementById('act-garantia').value || null;
   const criticidad = document.getElementById('act-criticidad').value;
   const estado = document.getElementById('act-estado').value;
-  const payload = { nombre, categoria: categoria||null, cliente_id, proyecto_id, ubicacion: ubicacion||null, codigo: codigo||null, fecha_instalacion, vida_util_estimada_meses, criticidad, estado };
+  const payload = { nombre, tipo_instalacion: tipo_instalacion||null, categoria: categoria||null, cliente_id, proyecto_id, ubicacion: ubicacion||null, codigo: codigo||null,
+    marca: marca||null, modelo: modelo||null, numero_serie: numero_serie||null, fecha_fabricacion, fecha_compra,
+    fecha_instalacion, vida_util_estimada_meses, costo_adquisicion, garantia_hasta, criticidad, estado };
   if (EDITANDO_ACT_ID) {
     const { error } = await sb.from('activos').update(payload).eq('id', EDITANDO_ACT_ID);
     if (error) return showErr('activos', error.message);
@@ -2242,13 +2273,21 @@ async function crearActivo() {
 function editarActivo(a) {
   EDITANDO_ACT_ID = a.id;
   document.getElementById('act-nombre').value = a.nombre || '';
+  document.getElementById('act-tipo-instalacion').value = a.tipo_instalacion || '';
   document.getElementById('act-categoria').value = a.categoria || '';
   document.getElementById('act-cliente').value = a.cliente_id || '';
   document.getElementById('act-proyecto').value = a.proyecto_id || '';
   document.getElementById('act-ubicacion').value = a.ubicacion || '';
   document.getElementById('act-codigo').value = a.codigo || '';
+  document.getElementById('act-marca').value = a.marca || '';
+  document.getElementById('act-modelo').value = a.modelo || '';
+  document.getElementById('act-serie').value = a.numero_serie || '';
+  document.getElementById('act-fecha-fab').value = a.fecha_fabricacion || '';
+  document.getElementById('act-fecha-compra').value = a.fecha_compra || '';
   document.getElementById('act-fecha-inst').value = a.fecha_instalacion || '';
   document.getElementById('act-vida-util').value = a.vida_util_estimada_meses || '';
+  document.getElementById('act-costo').value = a.costo_adquisicion || '';
+  document.getElementById('act-garantia').value = a.garantia_hasta || '';
   document.getElementById('act-criticidad').value = a.criticidad || 'Media';
   document.getElementById('act-estado').value = a.estado || 'ACTIVO';
   document.getElementById('activos-btn-guardar').textContent = 'Guardar cambios';
@@ -2259,7 +2298,12 @@ function editarActivo(a) {
 
 function cancelarEdicionActivo() {
   EDITANDO_ACT_ID = null;
-  document.getElementById('act-codigo').value = '';
+  ['act-nombre','act-tipo-instalacion','act-categoria','act-ubicacion','act-codigo','act-marca','act-modelo','act-serie',
+   'act-fecha-fab','act-fecha-compra','act-fecha-inst','act-vida-util','act-costo','act-garantia'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('act-cliente').value = '';
+  document.getElementById('act-proyecto').value = '';
   document.getElementById('activos-btn-guardar').textContent = 'Guardar';
   document.getElementById('activos-btn-cancelar').style.display = 'none';
   document.getElementById('activos-form').style.display = 'none';
@@ -2280,16 +2324,30 @@ async function mostrarFichaActivo(id) {
   document.getElementById('ficha-titulo').textContent = a.nombre + (a.codigo ? ' · ' + a.codigo : '');
   document.getElementById('ficha-activo-contenido').innerHTML = `
     <div class="card">
-      <div class="card-ttl">Datos del activo</div>
+      <div class="card-ttl">Datos catastrales</div>
       <div class="form-grid" style="pointer-events:none">
         <div class="field"><label>Código</label><div>${a.codigo || '—'}</div></div>
-        <div class="field"><label>Categoría</label><div>${a.categoria || '—'}</div></div>
+        <div class="field"><label>Tipo de instalación</label><div>${a.tipo_instalacion || '—'}</div></div>
+        <div class="field"><label>Categoría / familia</label><div>${a.categoria || '—'}</div></div>
         <div class="field"><label>Cliente</label><div>${a.clientes ? a.clientes.nombre : '—'}</div></div>
         <div class="field"><label>Proyecto</label><div>${a.proyectos ? a.proyectos.nombre : '—'}</div></div>
         <div class="field"><label>Ubicación</label><div>${a.ubicacion || '—'}</div></div>
         <div class="field"><label>Criticidad</label><div>${a.criticidad || '—'}</div></div>
         <div class="field"><label>Estado</label><div>${a.estado || '—'}</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">Identificación técnica</div>
+      <div class="form-grid" style="pointer-events:none">
+        <div class="field"><label>Marca</label><div>${a.marca || '—'}</div></div>
+        <div class="field"><label>Modelo</label><div>${a.modelo || '—'}</div></div>
+        <div class="field"><label>N° de serie</label><div>${a.numero_serie || '—'}</div></div>
+        <div class="field"><label>Fecha de fabricación</label><div>${a.fecha_fabricacion || '—'}</div></div>
+        <div class="field"><label>Fecha de compra</label><div>${a.fecha_compra || '—'}</div></div>
         <div class="field"><label>Fecha de instalación</label><div>${a.fecha_instalacion || '—'}</div></div>
+        <div class="field"><label>Vida útil estimada</label><div>${a.vida_util_estimada_meses ? a.vida_util_estimada_meses + ' meses' : '—'}</div></div>
+        <div class="field"><label>Costo de adquisición</label><div>${a.costo_adquisicion ? '$' + Number(a.costo_adquisicion).toLocaleString('es-AR') : '—'}</div></div>
+        <div class="field"><label>Garantía hasta</label><div>${a.garantia_hasta || '—'}</div></div>
       </div>
     </div>
     <div class="card">
@@ -2314,9 +2372,21 @@ async function verQRActivo(id) {
   const a = window.ACTIVOS_CACHE[id];
   if (!a) return;
   const url = URL_PRODUCCION + '?activo=' + encodeURIComponent(id);
+  // La imagen se genera ACÁ, en la página principal, que ya tiene la librería
+  // QRCode cargada y funcionando (se ve en el resto del panel). Antes esto se
+  // le pedía a la ventana emergente, que volvía a bajar la librería de un CDN
+  // externo — si esa segunda descarga fallaba (bloqueador de popups, red
+  // corporativa, política de seguridad de la ventana hija), el QR quedaba en
+  // blanco y solo se veía la etiqueta de texto, sin ningún error visible.
+  let dataUrl;
+  try {
+    dataUrl = await QRCode.toDataURL(url, { width: 220 });
+  } catch (e) {
+    alert('No se pudo generar el código QR: ' + e.message);
+    return;
+  }
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>QR ${a.codigo || a.nombre}</title>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>
     <style>
       body { font-family:Arial,Helvetica,sans-serif; text-align:center; padding:30px; }
       .tag-fisico { display:inline-block; border:2px solid #1a1916; border-radius:10px; padding:20px 26px; }
@@ -2331,10 +2401,9 @@ async function verQRActivo(id) {
         <div style="font-weight:800;font-size:13px;letter-spacing:0.08em;color:#8a8880">GS GROUP</div>
         <h2>${a.nombre}</h2>
         <div class="cod">${a.codigo || a.id}</div>
-        <canvas id="qr"></canvas>
+        <img src="${dataUrl}" width="220" height="220" alt="Código QR">
       </div>
       <div class="no-print"><button onclick="window.print()">🖨️ Imprimir etiqueta</button></div>
-      <script>window.onload = function() { QRCode.toCanvas(document.getElementById('qr'), ${JSON.stringify(url)}, { width: 220 }); };<\/script>
     </body></html>`);
   w.document.close();
 }

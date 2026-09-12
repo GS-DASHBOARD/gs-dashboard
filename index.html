@@ -250,6 +250,7 @@ tr:hover td{background:var(--bg)}
     <div class="nav-section">Activos y Mantenimiento</div>
     <button class="nav-item" onclick="nav(this,'activos')"><span class="nav-pip"></span>Activos</button>
     <button class="nav-item" onclick="nav(this,'mtto')"><span class="nav-pip"></span>Planes de Mantenimiento</button>
+    <button class="nav-item" onclick="nav(this,'planes-maestros')"><span class="nav-pip"></span>Planes Maestros</button>
     <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
     <div class="nav-section">Calidad</div>
     <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
@@ -730,6 +731,24 @@ tr:hover td{background:var(--bg)}
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Activo</th><th>Tipo</th><th>Frecuencia</th><th>Última ejecución</th><th>Próxima ejecución</th><th></th></tr></thead><tbody id="tbl-mtto"></tbody></table></div></div>
 </div>
 
+<!-- PLANES MAESTROS -->
+<div class="page" id="page-planes-maestros">
+  <div class="ph"><div><h1>Planes <span>Maestros</span></h1><p>Rutinas reutilizables por tipo de equipo (ej. "Generadores diésel Cummins") — se cargan una vez y se asignan a todos los activos que correspondan</p></div></div>
+  <div class="card">
+    <div class="card-ttl">Planes disponibles</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>Categoría</th><th>Tareas</th><th></th></tr></thead><tbody id="tbl-planes-maestros"></tbody></table></div>
+  </div>
+  <div class="card" id="plan-maestro-detalle" style="display:none">
+    <div class="card-ttl" id="plan-maestro-titulo">Detalle del plan</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th>Acción</th><th>Contenido</th><th>Frecuencia</th><th>Especialista</th></tr></thead><tbody id="tbl-plan-maestro-tareas"></tbody></table></div>
+    <div class="card-ttl" style="margin-top:20px">Asignar este plan a activos</div>
+    <p style="color:var(--muted);margin:0 0 10px">Marcá los activos que comparten este tipo de equipo — cada uno arranca su propio historial de ejecución de tareas.</p>
+    <div class="tbl-wrap"><table><thead><tr><th></th><th>Código</th><th>Nombre</th><th>Categoría</th><th>Cliente</th><th>Ya asignado</th></tr></thead><tbody id="tbl-asignar-activos"></tbody></table></div>
+    <button class="btn" id="btn-asignar-plan" onclick="asignarPlanAActivosSeleccionados()" style="margin-top:12px">Asignar a los activos marcados</button>
+    <span id="asignar-plan-msg" style="margin-left:12px;color:var(--muted)"></span>
+  </div>
+</div>
+
 <!-- OT -->
 <div class="page" id="page-ot">
   <div class="ph"><div><h1>Órdenes de <span>Trabajo</span></h1><p>Correctivos, preventivos y emergencias</p></div></div>
@@ -955,6 +974,7 @@ const PUEDE_EDITAR = {
   proyectos: r => r === 'ezequiel' || r === 'sebastian',
   activos: r => r === 'ezequiel' || r === 'sebastian',
   planes_mtto: r => r === 'ezequiel' || r === 'sebastian',
+  planes_maestros: r => r === 'ezequiel' || r === 'sebastian',
   ordenes_trabajo: r => r === 'ezequiel' || r === 'sebastian',
   no_conformidades: r => r === 'ezequiel' || r === 'sebastian',
   cheques: r => r === 'gonzalo' || r === 'sebastian',
@@ -1016,6 +1036,8 @@ function aplicarPermisosUI() {
   document.getElementById('clientes-actions').style.display = PUEDE_EDITAR.clientes(ROL) ? 'flex' : 'none';
   document.getElementById('activos-actions').style.display = PUEDE_EDITAR.activos(ROL) ? 'flex' : 'none';
   document.getElementById('mtto-actions').style.display = PUEDE_EDITAR.planes_mtto(ROL) ? 'flex' : 'none';
+  const btnAsignarPlan = document.getElementById('btn-asignar-plan');
+  if (btnAsignarPlan) btnAsignarPlan.style.display = PUEDE_EDITAR.planes_maestros(ROL) ? 'inline-block' : 'none';
   document.getElementById('ot-actions').style.display = PUEDE_EDITAR.ordenes_trabajo(ROL) ? 'flex' : 'none';
   document.getElementById('compras-actions').style.display = PUEDE_EDITAR.cheques(ROL) ? 'flex' : 'none';
   document.getElementById('chqr-actions').style.display = PUEDE_EDITAR.cheques_recibidos(ROL) ? 'flex' : 'none';
@@ -1804,6 +1826,14 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarMtto ? `<button class="btn ghost" onclick="marcarMttoEjecutado('${m.id}')">Ejecutada hoy</button> <button class="btn ghost" onclick="editarPlanMtto(window.MTTO_CACHE['${m.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarPlanMtto('${m.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin rutinas de mantenimiento</td></tr>';
 
+  // Planes Maestros (reutilizables por tipo de equipo)
+  const { data: planesMaestros } = await sb.from('planes_mantenimiento').select('*, plan_mantenimiento_tareas(id)').order('nombre');
+  window.PLANES_MAESTROS_CACHE = {}; (planesMaestros||[]).forEach(p => window.PLANES_MAESTROS_CACHE[p.id] = p);
+  document.getElementById('tbl-planes-maestros').innerHTML = (planesMaestros||[]).map(p => `<tr>
+      <td>${p.nombre}</td><td>${p.categoria||'—'}</td><td>${(p.plan_mantenimiento_tareas||[]).length}</td>
+      <td><button class="btn ghost" onclick="verPlanMaestro('${p.id}')">Ver / Asignar</button></td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin planes maestros cargados</td></tr>';
+
   // OT
   const { data: ots } = await sb.from('ordenes_trabajo').select('*, activos(nombre)').order('fecha_apertura',{ascending:false});
   window.OT_CACHE = {}; (ots||[]).forEach(o => window.OT_CACHE[o.id] = o);
@@ -2329,6 +2359,10 @@ async function mostrarFichaActivo(id) {
   if (!a) return;
   const { data: mttos } = await sb.from('planes_mtto').select('*').eq('activo_id', id).order('proxima_ejecucion');
   const { data: ots } = await sb.from('ordenes_trabajo').select('*').eq('activo_id', id).order('fecha_apertura', { ascending:false });
+  const { data: asignaciones } = await sb.from('activo_planes_mantenimiento')
+    .select('*, planes_mantenimiento(nombre), activo_plan_tarea_estado(*, plan_mantenimiento_tareas(sistema,accion,contenido,orden))')
+    .eq('activo_id', id).eq('vigente', true);
+  const hoyFicha = new Date().toISOString().slice(0,10);
 
   document.getElementById('ficha-titulo').textContent = a.nombre + (a.codigo ? ' · ' + a.codigo : '');
   document.getElementById('ficha-activo-contenido').innerHTML = `
@@ -2366,6 +2400,26 @@ async function mostrarFichaActivo(id) {
       </tbody></table></div>
     </div>
     <div class="card">
+      <div class="card-ttl">Planes maestros asignados</div>
+      ${(asignaciones||[]).length === 0 ? '<p style="text-align:center;color:var(--muted);padding:20px">Sin planes maestros asignados — asignar desde Planes Maestros</p>' :
+        (asignaciones||[]).map(asg => {
+          const tareas = (asg.activo_plan_tarea_estado||[]).slice().sort((x,y)=>(x.plan_mantenimiento_tareas?.orden||0)-(y.plan_mantenimiento_tareas?.orden||0));
+          return `<div style="margin-bottom:14px">
+            <div style="font-weight:700;margin-bottom:6px">${asg.planes_mantenimiento ? asg.planes_mantenimiento.nombre : '—'}</div>
+            <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th>Tarea</th><th>Última ejecución</th><th>Próxima ejecución</th></tr></thead><tbody>
+              ${tareas.map(t => {
+                const t2 = t.plan_mantenimiento_tareas || {};
+                const proxima = t.proxima_ejecucion_fecha ? t.proxima_ejecucion_fecha : (t.proxima_ejecucion_horas ? t.proxima_ejecucion_horas + ' hs' : '—');
+                const vencida = t.proxima_ejecucion_fecha && t.proxima_ejecucion_fecha <= hoyFicha;
+                return `<tr><td>${t2.sistema||'—'}</td><td>${t2.accion||''} ${t2.contenido||''}</td>
+                  <td>${t.ultima_ejecucion_fecha || (t.ultima_ejecucion_horas ? t.ultima_ejecucion_horas+' hs' : '—')}</td>
+                  <td style="${vencida?'color:var(--danger);font-weight:700':''}">${proxima}</td></tr>`;
+              }).join('')}
+            </tbody></table></div>
+          </div>`;
+        }).join('')}
+    </div>
+    <div class="card">
       <div class="card-ttl">Historial de órdenes de trabajo</div>
       <div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Estado</th><th>Descripción</th></tr></thead><tbody>
         ${(ots||[]).map(o => `<tr><td>${o.fecha_apertura}</td><td>${o.tipo}</td><td>${o.prioridad||'—'}</td><td>${o.tecnico_asignado||'—'}</td><td><span class="tag ${o.estado==='CERRADA'?'ok':'w'}">${o.estado}</span></td><td>${o.descripcion||'—'}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de trabajo registradas</td></tr>'}
@@ -2375,6 +2429,48 @@ async function mostrarFichaActivo(id) {
   `;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-ficha-activo').classList.add('active');
+}
+
+async function verPlanMaestro(planId) {
+  const { data: tareas } = await sb.from('plan_mantenimiento_tareas').select('*').eq('plan_id', planId).order('orden');
+  const { data: activos } = await sb.from('activos').select('*, clientes(nombre)').order('nombre');
+  const { data: yaAsignados } = await sb.from('activo_planes_mantenimiento').select('activo_id').eq('plan_id', planId).eq('vigente', true);
+  const idsAsignados = new Set((yaAsignados||[]).map(x => x.activo_id));
+
+  window.PLAN_MAESTRO_ACTUAL = planId;
+  const plan = window.PLANES_MAESTROS_CACHE[planId];
+  document.getElementById('plan-maestro-titulo').textContent = plan ? plan.nombre : 'Detalle del plan';
+  document.getElementById('tbl-plan-maestro-tareas').innerHTML = (tareas||[]).map(t => {
+    const frec = [t.frecuencia_dias ? t.frecuencia_dias + ' días' : null, t.frecuencia_horas ? t.frecuencia_horas + ' hs' : null].filter(Boolean).join(' / lo que ocurra primero: ');
+    return `<tr><td>${t.sistema||'—'}</td><td>${t.accion}</td><td>${t.contenido}</td><td>${frec||'—'}</td><td>${t.requiere_especialista ? 'Sí' : '—'}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Este plan todavía no tiene tareas cargadas</td></tr>';
+
+  document.getElementById('tbl-asignar-activos').innerHTML = (activos||[]).map(a => `<tr>
+      <td><input type="checkbox" class="chk-asignar-activo" value="${a.id}" ${idsAsignados.has(a.id) ? 'disabled' : ''}></td>
+      <td style="font-family:var(--mono)">${a.codigo||'—'}</td><td>${a.nombre}</td><td>${a.categoria||'—'}</td>
+      <td>${a.clientes ? a.clientes.nombre : '—'}</td>
+      <td>${idsAsignados.has(a.id) ? '<span class="tag ok">Ya asignado</span>' : '—'}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No hay activos cargados todavía</td></tr>';
+
+  document.getElementById('asignar-plan-msg').textContent = '';
+  document.getElementById('plan-maestro-detalle').style.display = 'block';
+  document.getElementById('plan-maestro-detalle').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function asignarPlanAActivosSeleccionados() {
+  const planId = window.PLAN_MAESTRO_ACTUAL;
+  if (!planId) return;
+  const ids = Array.from(document.querySelectorAll('.chk-asignar-activo:checked')).map(el => el.value);
+  const msgEl = document.getElementById('asignar-plan-msg');
+  if (ids.length === 0) { msgEl.textContent = 'Marcá al menos un activo.'; return; }
+
+  const filas = ids.map(activoId => ({ id: planId + '-' + activoId, activo_id: activoId, plan_id: planId }));
+  const { error } = await sb.from('activo_planes_mantenimiento').insert(filas);
+  if (error) { msgEl.textContent = 'Error al asignar: ' + error.message; return; }
+
+  msgEl.textContent = `Plan asignado a ${ids.length} activo(s). El estado de cada tarea se creó automáticamente.`;
+  await cargarTodo();
+  verPlanMaestro(planId);
 }
 
 async function verQRActivo(id) {

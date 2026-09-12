@@ -669,7 +669,16 @@ tr:hover td{background:var(--bg)}
     <div id="activos-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Nombre</label><input id="act-nombre"></div>
-      <div class="field"><label>Tipo de instalación</label><input id="act-tipo-instalacion" placeholder="HVAC, Eléctrica, Sanitaria..." oninput="sugerirCodigoActivo()"></div>
+      <div class="field"><label>Tipo de instalación</label>
+        <select id="act-tipo-instalacion" onchange="sugerirCodigoActivo()">
+          <option value="">—</option>
+          <option>HVAC</option>
+          <option>Eléctrica</option>
+          <option>Sanitaria</option>
+          <option>Contra incendio</option>
+          <option>Otro</option>
+        </select>
+      </div>
       <div class="field"><label>Categoría / familia</label><input id="act-categoria" placeholder="Caldera, Tablero eléctrico..." oninput="sugerirCodigoActivo()"></div>
       <div class="field"><label>Cliente</label><select id="act-cliente" onchange="sugerirCodigoActivo()"><option value="">—</option></select></div>
       <div class="field"><label>Proyecto</label><select id="act-proyecto"><option value="">—</option></select></div>

@@ -258,6 +258,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
     <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
     <button class="nav-item" onclick="nav(this,'proveedores')"><span class="nav-pip"></span>Proveedores</button>
+    <button class="nav-item" onclick="nav(this,'personal')"><span class="nav-pip"></span>Personal</button>
     <button class="nav-item" onclick="nav(this,'tipos-retencion')"><span class="nav-pip"></span>Tipos de Retención</button>
   </nav>
   <div class="sidebar-bottom">
@@ -435,6 +436,33 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="proveedores-btn-cancelar" onclick="cancelarEdicionProveedor()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>CUIT</th><th>Rubro</th><th></th></tr></thead><tbody id="tbl-proveedores"></tbody></table></div></div>
+</div>
+
+<!-- PERSONAL -->
+<div class="page" id="page-personal">
+  <div class="ph"><div><h1>Personal</h1><p>Padrón de personas — técnicos, administrativos, jefes y gerentes. Usado para asignar técnicos a Órdenes de Trabajo.</p></div></div>
+  <div class="row-actions" id="personal-actions" style="display:none"><button class="btn" onclick="toggleForm('personal')">+ Nueva persona</button></div>
+  <div class="card" id="personal-form" style="display:none">
+    <div id="personal-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Nombre</label><input id="per-nombre"></div>
+      <div class="field"><label>Perfil</label>
+        <select id="per-perfil">
+          <option value="Técnico">Técnico</option>
+          <option value="Administrativo">Administrativo</option>
+          <option value="Jefe">Jefe</option>
+          <option value="Gerente">Gerente</option>
+        </select>
+      </div>
+      <div class="field"><label>Especialidad</label><input id="per-especialidad" placeholder="Mecánico, Electricista..."></div>
+      <div class="field"><label>Email</label><input type="email" id="per-email"></div>
+      <div class="field"><label>Teléfono</label><input id="per-telefono"></div>
+      <div class="field"><label>Activo</label><select id="per-activo"><option value="true">Sí</option><option value="false">No</option></select></div>
+    </div>
+    <button class="btn" id="personal-btn-guardar" onclick="crearPersonal()">Guardar</button>
+    <button class="btn ghost" id="personal-btn-cancelar" onclick="cancelarEdicionPersonal()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>Perfil</th><th>Especialidad</th><th>Email</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-personal"></tbody></table></div></div>
 </div>
 
 <!-- TIPOS DE RETENCION -->
@@ -665,7 +693,13 @@ tr:hover td{background:var(--bg)}
 <!-- ACTIVOS -->
 <div class="page" id="page-activos">
   <div class="ph"><div><h1>Activos</h1><p>Inventario gestionado por GS</p></div></div>
-  <div class="row-actions" id="activos-actions" style="display:none"><button class="btn" onclick="toggleForm('activos')">+ Cargar activo</button></div>
+  <div class="row-actions" id="activos-actions" style="display:none;flex-wrap:wrap;gap:10px;align-items:center">
+    <button class="btn" onclick="toggleForm('activos')">+ Cargar activo</button>
+    <button class="btn ghost" onclick="document.getElementById('activos-csv-input').click()">⭱ Importar CSV</button>
+    <input type="file" id="activos-csv-input" accept=".csv" style="display:none" onchange="importarActivosCSV(event)">
+    <a href="#" class="btn ghost" onclick="descargarPlantillaActivosCSV();return false">Plantilla CSV</a>
+  </div>
+  <div id="activos-csv-reporte" class="card" style="display:none"></div>
   <div class="card" id="activos-form" style="display:none">
     <div id="activos-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
@@ -703,7 +737,10 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="activos-btn-cancelar" onclick="cancelarEdicionActivo()" style="display:none">Cancelar edición</button>
   </div>
   <div id="activos-empty" class="empty"><b>Todavía no hay activos cargados.</b>Este módulo se completa con el relevamiento inicial en River y Kansas.</div>
-  <div class="card" id="activos-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Cliente</th><th>Criticidad</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-activos"></tbody></table></div></div>
+  <div class="card" id="activos-card" style="display:none">
+    <div id="activos-tabs-cliente" class="row-actions" style="margin-bottom:14px;flex-wrap:wrap;gap:8px"></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Cliente</th><th>Criticidad</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-activos"></tbody></table></div>
+  </div>
 </div>
 
 <!-- FICHA DE ACTIVO (deep-link desde QR) -->
@@ -759,7 +796,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Activo</label><select id="ot-activo"><option value="">—</option></select></div>
       <div class="field"><label>Tipo</label><select id="ot-tipo"><option value="correctivo">Correctivo</option><option value="preventivo">Preventivo</option><option value="emergencia">Emergencia</option></select></div>
       <div class="field"><label>Prioridad</label><select id="ot-prioridad"><option>Alta</option><option selected>Media</option><option>Baja</option></select></div>
-      <div class="field"><label>Técnico asignado</label><input id="ot-tecnico"></div>
+      <div class="field"><label>Técnico asignado</label><select id="ot-tecnico"><option value="">— sin asignar —</option></select></div>
       <div class="field"><label>Fecha de apertura</label><input type="date" id="ot-fecha-apertura"></div>
       <div class="field"><label>Fecha de vencimiento</label><input type="date" id="ot-fecha-vencimiento"></div>
       <div class="field"><label>Tiempo estimado (horas)</label><input type="number" step="0.5" id="ot-horas"></div>
@@ -986,6 +1023,7 @@ const PUEDE_EDITAR = {
   ordenes_compra: r => r === 'gonzalo' || r === 'sebastian',
   ordenes_pago: r => r === 'gonzalo' || r === 'sebastian',
   proveedores: r => r === 'gonzalo' || r === 'sebastian',
+  personal: r => r === 'sebastian',
   tipos_retencion: r => r === 'gonzalo' || r === 'sebastian',
   facturas_compra: r => r === 'gonzalo' || r === 'sebastian',
   cobros: r => r === 'gonzalo' || r === 'sebastian',
@@ -1051,6 +1089,7 @@ function aplicarPermisosUI() {
   document.getElementById('oc-actions').style.display = PUEDE_EDITAR.ordenes_compra(ROL) ? 'flex' : 'none';
   document.getElementById('op-actions').style.display = PUEDE_EDITAR.ordenes_pago(ROL) ? 'flex' : 'none';
   document.getElementById('proveedores-actions').style.display = PUEDE_EDITAR.proveedores(ROL) ? 'flex' : 'none';
+  document.getElementById('personal-actions').style.display = PUEDE_EDITAR.personal(ROL) ? 'flex' : 'none';
   document.getElementById('tipos-retencion-actions').style.display = PUEDE_EDITAR.tipos_retencion(ROL) ? 'flex' : 'none';
   document.getElementById('facturas-compra-actions').style.display = PUEDE_EDITAR.facturas_compra(ROL) ? 'flex' : 'none';
   document.getElementById('cobros-actions').style.display = PUEDE_EDITAR.cobros(ROL) ? 'flex' : 'none';
@@ -1797,20 +1836,13 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   const { data: activos } = await sb.from('activos').select('*').order('nombre');
   poblarSelectsActivos(activos);
   window.ACTIVOS_CACHE = {}; (activos||[]).forEach(a => window.ACTIVOS_CACHE[a.id] = a);
-  const puedeEditarActivos = PUEDE_EDITAR.activos(ROL);
+  window.ACTIVOS_TODOS = activos || [];
+  window.CLIENTE_NOMBRE_CACHE = clienteNombre;
+  if (window.ACTIVOS_TAB_CLIENTE === undefined) window.ACTIVOS_TAB_CLIENTE = 'TODOS';
   if (activos && activos.length > 0) {
     document.getElementById('activos-empty').style.display = 'none';
     document.getElementById('activos-card').style.display = 'block';
-    document.getElementById('tbl-activos').innerHTML = activos.map(a => {
-      const cli = a.cliente_id ? (clienteNombre[a.cliente_id]||a.cliente_id) : '—';
-      return `<tr>
-      <td style="font-family:var(--mono)">${a.codigo||'—'}</td>
-      <td>${a.nombre}</td><td>${a.categoria||'—'}</td><td>${cli}</td>
-      <td><span class="tag ${a.criticidad==='Alta'?'d':a.criticidad==='Media'?'w':'muted'}">${a.criticidad||'—'}</span></td>
-      <td>${a.estado||'—'}</td>
-      <td><button class="btn ghost" onclick="verFichaActivo('${a.id}')">Ficha</button> <button class="btn ghost" onclick="verQRActivo('${a.id}')">QR</button> ${puedeEditarActivos ? `<button class="btn ghost" onclick="editarActivo(window.ACTIVOS_CACHE['${a.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarActivo('${a.id}')">✕</button>` : ''}</td>
-    </tr>`;
-    }).join('');
+    renderActivosTabsYTabla();
   }
 
   // Planes de Mantenimiento
@@ -1863,6 +1895,18 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${p.nombre}</td><td>${p.cuit||'—'}</td><td>${p.rubro||'—'}</td>
       <td>${puedeEditarProv ? `<button class="btn ghost" onclick="editarProveedor(window.PROVEEDORES_CACHE['${p.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarProveedor('${p.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin proveedores cargados</td></tr>';
+
+  // Personal
+  const { data: personal } = await sb.from('personal').select('*').order('nombre');
+  window.PERSONAL_CACHE = {}; (personal||[]).forEach(p => window.PERSONAL_CACHE[p.id] = p);
+  window.TECNICOS = (personal||[]).filter(p => p.perfil === 'Técnico' && p.activo !== false);
+  poblarSelectTecnicos(window.TECNICOS);
+  const puedeEditarPersonal = PUEDE_EDITAR.personal(ROL);
+  document.getElementById('tbl-personal').innerHTML = (personal||[]).map(p => `<tr>
+      <td>${p.nombre}</td><td>${p.perfil}</td><td>${p.especialidad||'—'}</td><td>${p.email||'—'}</td><td>${p.telefono||'—'}</td>
+      <td><span class="tag ${p.activo === false ? 'muted' : 'ok'}">${p.activo === false ? 'Inactivo' : 'Activo'}</span></td>
+      <td>${puedeEditarPersonal ? `<button class="btn ghost" onclick="editarPersonal(window.PERSONAL_CACHE['${p.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarPersonal('${p.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin personal cargado</td></tr>';
 
   // Tipos de Retención
   const { data: tiposRetencion } = await sb.from('tipos_retencion').select('*').order('nombre');
@@ -2205,6 +2249,14 @@ function poblarSelectsActivos(activos) {
   });
 }
 
+function poblarSelectTecnicos(tecnicos) {
+  const opts = '<option value="">— sin asignar —</option>' + (tecnicos||[]).map(t =>
+    `<option value="${t.id}">${t.nombre}${t.especialidad ? ' (' + t.especialidad + ')' : ''}</option>`
+  ).join('');
+  const el = document.getElementById('ot-tecnico');
+  if (el) el.innerHTML = opts;
+}
+
 let EDITANDO_CLI_ID = null;
 
 async function crearCliente() {
@@ -2252,6 +2304,157 @@ let EDITANDO_ACT_ID = null;
 
 function siglas(texto, n) {
   return (texto || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n) || 'GEN';
+}
+
+function renderActivosTabsYTabla() {
+  const activos = window.ACTIVOS_TODOS || [];
+  const clienteNombre = window.CLIENTE_NOMBRE_CACHE || {};
+  const puedeEditarActivos = PUEDE_EDITAR.activos(ROL);
+
+  // Pestañas: "Todos" + una por cada cliente que tenga al menos un activo,
+  // para que un equipo con activos de YPF/CCNOR/Kansas mezclados se pueda
+  // separar de un vistazo sin tener que filtrar a mano.
+  const clientesConActivos = {};
+  activos.forEach(a => {
+    const cid = a.cliente_id || '__sin_cliente__';
+    if (!clientesConActivos[cid]) clientesConActivos[cid] = 0;
+    clientesConActivos[cid]++;
+  });
+  const tabs = [{ id: 'TODOS', label: 'Todos', n: activos.length }]
+    .concat(Object.keys(clientesConActivos).map(cid => ({
+      id: cid,
+      label: cid === '__sin_cliente__' ? 'Sin cliente' : (clienteNombre[cid] || cid),
+      n: clientesConActivos[cid],
+    })).sort((x,y) => x.label.localeCompare(y.label)));
+
+  document.getElementById('activos-tabs-cliente').innerHTML = tabs.map(t =>
+    `<button class="btn ${window.ACTIVOS_TAB_CLIENTE === t.id ? '' : 'ghost'}" onclick="filtrarActivosPorCliente('${t.id}')">${t.label} (${t.n})</button>`
+  ).join('') + `<button class="btn ghost" style="margin-left:auto" onclick="exportarActivosCSV()">⭳ Exportar CSV (${window.ACTIVOS_TAB_CLIENTE === 'TODOS' ? 'todos' : 'esta pestaña'})</button>`;
+
+  const filtrados = window.ACTIVOS_TAB_CLIENTE === 'TODOS' ? activos
+    : activos.filter(a => (a.cliente_id || '__sin_cliente__') === window.ACTIVOS_TAB_CLIENTE);
+
+  document.getElementById('tbl-activos').innerHTML = filtrados.map(a => {
+    const cli = a.cliente_id ? (clienteNombre[a.cliente_id]||a.cliente_id) : '—';
+    return `<tr>
+    <td style="font-family:var(--mono)">${a.codigo||'—'}</td>
+    <td>${a.nombre}</td><td>${a.categoria||'—'}</td><td>${cli}</td>
+    <td><span class="tag ${a.criticidad==='Alta'?'d':a.criticidad==='Media'?'w':'muted'}">${a.criticidad||'—'}</span></td>
+    <td>${a.estado||'—'}</td>
+    <td><button class="btn ghost" onclick="verFichaActivo('${a.id}')">Ficha</button> <button class="btn ghost" onclick="verQRActivo('${a.id}')">QR</button> ${puedeEditarActivos ? `<button class="btn ghost" onclick="editarActivo(window.ACTIVOS_CACHE['${a.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarActivo('${a.id}')">✕</button>` : ''}</td>
+  </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin activos para este cliente</td></tr>';
+}
+
+function filtrarActivosPorCliente(clienteId) {
+  window.ACTIVOS_TAB_CLIENTE = clienteId;
+  renderActivosTabsYTabla();
+}
+
+// ═══════════════════════════════════════════════
+// CSV: carga masiva y exportación de Activos
+// ═══════════════════════════════════════════════
+const ACTIVOS_CSV_COLUMNAS = ['codigo','nombre','tipo_instalacion','categoria','cliente','ubicacion',
+  'marca','modelo','numero_serie','fecha_fabricacion','fecha_compra','fecha_instalacion',
+  'vida_util_estimada_meses','costo_adquisicion','garantia_hasta','criticidad','estado'];
+
+// El parseo de CSV en sí (delimitador `,`/`;`, comillas, BOM) ya existe más
+// abajo como `parseCSV()` (usado por la importación de Cheques) — se
+// reutiliza tal cual en vez de duplicarlo. Esa versión ya devuelve un
+// array de objetos por fila, con las claves normalizadas por
+// `normalizeHeader()` (sin acentos, sin espacios/guiones/mayúsculas).
+
+function celdaCSV(valor) {
+  const s = (valor === null || valor === undefined) ? '' : String(valor);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function descargarCSV(nombreArchivo, filasTexto) {
+  const blob = new Blob(['﻿' + filasTexto.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombreArchivo;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function descargarPlantillaActivosCSV() {
+  const ejemplo = ['', 'Generador principal', 'Eléctrica', 'Generador diésel', 'CCNOR', 'Sala de máquinas',
+    'Cummins', 'C150D5', 'SN12345', '2020-01-15', '2020-03-01', '2020-04-01', '120', '8500000', '2025-04-01', 'Alta', 'ACTIVO'];
+  descargarCSV('plantilla_activos.csv', [ACTIVOS_CSV_COLUMNAS.join(','), ejemplo.map(celdaCSV).join(',')]);
+}
+
+function exportarActivosCSV() {
+  const activos = window.ACTIVOS_TODOS || [];
+  const filtrados = window.ACTIVOS_TAB_CLIENTE === 'TODOS' ? activos
+    : activos.filter(a => (a.cliente_id || '__sin_cliente__') === window.ACTIVOS_TAB_CLIENTE);
+  const clienteNombre = window.CLIENTE_NOMBRE_CACHE || {};
+  const filas = [ACTIVOS_CSV_COLUMNAS.join(',')].concat(filtrados.map(a => ACTIVOS_CSV_COLUMNAS.map(col => {
+    if (col === 'cliente') return celdaCSV(a.cliente_id ? (clienteNombre[a.cliente_id] || a.cliente_id) : '');
+    return celdaCSV(a[col]);
+  }).join(',')));
+  descargarCSV('activos_export_' + new Date().toISOString().slice(0,10) + '.csv', filas);
+}
+
+async function importarActivosCSV(event) {
+  const file = event.target.files[0];
+  event.target.value = ''; // permite re-importar el mismo archivo si hace falta corregir y reintentar
+  if (!file) return;
+
+  const texto = await file.text();
+  const filas = parseCSV(texto); // array de objetos, claves normalizadas por normalizeHeader()
+  if (filas.length === 0) { alert('El archivo no tiene filas de datos (solo encabezado, o está vacío).'); return; }
+  if (filas[0][normalizeHeader('nombre')] === undefined) { alert('El CSV necesita al menos una columna "nombre". Descargá la plantilla para ver el formato esperado.'); return; }
+
+  // Nombre de cliente -> id (case-insensitive), para no obligar a cargar
+  // IDs internos a mano en la planilla.
+  const clientePorNombre = {};
+  (window.CLIENTES || []).forEach(c => { clientePorNombre[(c.nombre||'').trim().toLowerCase()] = c.id; });
+
+  const numericos = ['vida_util_estimada_meses', 'costo_adquisicion'];
+  const validos = [];
+  const errores = [];
+
+  filas.forEach((fila, i) => {
+    const num = i + 2; // +2: fila 1 es encabezado, i es 0-based sobre las filas de datos
+    const get = (col) => (fila[normalizeHeader(col)] || '').trim();
+    const nombre = get('nombre');
+    if (!nombre) { errores.push(`Fila ${num}: falta "nombre", se omite.`); return; }
+
+    let cliente_id = null;
+    const clienteTexto = get('cliente');
+    if (clienteTexto) {
+      cliente_id = clientePorNombre[clienteTexto.toLowerCase()];
+      if (!cliente_id) { errores.push(`Fila ${num}: cliente "${clienteTexto}" no existe — se omite la fila entera (no se inventa un cliente nuevo).`); return; }
+    }
+
+    const payload = { id: 'ACT-CSV-' + Date.now() + '-' + i, nombre, cliente_id, estado: 'ACTIVO' };
+    ACTIVOS_CSV_COLUMNAS.forEach(col => {
+      if (col === 'cliente' || col === 'nombre') return;
+      let v = get(col);
+      if (v === '') { if (col === 'estado') return; payload[col] = null; return; }
+      if (numericos.includes(col)) v = Number(v.replace(',', '.')) || null;
+      payload[col] = v;
+    });
+    validos.push(payload);
+  });
+
+  const reporteEl = document.getElementById('activos-csv-reporte');
+  let insertados = 0, errorInsert = null;
+  if (validos.length > 0) {
+    const { error } = await sb.from('activos').insert(validos);
+    if (error) errorInsert = error.message; else insertados = validos.length;
+  }
+
+  reporteEl.style.display = 'block';
+  reporteEl.innerHTML = `
+    <div class="card-ttl">Resultado de la importación</div>
+    <p><b>${insertados}</b> activo(s) importado(s) correctamente de ${filas.length} fila(s) leídas.</p>
+    ${errorInsert ? `<p style="color:var(--danger)">Error al guardar: ${errorInsert}</p>` : ''}
+    ${errores.length > 0 ? `<p><b>${errores.length} fila(s) con error, no se cargaron:</b></p><ul style="color:var(--muted)">${errores.map(e => `<li>${e}</li>`).join('')}</ul>` : ''}
+    <button class="btn" onclick="location.reload()">Recargar página</button>
+  `;
+  if (errores.length === 0 && !errorInsert) setTimeout(() => location.reload(), 1800);
 }
 
 function sugerirCodigoActivo() {
@@ -2587,12 +2790,13 @@ async function crearOT() {
   const activo_id = document.getElementById('ot-activo').value || null;
   const tipo = document.getElementById('ot-tipo').value;
   const prioridad = document.getElementById('ot-prioridad').value;
-  const tecnico_asignado = document.getElementById('ot-tecnico').value.trim();
+  const tecnico_id = document.getElementById('ot-tecnico').value || null;
+  const tecnico = tecnico_id ? window.PERSONAL_CACHE[tecnico_id] : null;
   const fecha_apertura = document.getElementById('ot-fecha-apertura').value || undefined;
   const fecha_vencimiento = document.getElementById('ot-fecha-vencimiento').value || null;
   const tiempo_estimado_horas = Number(document.getElementById('ot-horas').value) || null;
   const descripcion = document.getElementById('ot-desc').value.trim();
-  const payload = { activo_id, tipo, prioridad, tecnico_asignado: tecnico_asignado||null, fecha_apertura, fecha_vencimiento, tiempo_estimado_horas, descripcion: descripcion||null };
+  const payload = { activo_id, tipo, prioridad, tecnico_id, tecnico_asignado: tecnico ? tecnico.nombre : null, fecha_apertura, fecha_vencimiento, tiempo_estimado_horas, descripcion: descripcion||null };
   if (EDITANDO_OT_ID) {
     const { error } = await sb.from('ordenes_trabajo').update(payload).eq('id', EDITANDO_OT_ID);
     if (error) return showErr('ot', error.message);
@@ -2609,7 +2813,7 @@ function editarOT(o) {
   document.getElementById('ot-activo').value = o.activo_id || '';
   document.getElementById('ot-tipo').value = o.tipo || 'correctivo';
   document.getElementById('ot-prioridad').value = o.prioridad || 'Media';
-  document.getElementById('ot-tecnico').value = o.tecnico_asignado || '';
+  document.getElementById('ot-tecnico').value = o.tecnico_id || '';
   document.getElementById('ot-fecha-apertura').value = o.fecha_apertura || '';
   document.getElementById('ot-fecha-vencimiento').value = o.fecha_vencimiento || '';
   document.getElementById('ot-horas').value = o.tiempo_estimado_horas || '';
@@ -3057,6 +3261,59 @@ function cancelarEdicionProveedor() {
 async function eliminarProveedor(id) {
   if (!confirm('¿Eliminar este proveedor? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('proveedores').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// PERSONAL (maestro de personas — técnicos, administrativos, jefes, gerentes)
+// ═══════════════════════════════════════════════
+let EDITANDO_PER_ID = null;
+
+async function crearPersonal() {
+  const nombre = document.getElementById('per-nombre').value.trim();
+  const perfil = document.getElementById('per-perfil').value;
+  const especialidad = document.getElementById('per-especialidad').value.trim();
+  const email = document.getElementById('per-email').value.trim();
+  const telefono = document.getElementById('per-telefono').value.trim();
+  const activo = document.getElementById('per-activo').value === 'true';
+  if (!nombre) return showErr('personal', 'El nombre es obligatorio.');
+  const payload = { nombre, perfil, especialidad: especialidad||null, email: email||null, telefono: telefono||null, activo };
+  if (EDITANDO_PER_ID) {
+    const { error } = await sb.from('personal').update(payload).eq('id', EDITANDO_PER_ID);
+    if (error) return showErr('personal', error.message);
+  } else {
+    const id = 'PER-' + Date.now();
+    const { error } = await sb.from('personal').insert({ id, ...payload });
+    if (error) return showErr('personal', error.message);
+  }
+  location.reload();
+}
+
+function editarPersonal(p) {
+  EDITANDO_PER_ID = p.id;
+  document.getElementById('per-nombre').value = p.nombre || '';
+  document.getElementById('per-perfil').value = p.perfil || 'Técnico';
+  document.getElementById('per-especialidad').value = p.especialidad || '';
+  document.getElementById('per-email').value = p.email || '';
+  document.getElementById('per-telefono').value = p.telefono || '';
+  document.getElementById('per-activo').value = p.activo === false ? 'false' : 'true';
+  document.getElementById('personal-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('personal-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('personal-form').style.display = 'block';
+  document.getElementById('personal-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionPersonal() {
+  EDITANDO_PER_ID = null;
+  document.getElementById('personal-btn-guardar').textContent = 'Guardar';
+  document.getElementById('personal-btn-cancelar').style.display = 'none';
+  document.getElementById('personal-form').style.display = 'none';
+}
+
+async function eliminarPersonal(id) {
+  if (!confirm('¿Eliminar esta persona del padrón? Esta acción no se puede deshacer.')) return;
+  const { error } = await sb.from('personal').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
   location.reload();
 }

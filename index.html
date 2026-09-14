@@ -252,6 +252,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'mtto')"><span class="nav-pip"></span>Planes de Mantenimiento</button>
     <button class="nav-item" onclick="nav(this,'planes-maestros')"><span class="nav-pip"></span>Planes Maestros</button>
     <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
+    <button class="nav-item" onclick="nav(this,'confiabilidad')"><span class="nav-pip"></span>Disponibilidad y Confiabilidad</button>
     <div class="nav-section">Calidad</div>
     <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
     <div class="nav-section">Datos Maestros</div>
@@ -853,6 +854,18 @@ tr:hover td{background:var(--bg)}
   </div>
   <button class="btn" onclick="confirmarCierreOTPreventiva()">Confirmar cierre</button>
   <a href="#" class="btn ghost" onclick="irAModulo('ot');return false" style="margin-left:8px">Cancelar</a>
+</div>
+
+<!-- DISPONIBILIDAD Y CONFIABILIDAD (solo lectura, calculada) -->
+<div class="page" id="page-confiabilidad">
+  <div class="ph"><div><h1>Disponibilidad y <span>Confiabilidad</span></h1><p>MTBF, MTTR, disponibilidad y backlog por activo. Calculado desde las Órdenes de Trabajo — no editable a mano.</p></div></div>
+  <div class="card">
+    <div class="tbl-wrap"><table><thead><tr>
+      <th>Activo</th><th>Cliente</th><th>Criticidad</th><th>Correctivas</th><th>MTBF</th><th>MTTR</th><th>Disponibilidad</th>
+      <th>Preventivo al día</th><th>Backlog &gt;7d</th><th>Costo adquisición</th>
+    </tr></thead><tbody id="tbl-confiabilidad"></tbody></table></div>
+  </div>
+  <p style="color:var(--muted);font-size:13px">MTBF y MTTR necesitan al menos 2 correctivas cerradas para calcularse — con menos historial quedan en "—", no en cero. "Costo adquisición" es lo único que hoy se puede sumar como costo real; el costo acumulado de mantenimiento (mano de obra + repuestos) se suma cuando exista el módulo de Repuestos.</p>
 </div>
 
 <!-- COMPRAS -->
@@ -1955,6 +1968,27 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td><span class="tag ${p.activo === false ? 'muted' : 'ok'}">${p.activo === false ? 'Inactivo' : 'Activo'}</span></td>
       <td>${puedeEditarPersonal ? `<button class="btn ghost" onclick="editarPersonal(window.PERSONAL_CACHE['${p.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarPersonal('${p.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin personal cargado</td></tr>';
+
+  // Disponibilidad y Confiabilidad
+  const { data: indicadores } = await sb.from('indicadores_confiabilidad_activo').select('*').order('nombre');
+  document.getElementById('tbl-confiabilidad').innerHTML = (indicadores||[]).map(i => {
+    const cli = i.cliente_id ? (clienteNombre[i.cliente_id]||i.cliente_id) : '—';
+    const dispColor = i.disponibilidad_pct === null ? '' : (i.disponibilidad_pct < 80 ? 'color:var(--danger);font-weight:700' : (i.disponibilidad_pct < 95 ? 'color:var(--warn)' : ''));
+    const alDiaColor = i.al_dia_preventivo_pct === null ? '' : (i.al_dia_preventivo_pct < 70 ? 'color:var(--danger);font-weight:700' : '');
+    const backlogColor = i.ot_backlog_mas_7d > 0 ? 'color:var(--danger);font-weight:700' : '';
+    return `<tr>
+      <td>${i.codigo ? i.codigo + ' — ' : ''}${i.nombre}</td>
+      <td>${cli}</td>
+      <td><span class="tag ${i.criticidad==='Alta'?'d':i.criticidad==='Media'?'w':'muted'}">${i.criticidad||'—'}</span></td>
+      <td>${i.correctivas_totales}</td>
+      <td>${i.mtbf_dias !== null ? i.mtbf_dias + ' días' : '—'}</td>
+      <td>${i.mttr_dias !== null ? i.mttr_dias + ' días' : '—'}</td>
+      <td style="${dispColor}">${i.disponibilidad_pct !== null ? i.disponibilidad_pct + '%' : '—'}</td>
+      <td style="${alDiaColor}">${i.al_dia_preventivo_pct !== null ? i.al_dia_preventivo_pct + '% (' + i.preventivas_asignadas + ' tareas)' : '—'}</td>
+      <td style="${backlogColor}">${i.ot_backlog_mas_7d}</td>
+      <td>${i.costo_adquisicion ? '$' + Number(i.costo_adquisicion).toLocaleString('es-AR') : '—'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin activos cargados</td></tr>';
 
   // Categorías de Activo
   const { data: categoriasActivo } = await sb.from('categorias_activo').select('*').order('nombre');

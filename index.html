@@ -960,13 +960,16 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Proyecto</label><select id="oc-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Fecha</label><input type="date" id="oc-fecha"></div>
       <div class="field"><label>Monto estimado</label><input type="number" step="0.01" id="oc-monto"></div>
+      <div class="field"><label>Fecha estimada de pago (opcional)</label><input type="date" id="oc-fecha-est-pago"></div>
       <div class="field"><label>Estado</label><select id="oc-estado"><option>Pendiente</option><option>Aprobada</option><option>Recibida</option><option>Cerrada</option><option>Anulada</option></select></div>
       <div class="field" style="grid-column:1/-1"><label>Concepto</label><input id="oc-concepto"></div>
     </div>
+    <p style="color:var(--muted);font-size:13px;margin-top:4px">Si cargás la fecha estimada de pago, la OC suma a la proyección de caja de 45 días aunque todavía no haya factura del proveedor. Deja de proyectarse sola apenas se cargue la factura de compra real.</p>
     <button class="btn" id="oc-btn-guardar" onclick="crearOC()">Guardar</button>
     <button class="btn ghost" id="oc-btn-cancelar" onclick="cancelarEdicionOC()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Proyecto</th><th>Fecha</th><th>Monto est.</th><th>Estado</th><th>OPs</th><th></th></tr></thead><tbody id="tbl-oc"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Proyecto</th><th>Fecha</th><th>Monto est.</th><th>Prevista pago</th><th>Estado</th><th>OPs</th><th></th></tr></thead><tbody id="tbl-oc"></tbody></table></div></div>
+  <p id="oc-sin-fecha-info" style="color:var(--muted);font-size:13px;display:none"></p>
 </div>
 
 <!-- ÓRDENES DE PAGO -->
@@ -1056,7 +1059,7 @@ const SUPABASE_URL = "https://ffkatmjtoevuthrztvkb.supabase.co";
 const SUPABASE_KEY = "sb_publishable_XvYuWpq2KejWLnxGlc8JoQ_ZAPhRrWO";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let DATA = { fixner:[], banco:[], gastos:[], dashboard:[], chequesRecibidos:[], facturasPendientes:[], facturasCompraPendientes:[], clienteNombre:{} };
+let DATA = { fixner:[], banco:[], gastos:[], dashboard:[], chequesRecibidos:[], facturasPendientes:[], facturasCompraPendientes:[], ocProvision:[], clienteNombre:{} };
 let CHARTS = {};
 let ROL = null;
 let SESSION = null;
@@ -1247,12 +1250,14 @@ async function cargarTodo() {
     DATA.chequesRecibidos = chqRecibidos || [];
 
     setMsg('Leyendo facturas y facturas de compra pendientes...');
-    const [facPendR, facCompraPendR] = await Promise.all([
+    const [facPendR, facCompraPendR, ocProvR] = await Promise.all([
       sb.from('facturas_saldo_pendiente').select('*').gt('saldo_pendiente', 0),
       sb.from('facturas_compra_saldo_pendiente').select('*').gt('saldo_pendiente', 0),
+      sb.from('ordenes_compra_provision').select('*'),
     ]);
     DATA.facturasPendientes = facPendR.data || [];
     DATA.facturasCompraPendientes = facCompraPendR.data || [];
+    DATA.ocProvision = ocProvR.data || [];
 
     setMsg('Leyendo costos fijos...');
     const { data: gastos } = await sb.from('costos_fijos').select('*').eq('activo', true);
@@ -1411,6 +1416,19 @@ function calcKPIs() {
     if (diff !== null && diff >= 0 && diff <= 7) k.pagos7d += imp;
   });
 
+  // OC sin factura de compra todavía: previsión de pago aunque el proveedor
+  // no haya facturado. Deja de contar apenas exista una factura de compra
+  // real vinculada (ordenes_compra_provision ya filtra eso) para no sumar
+  // el mismo compromiso dos veces.
+  DATA.ocProvision.forEach(oc => {
+    const fecha = parseDate(oc.fecha_estimada_pago);
+    if (!fecha) return;
+    const imp = parseNum(oc.monto_estimado);
+    const diff = diffDias(fecha);
+    if (diff !== null && diff >= 0 && diff <= 30) k.pagos30d += imp;
+    if (diff !== null && diff >= 0 && diff <= 7) k.pagos7d += imp;
+  });
+
   k.cobrosProgramados.sort((a,b) => a.fecha - b.fecha);
 
   const mesActual = hoy.getMonth() + 1;
@@ -1466,6 +1484,11 @@ function calcKPIs() {
         const f = parseDate(fc.fecha_vencimiento); if (!f) return;
         f.setHours(0,0,0,0);
         if (f.getTime() === dia.getTime()) saldoAcum -= parseNum(fc.saldo_pendiente);
+      });
+      DATA.ocProvision.forEach(oc => {
+        const f = parseDate(oc.fecha_estimada_pago); if (!f) return;
+        f.setHours(0,0,0,0);
+        if (f.getTime() === dia.getTime()) saldoAcum -= parseNum(oc.monto_estimado);
       });
       DATA.gastos.forEach(row => {
         if (parseInt(row[2]) === dia.getDate() && mesAplica(row[4], dia.getMonth()+1)) saldoAcum -= parseNum(row[1]);
@@ -2028,11 +2051,21 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${o.numero}</td><td>${o.proveedores ? o.proveedores.nombre : '—'}</td><td>${proy}</td>
       <td style="font-family:var(--mono)">${o.fecha||'—'}</td>
       <td style="font-family:var(--mono)">${fmtMoney(Number(o.monto_estimado))}</td>
+      <td style="font-family:var(--mono)">${o.fecha_estimada_pago||'—'}</td>
       <td><span class="tag ${estadoOCTag[o.estado]||'muted'}">${o.estado}</span></td>
       <td>${opsVinc.length ? `<button class="btn ghost" onclick="irAModulo('op')">${opsVinc.length} OP${opsVinc.length>1?'s':''}</button>` : '—'}</td>
       <td>${puedeEditarOC ? `<button class="btn ghost" onclick="editarOC(window.OC_CACHE['${o.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarOC('${o.id}')">✕</button>` : ''}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de compra</td></tr>';
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de compra</td></tr>';
+  const ocSinFecha = (ocs||[]).filter(o => !['Cerrada','Anulada'].includes(o.estado) && !o.fecha_estimada_pago);
+  const ocSinFechaInfo = document.getElementById('oc-sin-fecha-info');
+  if (ocSinFecha.length > 0) {
+    const totalSinFecha = ocSinFecha.reduce((s,o) => s + Number(o.monto_estimado||0), 0);
+    ocSinFechaInfo.textContent = `${ocSinFecha.length} OC activa${ocSinFecha.length>1?'s':''} sin fecha estimada de pago (${fmtMoney(totalSinFecha)}) — no impactan la proyección de caja hasta que se les cargue una fecha.`;
+    ocSinFechaInfo.style.display = 'block';
+  } else {
+    ocSinFechaInfo.style.display = 'none';
+  }
   const ocOpts = '<option value="">—</option>' + (ocs||[]).map(o => `<option value="${o.id}">OC-${o.numero} · ${o.proveedores ? o.proveedores.nombre : ''}</option>`).join('');
   const ocSelectOP = document.getElementById('op-oc'); if (ocSelectOP) ocSelectOP.innerHTML = ocOpts;
   window.OC_NUMERO_POR_ID = {}; (ocs||[]).forEach(o => window.OC_NUMERO_POR_ID[o.id] = o.numero);
@@ -3743,11 +3776,12 @@ async function crearOC() {
   const proyecto_id = document.getElementById('oc-proyecto').value || null;
   const fecha = document.getElementById('oc-fecha').value || null;
   const monto_estimado = Number(document.getElementById('oc-monto').value) || 0;
+  const fecha_estimada_pago = document.getElementById('oc-fecha-est-pago').value || null;
   const estado = document.getElementById('oc-estado').value;
   const concepto = document.getElementById('oc-concepto').value.trim();
   if (!proveedorNombre) return showErr('oc', 'El proveedor es obligatorio.');
   const proveedor_id = await obtenerOCrearProveedor(proveedorNombre);
-  const payload = { proveedor_id, proyecto_id, fecha: fecha||undefined, monto_estimado, estado, concepto: concepto||null };
+  const payload = { proveedor_id, proyecto_id, fecha: fecha||undefined, monto_estimado, fecha_estimada_pago, estado, concepto: concepto||null };
   if (EDITANDO_OC_ID) {
     const { error } = await sb.from('ordenes_compra').update(payload).eq('id', EDITANDO_OC_ID);
     if (error) return showErr('oc', error.message);
@@ -3765,6 +3799,7 @@ function editarOC(o) {
   document.getElementById('oc-proyecto').value = o.proyecto_id || '';
   document.getElementById('oc-fecha').value = o.fecha || '';
   document.getElementById('oc-monto').value = o.monto_estimado || '';
+  document.getElementById('oc-fecha-est-pago').value = o.fecha_estimada_pago || '';
   document.getElementById('oc-estado').value = o.estado || 'Pendiente';
   document.getElementById('oc-concepto').value = o.concepto || '';
   document.getElementById('oc-btn-guardar').textContent = 'Guardar cambios';

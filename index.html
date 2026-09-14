@@ -259,6 +259,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
     <button class="nav-item" onclick="nav(this,'proveedores')"><span class="nav-pip"></span>Proveedores</button>
     <button class="nav-item" onclick="nav(this,'personal')"><span class="nav-pip"></span>Personal</button>
+    <button class="nav-item" onclick="nav(this,'categorias-activo')"><span class="nav-pip"></span>Categorías de Activo</button>
     <button class="nav-item" onclick="nav(this,'tipos-retencion')"><span class="nav-pip"></span>Tipos de Retención</button>
   </nav>
   <div class="sidebar-bottom">
@@ -463,6 +464,26 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="personal-btn-cancelar" onclick="cancelarEdicionPersonal()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>Perfil</th><th>Especialidad</th><th>Email</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-personal"></tbody></table></div></div>
+</div>
+
+<!-- CATEGORIAS DE ACTIVO -->
+<div class="page" id="page-categorias-activo">
+  <div class="ph"><div><h1>Categorías de <span>Activo</span></h1><p>Catálogo compartido (no es propio de un cliente): define qué campos técnicos pide la ficha de cada tipo de equipo.</p></div></div>
+  <div class="row-actions" id="categorias-activo-actions" style="display:none"><button class="btn" onclick="toggleForm('categorias-activo')">+ Nueva categoría</button></div>
+  <div class="card" id="categorias-activo-form" style="display:none">
+    <div id="categorias-activo-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Nombre</label><input id="cat-nombre" placeholder="Generador diésel, Bomba, HVAC..."></div>
+      <div class="field"><label>Prefijo (código estructurado)</label><input id="cat-prefijo" placeholder="GRUP, BOMB, HVAC..." maxlength="6"></div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Campos de ficha técnica (JSON)</label>
+        <textarea id="cat-esquema" rows="4" placeholder='[{"campo":"potencia_kva","etiqueta":"Potencia (kVA)","tipo":"numeric"}]'></textarea>
+      </div>
+    </div>
+    <button class="btn" id="categorias-activo-btn-guardar" onclick="crearCategoriaActivo()">Guardar</button>
+    <button class="btn ghost" id="categorias-activo-btn-cancelar" onclick="cancelarEdicionCategoriaActivo()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>Prefijo</th><th>Campos técnicos</th><th></th></tr></thead><tbody id="tbl-categorias-activo"></tbody></table></div></div>
 </div>
 
 <!-- TIPOS DE RETENCION -->
@@ -715,6 +736,9 @@ tr:hover td{background:var(--bg)}
         </select>
       </div>
       <div class="field"><label>Categoría / familia</label><input id="act-categoria" placeholder="Caldera, Tablero eléctrico..." oninput="sugerirCodigoActivo()"></div>
+      <div class="field"><label>Categoría (catálogo, opcional)</label>
+        <select id="act-categoria-id" onchange="alCambiarCategoriaCatalogo()"></select>
+      </div>
       <div class="field"><label>Cliente</label><select id="act-cliente" onchange="sugerirCodigoActivo()"><option value="">—</option></select></div>
       <div class="field"><label>Proyecto</label><select id="act-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Ubicación</label><input id="act-ubicacion" placeholder="Planta baja, sala de máquinas..."></div>
@@ -732,6 +756,10 @@ tr:hover td{background:var(--bg)}
         <select id="act-criticidad"><option>Alta</option><option selected>Media</option><option>Baja</option></select>
       </div>
       <div class="field"><label>Estado</label><select id="act-estado"><option>ACTIVO</option><option>DE_BAJA</option><option>EN_REPARACION</option></select></div>
+    </div>
+    <div id="act-ficha-tecnica-wrap" style="display:none;margin:14px 0">
+      <div class="card-ttl">Ficha técnica de la categoría elegida</div>
+      <div class="form-grid" id="act-ficha-tecnica-campos"></div>
     </div>
     <button class="btn" id="activos-btn-guardar" onclick="crearActivo()">Guardar</button>
     <button class="btn ghost" id="activos-btn-cancelar" onclick="cancelarEdicionActivo()" style="display:none">Cancelar edición</button>
@@ -807,6 +835,24 @@ tr:hover td{background:var(--bg)}
   </div>
   <div id="ot-empty" class="empty"><b>Sin órdenes de trabajo registradas.</b>Se generan a partir de un activo o de un reclamo entrante.</div>
   <div class="card" id="ot-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Activo</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Vencimiento</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-ot"></tbody></table></div></div>
+</div>
+
+<!-- CERRAR OT PREVENTIVA (checklist real, no un cierre a ciegas) -->
+<div class="page" id="page-cerrar-ot">
+  <div class="ph"><div><h1>Cerrar Orden de <span>Trabajo</span></h1><p id="cerrar-ot-subtitulo">Marcá qué tareas del plan de mantenimiento se completaron de verdad</p></div></div>
+  <div class="card">
+    <div class="form-grid">
+      <div class="field"><label>Fecha de ejecución real</label><input type="date" id="cerrar-ot-fecha"></div>
+      <div class="field"><label>Lectura actual del horómetro (si aplica)</label><input type="number" step="0.1" id="cerrar-ot-horas" placeholder="Dejar vacío si no aplica"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-ttl">Tareas del checklist</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Completada</th><th>Sistema</th><th>Tarea</th></tr></thead><tbody id="tbl-cerrar-ot-tareas"></tbody></table></div>
+    <p style="color:var(--muted);margin-top:10px">Una tarea sin marcar queda pendiente — vuelve a la cola y se re-generará en el próximo ciclo, sin perder su vencimiento.</p>
+  </div>
+  <button class="btn" onclick="confirmarCierreOTPreventiva()">Confirmar cierre</button>
+  <a href="#" class="btn ghost" onclick="irAModulo('ot');return false" style="margin-left:8px">Cancelar</a>
 </div>
 
 <!-- COMPRAS -->
@@ -1024,6 +1070,7 @@ const PUEDE_EDITAR = {
   ordenes_pago: r => r === 'gonzalo' || r === 'sebastian',
   proveedores: r => r === 'gonzalo' || r === 'sebastian',
   personal: r => r === 'sebastian',
+  categorias_activo: r => r === 'ezequiel' || r === 'sebastian',
   tipos_retencion: r => r === 'gonzalo' || r === 'sebastian',
   facturas_compra: r => r === 'gonzalo' || r === 'sebastian',
   cobros: r => r === 'gonzalo' || r === 'sebastian',
@@ -1090,6 +1137,7 @@ function aplicarPermisosUI() {
   document.getElementById('op-actions').style.display = PUEDE_EDITAR.ordenes_pago(ROL) ? 'flex' : 'none';
   document.getElementById('proveedores-actions').style.display = PUEDE_EDITAR.proveedores(ROL) ? 'flex' : 'none';
   document.getElementById('personal-actions').style.display = PUEDE_EDITAR.personal(ROL) ? 'flex' : 'none';
+  document.getElementById('categorias-activo-actions').style.display = PUEDE_EDITAR.categorias_activo(ROL) ? 'flex' : 'none';
   document.getElementById('tipos-retencion-actions').style.display = PUEDE_EDITAR.tipos_retencion(ROL) ? 'flex' : 'none';
   document.getElementById('facturas-compra-actions').style.display = PUEDE_EDITAR.facturas_compra(ROL) ? 'flex' : 'none';
   document.getElementById('cobros-actions').style.display = PUEDE_EDITAR.cobros(ROL) ? 'flex' : 'none';
@@ -1908,6 +1956,17 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarPersonal ? `<button class="btn ghost" onclick="editarPersonal(window.PERSONAL_CACHE['${p.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarPersonal('${p.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin personal cargado</td></tr>';
 
+  // Categorías de Activo
+  const { data: categoriasActivo } = await sb.from('categorias_activo').select('*').order('nombre');
+  window.CATEGORIAS_ACTIVO_CACHE = {}; (categoriasActivo||[]).forEach(c => window.CATEGORIAS_ACTIVO_CACHE[c.id] = c);
+  poblarSelectCategoriaActivo(categoriasActivo);
+  const puedeEditarCatAct = PUEDE_EDITAR.categorias_activo(ROL);
+  document.getElementById('tbl-categorias-activo').innerHTML = (categoriasActivo||[]).map(c => `<tr>
+      <td>${c.nombre}</td><td style="font-family:var(--mono)">${c.prefijo_familia||'—'}</td>
+      <td>${(c.esquema_campos||[]).map(f => f.etiqueta).join(', ') || '—'}</td>
+      <td>${puedeEditarCatAct ? `<button class="btn ghost" onclick="editarCategoriaActivo(window.CATEGORIAS_ACTIVO_CACHE['${c.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarCategoriaActivo('${c.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin categorías cargadas</td></tr>';
+
   // Tipos de Retención
   const { data: tiposRetencion } = await sb.from('tipos_retencion').select('*').order('nombre');
   window.TIPOS_RETENCION_CACHE = {}; (tiposRetencion||[]).forEach(t => window.TIPOS_RETENCION_CACHE[t.id] = t);
@@ -2498,7 +2557,9 @@ async function crearActivo() {
   const garantia_hasta = document.getElementById('act-garantia').value || null;
   const criticidad = document.getElementById('act-criticidad').value;
   const estado = document.getElementById('act-estado').value;
-  const payload = { nombre, tipo_instalacion: tipo_instalacion||null, categoria: categoria||null, cliente_id, proyecto_id, ubicacion: ubicacion||null, codigo: codigo||null,
+  const categoria_id = document.getElementById('act-categoria-id').value || null;
+  const ficha_tecnica = leerFichaTecnicaDelForm();
+  const payload = { nombre, tipo_instalacion: tipo_instalacion||null, categoria: categoria||null, categoria_id, ficha_tecnica, cliente_id, proyecto_id, ubicacion: ubicacion||null, codigo: codigo||null,
     marca: marca||null, modelo: modelo||null, numero_serie: numero_serie||null, fecha_fabricacion, fecha_compra,
     fecha_instalacion, vida_util_estimada_meses, costo_adquisicion, garantia_hasta, criticidad, estado };
   if (EDITANDO_ACT_ID) {
@@ -2532,6 +2593,8 @@ function editarActivo(a) {
   document.getElementById('act-garantia').value = a.garantia_hasta || '';
   document.getElementById('act-criticidad').value = a.criticidad || 'Media';
   document.getElementById('act-estado').value = a.estado || 'ACTIVO';
+  document.getElementById('act-categoria-id').value = a.categoria_id || '';
+  renderCamposFichaTecnica(a.categoria_id, a.ficha_tecnica || {});
   document.getElementById('activos-btn-guardar').textContent = 'Guardar cambios';
   document.getElementById('activos-btn-cancelar').style.display = 'inline-block';
   document.getElementById('activos-form').style.display = 'block';
@@ -2546,6 +2609,8 @@ function cancelarEdicionActivo() {
   });
   document.getElementById('act-cliente').value = '';
   document.getElementById('act-proyecto').value = '';
+  document.getElementById('act-categoria-id').value = '';
+  renderCamposFichaTecnica(null, {});
   document.getElementById('activos-btn-guardar').textContent = 'Guardar';
   document.getElementById('activos-btn-cancelar').style.display = 'none';
   document.getElementById('activos-form').style.display = 'none';
@@ -2565,6 +2630,14 @@ async function mostrarFichaActivo(id) {
   const { data: asignaciones } = await sb.from('activo_planes_mantenimiento')
     .select('*, planes_mantenimiento(nombre), activo_plan_tarea_estado(*, plan_mantenimiento_tareas(sistema,accion,contenido,orden))')
     .eq('activo_id', id).eq('vigente', true);
+  const { data: medidores } = await sb.from('medidores').select('*').eq('activo_id', id);
+  const { data: documentos } = await sb.from('documentos_activo').select('*').eq('activo_id', id).order('fecha', { ascending: false });
+  window.DOCUMENTOS_FICHA_ACTIVO_ID = id;
+  const medidorIds = (medidores||[]).map(m => m.id);
+  const { data: lecturas } = medidorIds.length > 0
+    ? await sb.from('ultima_lectura_medidor').select('*').in('medidor_id', medidorIds)
+    : { data: [] };
+  const lecturaPorMedidor = {}; (lecturas||[]).forEach(l => { lecturaPorMedidor[l.medidor_id] = l; });
   const hoyFicha = new Date().toISOString().slice(0,10);
 
   document.getElementById('ficha-titulo').textContent = a.nombre + (a.codigo ? ' · ' + a.codigo : '');
@@ -2594,6 +2667,12 @@ async function mostrarFichaActivo(id) {
         <div class="field"><label>Vida útil estimada</label><div>${a.vida_util_estimada_meses ? a.vida_util_estimada_meses + ' meses' : '—'}</div></div>
         <div class="field"><label>Costo de adquisición</label><div>${a.costo_adquisicion ? '$' + Number(a.costo_adquisicion).toLocaleString('es-AR') : '—'}</div></div>
         <div class="field"><label>Garantía hasta</label><div>${a.garantia_hasta || '—'}</div></div>
+        ${(() => {
+          const cat = a.categoria_id ? window.CATEGORIAS_ACTIVO_CACHE[a.categoria_id] : null;
+          const campos = cat ? (cat.esquema_campos || []) : [];
+          const valores = a.ficha_tecnica || {};
+          return campos.map(f => `<div class="field"><label>${f.etiqueta || f.campo}</label><div>${valores[f.campo] ?? '—'}</div></div>`).join('');
+        })()}
       </div>
     </div>
     <div class="card">
@@ -2607,13 +2686,17 @@ async function mostrarFichaActivo(id) {
       ${(asignaciones||[]).length === 0 ? '<p style="text-align:center;color:var(--muted);padding:20px">Sin planes maestros asignados — asignar desde Planes Maestros</p>' :
         (asignaciones||[]).map(asg => {
           const tareas = (asg.activo_plan_tarea_estado||[]).slice().sort((x,y)=>(x.plan_mantenimiento_tareas?.orden||0)-(y.plan_mantenimiento_tareas?.orden||0));
+          const horometro = (medidores||[]).find(m => m.tipo === 'Horómetro');
+          const lecturaActual = horometro ? (lecturaPorMedidor[horometro.id]?.valor ?? null) : null;
           return `<div style="margin-bottom:14px">
             <div style="font-weight:700;margin-bottom:6px">${asg.planes_mantenimiento ? asg.planes_mantenimiento.nombre : '—'}</div>
             <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th>Tarea</th><th>Última ejecución</th><th>Próxima ejecución</th></tr></thead><tbody>
               ${tareas.map(t => {
                 const t2 = t.plan_mantenimiento_tareas || {};
                 const proxima = t.proxima_ejecucion_fecha ? t.proxima_ejecucion_fecha : (t.proxima_ejecucion_horas ? t.proxima_ejecucion_horas + ' hs' : '—');
-                const vencida = t.proxima_ejecucion_fecha && t.proxima_ejecucion_fecha <= hoyFicha;
+                const vencidaPorFecha = t.proxima_ejecucion_fecha && t.proxima_ejecucion_fecha <= hoyFicha;
+                const vencidaPorHoras = t.proxima_ejecucion_horas && lecturaActual !== null && lecturaActual >= t.proxima_ejecucion_horas;
+                const vencida = vencidaPorFecha || vencidaPorHoras;
                 return `<tr><td>${t2.sistema||'—'}</td><td>${t2.accion||''} ${t2.contenido||''}</td>
                   <td>${t.ultima_ejecucion_fecha || (t.ultima_ejecucion_horas ? t.ultima_ejecucion_horas+' hs' : '—')}</td>
                   <td style="${vencida?'color:var(--danger);font-weight:700':''}">${proxima}</td></tr>`;
@@ -2623,6 +2706,41 @@ async function mostrarFichaActivo(id) {
         }).join('')}
     </div>
     <div class="card">
+      <div class="card-ttl">Medidores</div>
+      ${(medidores||[]).length === 0 ? '<p style="text-align:center;color:var(--muted);padding:20px">Sin medidores registrados — se crean solos al cerrar una OT preventiva informando una lectura</p>' : `
+      <div class="tbl-wrap"><table><thead><tr><th>Tipo</th><th>Unidad</th><th>Última lectura</th><th>Fecha</th></tr></thead><tbody>
+        ${(medidores||[]).map(m => {
+          const l = lecturaPorMedidor[m.id];
+          return `<tr><td>${m.tipo}</td><td>${m.unidad}</td><td>${l ? l.valor : '—'}</td><td>${l ? l.fecha : '—'}</td></tr>`;
+        }).join('')}
+      </tbody></table></div>`}
+    </div>
+    <div class="card">
+      <div class="card-ttl">Documentos</div>
+      <div id="documentos-activo-form-wrap" style="display:none;margin-bottom:14px">
+        <div class="form-grid">
+          <div class="field"><label>Tipo</label>
+            <select id="doc-act-tipo">
+              <option>Manual</option><option>Plano</option><option>Diagrama</option>
+              <option>Foto</option><option>Certificado</option><option>Garantía</option>
+            </select>
+          </div>
+          <div class="field"><label>Archivo</label><input type="file" id="doc-act-archivo"></div>
+        </div>
+        <button class="btn" onclick="subirDocumentoActivo()">Subir</button>
+        <span id="doc-act-msg" style="margin-left:10px;color:var(--muted)"></span>
+      </div>
+      ${(documentos||[]).length === 0 ? '<p style="text-align:center;color:var(--muted);padding:20px">Sin documentos cargados</p>' : `
+      <div class="tbl-wrap"><table><thead><tr><th>Tipo</th><th>Archivo</th><th>Fecha</th><th>Subido por</th><th></th></tr></thead><tbody>
+        ${(documentos||[]).map(d => `<tr>
+          <td>${d.tipo}</td>
+          <td><a href="${sb.storage.from('activos-documentos').getPublicUrl(d.storage_path).data.publicUrl}" target="_blank" rel="noopener">${d.nombre_archivo}</a></td>
+          <td>${d.fecha}</td><td>${d.subido_por||'—'}</td>
+          <td>${PUEDE_EDITAR.activos(ROL) ? `<button class="btn ghost" onclick="eliminarDocumentoActivo('${d.id}','${d.storage_path}')">✕</button>` : ''}</td>
+        </tr>`).join('')}
+      </tbody></table></div>`}
+    </div>
+    <div class="card">
       <div class="card-ttl">Historial de órdenes de trabajo</div>
       <div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Estado</th><th>Descripción</th></tr></thead><tbody>
         ${(ots||[]).map(o => `<tr><td>${o.fecha_apertura}</td><td>${o.tipo}</td><td>${o.prioridad||'—'}</td><td>${o.tecnico_asignado||'—'}</td><td><span class="tag ${o.estado==='CERRADA'?'ok':'w'}">${o.estado}</span></td><td>${o.descripcion||'—'}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de trabajo registradas</td></tr>'}
@@ -2630,6 +2748,8 @@ async function mostrarFichaActivo(id) {
     </div>
     <a href="${location.pathname}" class="btn ghost" style="display:inline-block;margin-top:8px">← Volver al panel</a>
   `;
+  const wrapDoc = document.getElementById('documentos-activo-form-wrap');
+  if (wrapDoc) wrapDoc.style.display = PUEDE_EDITAR.activos(ROL) ? 'block' : 'none';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-ficha-activo').classList.add('active');
 }
@@ -2674,6 +2794,40 @@ async function asignarPlanAActivosSeleccionados() {
   msgEl.textContent = `Plan asignado a ${ids.length} activo(s). El estado de cada tarea se creó automáticamente.`;
   await cargarTodo();
   verPlanMaestro(planId);
+}
+
+async function subirDocumentoActivo() {
+  const activoId = window.DOCUMENTOS_FICHA_ACTIVO_ID;
+  const tipo = document.getElementById('doc-act-tipo').value;
+  const input = document.getElementById('doc-act-archivo');
+  const file = input.files[0];
+  const msgEl = document.getElementById('doc-act-msg');
+  if (!file) { msgEl.textContent = 'Elegí un archivo primero.'; return; }
+
+  msgEl.textContent = 'Subiendo...';
+  const path = activoId + '/' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const { error: errorSubida } = await sb.storage.from('activos-documentos').upload(path, file);
+  if (errorSubida) { msgEl.textContent = 'Error al subir: ' + errorSubida.message; return; }
+
+  // #userTxt ya tiene el nombre (o el email como fallback) calculado al
+  // loguearse (ver rolRow.nombre más arriba en el archivo) -- se reusa
+  // en vez de volver a resolverlo.
+  const subidoPor = document.getElementById('userTxt') ? document.getElementById('userTxt').textContent : null;
+  const { error: errorInsert } = await sb.from('documentos_activo').insert({
+    id: 'DOC-' + Date.now(), activo_id: activoId, tipo, storage_path: path, nombre_archivo: file.name, subido_por: subidoPor,
+  });
+  if (errorInsert) { msgEl.textContent = 'Se subió el archivo pero no se pudo guardar el registro: ' + errorInsert.message; return; }
+
+  input.value = '';
+  mostrarFichaActivo(activoId);
+}
+
+async function eliminarDocumentoActivo(id, storagePath) {
+  if (!confirm('¿Eliminar este documento? Esta acción no se puede deshacer.')) return;
+  await sb.storage.from('activos-documentos').remove([storagePath]);
+  const { error } = await sb.from('documentos_activo').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar el registro: ' + error.message);
+  mostrarFichaActivo(window.DOCUMENTOS_FICHA_ACTIVO_ID);
 }
 
 async function verQRActivo(id) {
@@ -2839,8 +2993,76 @@ async function eliminarOT(id) {
 }
 
 async function cerrarOT(id) {
+  // Si esta OT nació de un plan de mantenimiento (activo_plan_tarea_estado
+  // apunta a ella), no se cierra a ciegas — hay que decidir tarea por
+  // tarea qué se completó de verdad, para que el ciclo de mantenimiento
+  // (próxima fecha/horas) se recalcule bien. Si es una OT correctiva
+  // manual, sin checklist detrás, se cierra directo como antes.
+  const { data: tareas } = await sb.from('activo_plan_tarea_estado')
+    .select('*, plan_mantenimiento_tareas(sistema,accion,contenido,frecuencia_horas,orden)')
+    .eq('ot_generada_id', id);
+  if (tareas && tareas.length > 0) {
+    mostrarCierreOTPreventiva(id, tareas);
+    return;
+  }
   const { error } = await sb.from('ordenes_trabajo').update({ estado: 'CERRADA', fecha_cierre: new Date().toISOString().slice(0,10) }).eq('id', id);
   if (error) return alert('No se pudo cerrar la OT: ' + error.message);
+  location.reload();
+}
+
+function mostrarCierreOTPreventiva(otId, tareas) {
+  window.CERRANDO_OT_ID = otId;
+  window.CERRANDO_OT_TAREAS = tareas.slice().sort((a,b) => (a.plan_mantenimiento_tareas?.orden||0) - (b.plan_mantenimiento_tareas?.orden||0));
+  document.getElementById('cerrar-ot-subtitulo').textContent = `OT ${otId} — marcá qué tareas del plan de mantenimiento se completaron de verdad`;
+  document.getElementById('cerrar-ot-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('cerrar-ot-horas').value = '';
+  document.getElementById('tbl-cerrar-ot-tareas').innerHTML = window.CERRANDO_OT_TAREAS.map(t => {
+    const info = t.plan_mantenimiento_tareas || {};
+    return `<tr>
+      <td><input type="checkbox" class="chk-cerrar-tarea" value="${t.id}" checked></td>
+      <td>${info.sistema || '—'}</td>
+      <td>${info.accion || ''} ${info.contenido || ''}</td>
+    </tr>`;
+  }).join('');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-cerrar-ot').classList.add('active');
+}
+
+async function confirmarCierreOTPreventiva() {
+  const otId = window.CERRANDO_OT_ID;
+  const fecha = document.getElementById('cerrar-ot-fecha').value || new Date().toISOString().slice(0,10);
+  const horasTexto = document.getElementById('cerrar-ot-horas').value;
+  const horas = horasTexto === '' ? null : Number(horasTexto);
+  const completadas = new Set(Array.from(document.querySelectorAll('.chk-cerrar-tarea:checked')).map(el => el.value));
+
+  // Si se cargó una lectura de horómetro, queda registrada como tal (no
+  // solo usada para esta OT) -- así el próximo ciclo del cron y la
+  // próxima OT que se cierre ya la tienen disponible como "última lectura
+  // conocida". Crea el medidor si el activo todavía no tiene uno.
+  const ot = window.OT_CACHE ? window.OT_CACHE[otId] : null;
+  if (horas !== null && ot && ot.activo_id) {
+    let { data: medidor } = await sb.from('medidores').select('id').eq('activo_id', ot.activo_id).eq('tipo', 'Horómetro').maybeSingle();
+    if (!medidor) {
+      const nuevoId = 'MED-' + ot.activo_id + '-HORAS';
+      const { data: creado, error: errorMed } = await sb.from('medidores').insert({ id: nuevoId, activo_id: ot.activo_id, tipo: 'Horómetro', unidad: 'hs' }).select().single();
+      if (errorMed) { alert('No se pudo crear el medidor de horas: ' + errorMed.message); return; }
+      medidor = creado;
+    }
+    const { error: errorLectura } = await sb.from('lecturas_medidor').insert({ id: 'LEC-' + Date.now(), medidor_id: medidor.id, valor: horas, fecha });
+    if (errorLectura) { alert('No se pudo registrar la lectura: ' + errorLectura.message); return; }
+  }
+
+  for (const t of window.CERRANDO_OT_TAREAS) {
+    if (completadas.has(t.id)) {
+      const { error } = await sb.rpc('cerrar_tarea_mantenimiento', { p_estado_id: t.id, p_fecha: fecha, p_horas: horas });
+      if (error) { alert('Error al cerrar la tarea ' + t.id + ': ' + error.message); return; }
+    } else {
+      await sb.rpc('reabrir_tarea_mantenimiento', { p_estado_id: t.id });
+    }
+  }
+
+  const { error: errorOT } = await sb.from('ordenes_trabajo').update({ estado: 'CERRADA', fecha_cierre: fecha }).eq('id', otId);
+  if (errorOT) return alert('Las tareas se guardaron, pero no se pudo cerrar la OT: ' + errorOT.message);
   location.reload();
 }
 
@@ -3316,6 +3538,105 @@ async function eliminarPersonal(id) {
   const { error } = await sb.from('personal').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
   location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// CATEGORÍAS DE ACTIVO (catálogo global — no es por cliente/empresa)
+// ═══════════════════════════════════════════════
+let EDITANDO_CATACT_ID = null;
+
+async function crearCategoriaActivo() {
+  const nombre = document.getElementById('cat-nombre').value.trim();
+  const prefijo_familia = document.getElementById('cat-prefijo').value.trim().toUpperCase();
+  const esquemaTexto = document.getElementById('cat-esquema').value.trim();
+  if (!nombre) return showErr('categorias-activo', 'El nombre es obligatorio.');
+  let esquema_campos = [];
+  if (esquemaTexto) {
+    try { esquema_campos = JSON.parse(esquemaTexto); }
+    catch (e) { return showErr('categorias-activo', 'El JSON de campos técnicos no es válido: ' + e.message); }
+  }
+  const payload = { nombre, prefijo_familia: prefijo_familia||null, esquema_campos };
+  if (EDITANDO_CATACT_ID) {
+    const { error } = await sb.from('categorias_activo').update(payload).eq('id', EDITANDO_CATACT_ID);
+    if (error) return showErr('categorias-activo', error.message);
+  } else {
+    const id = 'CAT-' + Date.now();
+    const { error } = await sb.from('categorias_activo').insert({ id, ...payload });
+    if (error) return showErr('categorias-activo', error.message);
+  }
+  location.reload();
+}
+
+function editarCategoriaActivo(c) {
+  EDITANDO_CATACT_ID = c.id;
+  document.getElementById('cat-nombre').value = c.nombre || '';
+  document.getElementById('cat-prefijo').value = c.prefijo_familia || '';
+  document.getElementById('cat-esquema').value = c.esquema_campos ? JSON.stringify(c.esquema_campos) : '';
+  document.getElementById('categorias-activo-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('categorias-activo-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('categorias-activo-form').style.display = 'block';
+  document.getElementById('categorias-activo-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionCategoriaActivo() {
+  EDITANDO_CATACT_ID = null;
+  document.getElementById('categorias-activo-btn-guardar').textContent = 'Guardar';
+  document.getElementById('categorias-activo-btn-cancelar').style.display = 'none';
+  document.getElementById('categorias-activo-form').style.display = 'none';
+}
+
+async function eliminarCategoriaActivo(id) {
+  if (!confirm('¿Eliminar esta categoría? Los activos que ya la tienen asignada no se borran, solo pierden la referencia.')) return;
+  const { error } = await sb.from('categorias_activo').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
+}
+
+// Puebla el <select> de categoría en el alta de Activos y engancha el
+// render de campos dinámicos de ficha técnica según la categoría elegida.
+function poblarSelectCategoriaActivo(categorias) {
+  window.CATEGORIAS_ACTIVO = categorias || [];
+  const el = document.getElementById('act-categoria-id');
+  if (!el) return;
+  el.innerHTML = '<option value="">— (texto libre en "Categoría / familia") —</option>' +
+    (categorias||[]).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+}
+
+function renderCamposFichaTecnica(categoriaId, valoresActuales) {
+  valoresActuales = valoresActuales || {};
+  const cont = document.getElementById('act-ficha-tecnica-campos');
+  const wrap = document.getElementById('act-ficha-tecnica-wrap');
+  if (!cont) return;
+  const cat = categoriaId ? window.CATEGORIAS_ACTIVO_CACHE[categoriaId] : null;
+  const campos = cat ? (cat.esquema_campos || []) : [];
+  if (wrap) wrap.style.display = campos.length > 0 ? 'block' : 'none';
+  if (campos.length === 0) { cont.innerHTML = ''; return; }
+  cont.innerHTML = campos.map(f => `
+    <div class="field">
+      <label>${f.etiqueta || f.campo}</label>
+      <input class="ficha-tecnica-input" data-campo="${f.campo}" type="${f.tipo === 'numeric' ? 'number' : (f.tipo === 'date' ? 'date' : 'text')}" value="${valoresActuales[f.campo] ?? ''}">
+    </div>
+  `).join('');
+}
+
+function alCambiarCategoriaCatalogo() {
+  const categoriaId = document.getElementById('act-categoria-id').value;
+  const cat = categoriaId ? window.CATEGORIAS_ACTIVO_CACHE[categoriaId] : null;
+  // Completa el texto libre "Categoría / familia" para no duplicar carga
+  // manual, pero lo deja editable por si hace falta un matiz puntual.
+  if (cat && !document.getElementById('act-categoria').value) {
+    document.getElementById('act-categoria').value = cat.nombre;
+    sugerirCodigoActivo();
+  }
+  renderCamposFichaTecnica(categoriaId, {});
+}
+
+function leerFichaTecnicaDelForm() {
+  const valores = {};
+  document.querySelectorAll('#act-ficha-tecnica-campos .ficha-tecnica-input').forEach(el => {
+    if (el.value !== '') valores[el.dataset.campo] = el.value;
+  });
+  return valores;
 }
 
 async function obtenerOCrearProveedor(nombre) {

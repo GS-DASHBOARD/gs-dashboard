@@ -273,6 +273,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'proveedores')"><span class="nav-pip"></span>Proveedores</button>
     <button class="nav-item" onclick="nav(this,'personal')"><span class="nav-pip"></span>Personal</button>
     <button class="nav-item" onclick="nav(this,'categorias-activo')"><span class="nav-pip"></span>Categorías de Activo</button>
+    <button class="nav-item" onclick="nav(this,'ubicaciones')"><span class="nav-pip"></span>Ubicaciones</button>
     <button class="nav-item" onclick="nav(this,'tipos-retencion')"><span class="nav-pip"></span>Tipos de Retención</button>
   </nav>
   <div class="sidebar-bottom">
@@ -499,6 +500,27 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="categorias-activo-btn-cancelar" onclick="cancelarEdicionCategoriaActivo()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>Prefijo</th><th>Campos técnicos</th><th></th></tr></thead><tbody id="tbl-categorias-activo"></tbody></table></div></div>
+</div>
+
+<!-- UBICACIONES (jerarquia fisica: Sitio > Edificio > Sistema > Zona) -->
+<div class="page" id="page-ubicaciones">
+  <div class="ph"><div><h1>Ubicaciones</h1><p>Jerarquía física de un cliente — Sitio &gt; Edificio &gt; Sistema &gt; Zona. Opcional: un activo puede seguir usando solo el campo de texto libre.</p></div></div>
+  <div class="row-actions" id="ubicaciones-actions" style="display:none"><button class="btn" onclick="toggleForm('ubicaciones')">+ Nueva ubicación</button></div>
+  <div class="card" id="ubicaciones-form" style="display:none">
+    <div id="ubicaciones-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Nombre</label><input id="ubi-nombre" placeholder="Kansas — Sector Cocina"></div>
+      <div class="field"><label>Tipo</label>
+        <select id="ubi-tipo"><option value="">—</option><option>Sitio</option><option>Edificio</option><option>Sistema</option><option>Zona</option></select>
+      </div>
+      <div class="field"><label>Cliente</label><select id="ubi-cliente"><option value="">—</option></select></div>
+      <div class="field"><label>Ubicación padre</label><select id="ubi-padre"><option value="">— (nodo raíz) —</option></select></div>
+      <div class="field"><label>Criticidad</label><select id="ubi-criticidad"><option value="">—</option><option>Alta</option><option>Media</option><option>Baja</option></select></div>
+    </div>
+    <button class="btn" id="ubicaciones-btn-guardar" onclick="crearUbicacion()">Guardar</button>
+    <button class="btn ghost" id="ubicaciones-btn-cancelar" onclick="cancelarEdicionUbicacion()" style="display:none">Cancelar edición</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Ubicación</th><th>Tipo</th><th>Cliente</th><th>Criticidad</th><th></th></tr></thead><tbody id="tbl-ubicaciones"></tbody></table></div></div>
 </div>
 
 <!-- TIPOS DE RETENCION -->
@@ -756,7 +778,8 @@ tr:hover td{background:var(--bg)}
       </div>
       <div class="field"><label>Cliente</label><select id="act-cliente" onchange="sugerirCodigoActivo()"><option value="">—</option></select></div>
       <div class="field"><label>Proyecto</label><select id="act-proyecto"><option value="">—</option></select></div>
-      <div class="field"><label>Ubicación</label><input id="act-ubicacion" placeholder="Planta baja, sala de máquinas..."></div>
+      <div class="field"><label>Ubicación (texto libre)</label><input id="act-ubicacion" placeholder="Planta baja, sala de máquinas..."></div>
+      <div class="field"><label>Ubicación (árbol, opcional)</label><select id="act-ubicacion-id"></select></div>
       <div class="field"><label>Código (auto, editable)</label><input id="act-codigo" placeholder="Se sugiere solo"></div>
       <div class="field"><label>Marca</label><input id="act-marca"></div>
       <div class="field"><label>Modelo</label><input id="act-modelo"></div>
@@ -1218,6 +1241,7 @@ const PUEDE_EDITAR = {
   proveedores: r => r === 'gonzalo' || r === 'sebastian',
   personal: r => r === 'sebastian',
   categorias_activo: r => r === 'ezequiel' || r === 'sebastian',
+  ubicaciones: r => r === 'ezequiel' || r === 'sebastian',
   repuestos: r => r === 'gonzalo' || r === 'ezequiel' || r === 'sebastian',
   solicitudes_cliente: r => r === 'ezequiel' || r === 'sebastian',
   tipos_retencion: r => r === 'gonzalo' || r === 'sebastian',
@@ -1287,6 +1311,7 @@ function aplicarPermisosUI() {
   document.getElementById('proveedores-actions').style.display = PUEDE_EDITAR.proveedores(ROL) ? 'flex' : 'none';
   document.getElementById('personal-actions').style.display = PUEDE_EDITAR.personal(ROL) ? 'flex' : 'none';
   document.getElementById('categorias-activo-actions').style.display = PUEDE_EDITAR.categorias_activo(ROL) ? 'flex' : 'none';
+  document.getElementById('ubicaciones-actions').style.display = PUEDE_EDITAR.ubicaciones(ROL) ? 'flex' : 'none';
   document.getElementById('repuestos-actions').style.display = PUEDE_EDITAR.repuestos(ROL) ? 'flex' : 'none';
   document.getElementById('tipos-retencion-actions').style.display = PUEDE_EDITAR.tipos_retencion(ROL) ? 'flex' : 'none';
   document.getElementById('facturas-compra-actions').style.display = PUEDE_EDITAR.facturas_compra(ROL) ? 'flex' : 'none';
@@ -2276,6 +2301,18 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarCatAct ? `<button class="btn ghost" onclick="editarCategoriaActivo(window.CATEGORIAS_ACTIVO_CACHE['${c.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarCategoriaActivo('${c.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin categorías cargadas</td></tr>';
 
+  // Ubicaciones (jerarquía física, opcional)
+  const { data: ubicaciones } = await sb.from('ubicaciones').select('*, clientes(nombre)').order('nombre');
+  window.UBICACIONES_CACHE = {}; (ubicaciones||[]).forEach(u => window.UBICACIONES_CACHE[u.id] = u);
+  window.UBICACIONES_ARBOL = construirArbolUbicaciones(ubicaciones || []);
+  poblarSelectsUbicaciones(window.UBICACIONES_ARBOL);
+  const puedeEditarUbi = PUEDE_EDITAR.ubicaciones(ROL);
+  document.getElementById('tbl-ubicaciones').innerHTML = window.UBICACIONES_ARBOL.map(u => `<tr>
+      <td>${'— '.repeat(u.profundidad)}${u.nombre}</td><td>${u.tipo||'—'}</td>
+      <td>${u.clientes ? u.clientes.nombre : '—'}</td><td>${u.criticidad||'—'}</td>
+      <td>${puedeEditarUbi ? `<button class="btn ghost" onclick="editarUbicacion(window.UBICACIONES_CACHE['${u.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarUbicacion('${u.id}')">✕</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin ubicaciones cargadas — opcional, un activo puede seguir usando solo el campo de texto libre</td></tr>';
+
   // Tipos de Retención
   const { data: tiposRetencion } = await sb.from('tipos_retencion').select('*').order('nombre');
   window.TIPOS_RETENCION_CACHE = {}; (tiposRetencion||[]).forEach(t => window.TIPOS_RETENCION_CACHE[t.id] = t);
@@ -2971,8 +3008,9 @@ async function crearActivo() {
   const criticidad = document.getElementById('act-criticidad').value;
   const estado = document.getElementById('act-estado').value;
   const categoria_id = document.getElementById('act-categoria-id').value || null;
+  const ubicacion_id = document.getElementById('act-ubicacion-id').value || null;
   const ficha_tecnica = leerFichaTecnicaDelForm();
-  const payload = { nombre, tipo_instalacion: tipo_instalacion||null, categoria: categoria||null, categoria_id, ficha_tecnica, cliente_id, proyecto_id, ubicacion: ubicacion||null, codigo: codigo||null,
+  const payload = { nombre, tipo_instalacion: tipo_instalacion||null, categoria: categoria||null, categoria_id, ficha_tecnica, cliente_id, proyecto_id, ubicacion: ubicacion||null, ubicacion_id, codigo: codigo||null,
     marca: marca||null, modelo: modelo||null, numero_serie: numero_serie||null, fecha_fabricacion, fecha_compra,
     fecha_instalacion, vida_util_estimada_meses, costo_adquisicion, garantia_hasta, criticidad, estado };
   if (EDITANDO_ACT_ID) {
@@ -3007,6 +3045,7 @@ function editarActivo(a) {
   document.getElementById('act-criticidad').value = a.criticidad || 'Media';
   document.getElementById('act-estado').value = a.estado || 'ACTIVO';
   document.getElementById('act-categoria-id').value = a.categoria_id || '';
+  document.getElementById('act-ubicacion-id').value = a.ubicacion_id || '';
   renderCamposFichaTecnica(a.categoria_id, a.ficha_tecnica || {});
   document.getElementById('activos-btn-guardar').textContent = 'Guardar cambios';
   document.getElementById('activos-btn-cancelar').style.display = 'inline-block';
@@ -3023,6 +3062,7 @@ function cancelarEdicionActivo() {
   document.getElementById('act-cliente').value = '';
   document.getElementById('act-proyecto').value = '';
   document.getElementById('act-categoria-id').value = '';
+  document.getElementById('act-ubicacion-id').value = '';
   renderCamposFichaTecnica(null, {});
   document.getElementById('activos-btn-guardar').textContent = 'Guardar';
   document.getElementById('activos-btn-cancelar').style.display = 'none';
@@ -3078,7 +3118,7 @@ async function mostrarFichaActivo(id) {
         <div class="field"><label>Categoría / familia</label><div>${a.categoria || '—'}</div></div>
         <div class="field"><label>Cliente</label><div>${a.clientes ? a.clientes.nombre : '—'}</div></div>
         <div class="field"><label>Proyecto</label><div>${a.proyectos ? a.proyectos.nombre : '—'}</div></div>
-        <div class="field"><label>Ubicación</label><div>${a.ubicacion || '—'}</div></div>
+        <div class="field"><label>Ubicación</label><div>${a.ubicacion_id ? breadcrumbUbicacion(a.ubicacion_id) : (a.ubicacion || '—')}</div></div>
         <div class="field"><label>Criticidad</label><div>${a.criticidad || '—'}</div></div>
         <div class="field"><label>Estado</label><div>${a.estado || '—'}</div></div>
       </div>
@@ -4275,6 +4315,104 @@ function poblarSelectRepuestos(repuestos) {
   const opts = '<option value="">— elegir repuesto —</option>' + (repuestos||[]).map(r => `<option value="${r.id}">${r.nombre}</option>`).join('');
   const el = document.getElementById('cerrar-ot-repuesto-select');
   if (el) el.innerHTML = opts;
+}
+
+// ═══════════════════════════════════════════════
+// UBICACIONES (jerarquía física, opcional)
+// ═══════════════════════════════════════════════
+let EDITANDO_UBI_ID = null;
+
+// Aplana el árbol para mostrarlo indentado (tabla y selects), en vez de
+// armar un <ul> anidado -- más simple de recorrer y de mantener el orden
+// padre-antes-que-hijo en un <select>.
+function construirArbolUbicaciones(ubicaciones) {
+  const porPadre = {};
+  ubicaciones.forEach(u => { const p = u.padre_id || '__raiz__'; (porPadre[p] = porPadre[p]||[]).push(u); });
+  const resultado = [];
+  function recorrer(padreId, profundidad) {
+    (porPadre[padreId] || []).forEach(u => {
+      resultado.push({ ...u, profundidad });
+      recorrer(u.id, profundidad + 1);
+    });
+  }
+  recorrer('__raiz__', 0);
+  return resultado;
+}
+
+function poblarSelectsUbicaciones(arbol) {
+  const opts = '<option value="">— (nodo raíz) —</option>' + arbol.map(u =>
+    `<option value="${u.id}" ${u.id === EDITANDO_UBI_ID ? 'disabled' : ''}>${'— '.repeat(u.profundidad)}${u.nombre}</option>`
+  ).join('');
+  const padreEl = document.getElementById('ubi-padre');
+  if (padreEl) padreEl.innerHTML = opts;
+  const actEl = document.getElementById('act-ubicacion-id');
+  if (actEl) actEl.innerHTML = '<option value="">— sin asignar (usa el texto libre) —</option>' + arbol.map(u =>
+    `<option value="${u.id}">${'— '.repeat(u.profundidad)}${u.nombre}</option>`
+  ).join('');
+}
+
+// Camino completo Sitio > Edificio > ... hasta la raíz, para el
+// breadcrumb de la ficha.
+function breadcrumbUbicacion(id) {
+  const partes = [];
+  let actual = id ? window.UBICACIONES_CACHE[id] : null;
+  while (actual) {
+    partes.unshift(actual.nombre);
+    actual = actual.padre_id ? window.UBICACIONES_CACHE[actual.padre_id] : null;
+  }
+  return partes.join(' > ');
+}
+
+async function crearUbicacion() {
+  const nombre = document.getElementById('ubi-nombre').value.trim();
+  const tipo = document.getElementById('ubi-tipo').value || null;
+  const cliente_id = document.getElementById('ubi-cliente').value || null;
+  const padre_id = document.getElementById('ubi-padre').value || null;
+  const criticidad = document.getElementById('ubi-criticidad').value || null;
+  if (!nombre) return showErr('ubicaciones', 'El nombre es obligatorio.');
+  const payload = { nombre, tipo, cliente_id, padre_id, criticidad };
+  if (EDITANDO_UBI_ID) {
+    const { error } = await sb.from('ubicaciones').update(payload).eq('id', EDITANDO_UBI_ID);
+    if (error) return showErr('ubicaciones', error.message);
+  } else {
+    const id = 'UBI-' + Date.now();
+    const { error } = await sb.from('ubicaciones').insert({ id, ...payload });
+    if (error) return showErr('ubicaciones', error.message);
+  }
+  location.reload();
+}
+
+function editarUbicacion(u) {
+  EDITANDO_UBI_ID = u.id;
+  document.getElementById('ubi-nombre').value = u.nombre || '';
+  document.getElementById('ubi-tipo').value = u.tipo || '';
+  document.getElementById('ubi-cliente').value = u.cliente_id || '';
+  document.getElementById('ubi-criticidad').value = u.criticidad || '';
+  poblarSelectsUbicaciones(window.UBICACIONES_ARBOL); // re-poblar para deshabilitar auto-referencia
+  document.getElementById('ubi-padre').value = u.padre_id || '';
+  document.getElementById('ubicaciones-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('ubicaciones-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('ubicaciones-form').style.display = 'block';
+  document.getElementById('ubicaciones-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionUbicacion() {
+  EDITANDO_UBI_ID = null;
+  document.getElementById('ubi-nombre').value = '';
+  document.getElementById('ubi-tipo').value = '';
+  document.getElementById('ubi-cliente').value = '';
+  document.getElementById('ubi-padre').value = '';
+  document.getElementById('ubi-criticidad').value = '';
+  document.getElementById('ubicaciones-btn-guardar').textContent = 'Guardar';
+  document.getElementById('ubicaciones-btn-cancelar').style.display = 'none';
+  document.getElementById('ubicaciones-form').style.display = 'none';
+}
+
+async function eliminarUbicacion(id) {
+  if (!confirm('¿Eliminar esta ubicación? Si tiene ubicaciones hijas o activos asignados, puede fallar hasta reasignarlos primero.')) return;
+  const { error } = await sb.from('ubicaciones').delete().eq('id', id);
+  if (error) return alert('No se pudo eliminar: ' + error.message);
+  location.reload();
 }
 
 // ═══════════════════════════════════════════════

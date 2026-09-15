@@ -2687,7 +2687,7 @@ function showErr(mod, msg) {
 function poblarSelectsClientesProyectos() {
   const clienteOpts = '<option value="">—</option>' + (window.CLIENTES||[]).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
   const proyectoOpts = '<option value="">—</option>' + (window.PROYECTOS||[]).map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
-  ['mov-cliente','pre-cliente','fac-cliente','proy-cliente','act-cliente','chqr-cliente'].forEach(id => {
+  ['mov-cliente','pre-cliente','fac-cliente','proy-cliente','act-cliente','chqr-cliente','ubi-cliente'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = clienteOpts;
   });

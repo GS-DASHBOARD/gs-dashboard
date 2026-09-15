@@ -261,7 +261,9 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'mtto')"><span class="nav-pip"></span>Planes de Mantenimiento</button>
     <button class="nav-item" onclick="nav(this,'planes-maestros')"><span class="nav-pip"></span>Planes Maestros</button>
     <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
+    <button class="nav-item" onclick="nav(this,'ot-kanban')"><span class="nav-pip"></span>Kanban de OT</button>
     <button class="nav-item" onclick="nav(this,'confiabilidad')"><span class="nav-pip"></span>Disponibilidad y Confiabilidad</button>
+    <button class="nav-item" onclick="nav(this,'calendario-mtto')"><span class="nav-pip"></span>Calendario de Mantenimiento</button>
     <button class="nav-item" onclick="nav(this,'solicitudes-cliente')"><span class="nav-pip"></span>Solicitudes de Clientes</button>
     <div class="nav-section">Calidad</div>
     <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
@@ -390,6 +392,8 @@ tr:hover td{background:var(--bg)}
     <div class="kcard"><div class="k-lbl">No conformidades abiertas</div><div class="k-val" id="soc-nc">—</div><div class="k-sub">calidad · ISO 9001</div></div>
     <div class="kcard"><div class="k-lbl">Presupuestos con costo real</div><div class="k-val" id="soc-presu">—</div><div class="k-sub">necesario para rentabilidad</div></div>
     <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Flujo de caja</div><div class="k-val g" id="soc-saldo">—</div><div class="k-sub">saldo acumulado actual</div></div>
+    <div class="kcard"><div class="k-lbl">Capital de trabajo</div><div class="k-val" id="soc-captrab">—</div><div class="k-sub" id="soc-captrab-sub">meta: 2x costos fijos mensuales</div></div>
+    <div class="kcard"><div class="k-lbl">Fondo anticíclico</div><div class="k-val" id="soc-fanticic">—</div><div class="k-sub" id="soc-fanticic-sub">meta: 4x costos fijos mensuales</div></div>
   </div>
   <div class="empty" id="soc-empty" style="display:none"><b>Este panel se completa a medida que se cargan datos.</b>Activos, Órdenes de Trabajo, Presupuestos (con costo real) y No Conformidades alimentan estos indicadores.</div>
 </div>
@@ -848,6 +852,29 @@ tr:hover td{background:var(--bg)}
   <div class="card" id="ot-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Activo</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Vencimiento</th><th>Estado</th><th>Docs</th><th></th></tr></thead><tbody id="tbl-ot"></tbody></table></div></div>
 </div>
 
+<!-- KANBAN DE OT -->
+<div class="page" id="page-ot-kanban">
+  <div class="ph"><div><h1>Kanban de <span>Órdenes de Trabajo</span></h1><p>Misma información que la lista, organizada por estado — cambiar el select de una tarjeta mueve la OT de columna</p></div></div>
+  <div class="kanban-board" style="display:flex;gap:14px;overflow-x:auto;align-items:flex-start">
+    <div class="kanban-col" style="flex:1;min-width:240px">
+      <div class="card-ttl">Abierta</div>
+      <div id="kanban-col-ABIERTA" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+    <div class="kanban-col" style="flex:1;min-width:240px">
+      <div class="card-ttl">En curso</div>
+      <div id="kanban-col-EN_CURSO" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+    <div class="kanban-col" style="flex:1;min-width:240px">
+      <div class="card-ttl">Cerrada</div>
+      <div id="kanban-col-CERRADA" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+    <div class="kanban-col" style="flex:1;min-width:240px">
+      <div class="card-ttl">Cancelada</div>
+      <div id="kanban-col-CANCELADA" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- DOCUMENTOS DE LA OT (fotos, informes de estado, termografías) -->
 <div class="page" id="page-ot-documentos">
   <div class="ph"><div><h1>Documentos de la <span>Orden de Trabajo</span></h1><p id="ot-doc-subtitulo">Fotos, informes de estado, termografías y otra evidencia de la visita</p></div></div>
@@ -913,10 +940,27 @@ tr:hover td{background:var(--bg)}
   <div class="card">
     <div class="tbl-wrap"><table><thead><tr>
       <th>Activo</th><th>Cliente</th><th>Criticidad</th><th>Correctivas</th><th>MTBF</th><th>MTTR</th><th>Disponibilidad</th>
-      <th>Preventivo al día</th><th>Backlog &gt;7d</th><th>Costo adquisición</th>
+      <th>Preventivo al día</th><th>Backlog &gt;7d</th><th>Costo adquisición</th><th>Costo total (TCO)</th>
     </tr></thead><tbody id="tbl-confiabilidad"></tbody></table></div>
   </div>
-  <p style="color:var(--muted);font-size:13px">MTBF y MTTR necesitan al menos 2 correctivas cerradas para calcularse — con menos historial quedan en "—", no en cero. "Costo adquisición" es lo único que hoy se puede sumar como costo real; el costo acumulado de mantenimiento (mano de obra + repuestos) se suma cuando exista el módulo de Repuestos.</p>
+  <p style="color:var(--muted);font-size:13px">MTBF y MTTR necesitan al menos 2 correctivas cerradas para calcularse — con menos historial quedan en "—", no en cero. "Costo total (TCO)" suma adquisición + repuestos consumidos en OT + mano de obra cargada al cerrar una OT.</p>
+</div>
+
+<!-- CALENDARIO DE MANTENIMIENTO (solo lectura, calculado desde los planes asignados) -->
+<div class="page" id="page-calendario-mtto">
+  <div class="ph"><div><h1>Calendario de <span>Mantenimiento</span></h1><p>Carga de tareas preventivas por mes, calculada desde los planes asignados — no incluye tareas que disparan solo por horómetro sin lecturas cargadas todavía.</p></div></div>
+  <div class="card">
+    <div class="card-ttl">Próximos 12 meses</div>
+    <div class="card-sub">cantidad de tareas programadas por mes — hacé clic en un mes para ver el detalle</div>
+    <div id="cal-mtto-anio" style="display:flex;gap:8px;overflow-x:auto;padding:12px 0 4px"></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-ttl" id="cal-mtto-detalle-ttl">Detalle</div>
+    <div class="card-sub">tareas del mes seleccionado, por fecha</div>
+    <div class="tbl-wrap"><table><thead><tr>
+      <th>Fecha</th><th>Activo</th><th>Sistema</th><th>Tarea</th>
+    </tr></thead><tbody id="tbl-cal-mtto-detalle"></tbody></table></div>
+  </div>
 </div>
 
 <!-- SOLICITUDES DE CLIENTES (via ficha publica del QR) -->
@@ -1106,13 +1150,22 @@ tr:hover td{background:var(--bg)}
     <div class="form-grid">
       <div class="field"><label>Área</label><input id="nc-area"></div>
       <div class="field"><label>Responsable</label><input id="nc-responsable"></div>
+      <div class="field"><label>Activo relacionado</label><select id="nc-activo"><option value="">—</option></select></div>
+      <div class="field"><label>Severidad</label><select id="nc-severidad"><option value="">—</option><option value="Alta">Alta</option><option value="Media">Media</option><option value="Baja">Baja</option></select></div>
       <div class="field"><label>Fecha de vencimiento</label><input type="date" id="nc-fecha-vencimiento"></div>
+      <div class="field"><label>Estado</label><select id="nc-estado"><option value="ABIERTA">Abierta</option><option value="EN_ANALISIS">En análisis</option><option value="CERRADA">Cerrada</option></select></div>
       <div class="field" style="grid-column:1/-1"><label>Descripción</label><textarea id="nc-desc"></textarea></div>
+      <div class="field" style="grid-column:1/-1"><label>Causa raíz</label><textarea id="nc-causa-raiz" placeholder="Se completa al investigar — no hace falta al registrar el desvío"></textarea></div>
+      <div class="field"><label>Acción correctiva</label><textarea id="nc-accion-correctiva" placeholder="Qué se hizo sobre lo que ya pasó"></textarea></div>
+      <div class="field"><label>Acción preventiva</label><textarea id="nc-accion-preventiva" placeholder="Qué cambia para que no vuelva a pasar"></textarea></div>
+      <div class="field"><label>Fecha verificación de eficacia</label><input type="date" id="nc-fecha-verificacion"></div>
+      <div class="field"><label><input type="checkbox" id="nc-eficacia-verificada" style="width:auto;margin-right:6px"> La acción correctiva demostró ser eficaz</label></div>
     </div>
-    <button class="btn" onclick="crearNC()">Guardar</button>
+    <button class="btn" id="calidad-btn-guardar" onclick="guardarNC()">Guardar</button>
+    <button class="btn ghost" id="calidad-btn-cancelar" onclick="cancelarEdicionNC()" style="display:none">Cancelar edición</button>
   </div>
   <div id="calidad-empty" class="empty"><b>Sin no conformidades registradas todavía.</b>Se carga cuando un cliente o técnico reporta un desvío.</div>
-  <div class="card" id="calidad-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Área</th><th>Descripción</th><th>Responsable</th><th>Vencimiento</th><th>Estado</th></tr></thead><tbody id="tbl-calidad"></tbody></table></div></div>
+  <div class="card" id="calidad-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Área</th><th>Activo</th><th>Severidad</th><th>Descripción</th><th>Responsable</th><th>Vencimiento</th><th>Estado</th><th>Eficacia verificada</th><th></th></tr></thead><tbody id="tbl-calidad"></tbody></table></div></div>
 </div>
 
 <!-- PREDICCIÓN -->
@@ -2136,6 +2189,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     </tr>`;
     }).join('');
   }
+  renderKanbanOT(ots || [], puedeEditarOT);
 
   // Proveedores
   const { data: proveedores } = await sb.from('proveedores').select('*').order('nombre');
@@ -2176,6 +2230,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="${alDiaColor}">${i.al_dia_preventivo_pct !== null ? i.al_dia_preventivo_pct + '% (' + i.preventivas_asignadas + ' tareas)' : '—'}</td>
       <td style="${backlogColor}">${i.ot_backlog_mas_7d}</td>
       <td>${i.costo_adquisicion ? '$' + Number(i.costo_adquisicion).toLocaleString('es-AR') : '—'}</td>
+      <td>${i.costo_total_propiedad ? '$' + Number(i.costo_total_propiedad).toLocaleString('es-AR') : '—'}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Sin activos cargados</td></tr>';
 
@@ -2393,22 +2448,35 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarCierre && !c.reabierto ? `<button class="btn ghost" onclick="reabrirPeriodo('${c.id}')">Reabrir</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin períodos cerrados</td></tr>';
 
-  // No conformidades
+  // No conformidades (CAPA: origen, severidad, accion preventiva, verificacion de eficacia)
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});
+  window.NC_CACHE = {}; (ncs||[]).forEach(n => window.NC_CACHE[n.id] = n);
+  const puedeEditarNC = PUEDE_EDITAR.no_conformidades(ROL);
   if (ncs && ncs.length > 0) {
     document.getElementById('calidad-empty').style.display = 'none';
     document.getElementById('calidad-card').style.display = 'block';
     const hoyNC = new Date().toISOString().slice(0,10);
     document.getElementById('tbl-calidad').innerHTML = ncs.map(n => {
       const vencida = n.fecha_vencimiento && n.fecha_vencimiento < hoyNC && n.estado !== 'CERRADA';
+      const activoNombre = n.activo_id && window.ACTIVOS_CACHE ? (window.ACTIVOS_CACHE[n.activo_id]?.nombre || n.activo_id) : '—';
       return `<tr>
-      <td>${n.fecha}</td><td>${n.area||'—'}</td><td>${n.descripcion}</td>
+      <td>${n.fecha}</td><td>${n.area||'—'}</td>
+      <td>${activoNombre}</td>
+      <td>${n.severidad ? `<span class="tag ${n.severidad==='Alta'?'d':n.severidad==='Media'?'w':'muted'}">${n.severidad}</span>` : '—'}</td>
+      <td>${n.descripcion}</td>
       <td>${n.responsable||'—'}</td>
       <td style="${vencida?'color:var(--danger);font-weight:600':''}">${n.fecha_vencimiento||'—'}${vencida?' ⚠':''}</td>
       <td><span class="tag ${n.estado==='CERRADA'?'ok':'w'}">${n.estado}</span></td>
+      <td>${n.eficacia_verificada ? '<span class="tag ok">✓ verificada</span>' : (n.accion_correctiva ? '<span class="tag w">Pendiente</span>' : '—')}</td>
+      <td>${puedeEditarNC ? `<button class="btn ghost" onclick="editarNC(window.NC_CACHE['${n.id}'])">Editar</button>` : ''}</td>
     </tr>`;
     }).join('');
   }
+
+  // Calendario de mantenimiento — vistas de solo lectura (20260914000008)
+  const { data: calMensual } = await sb.from('calendario_mantenimiento_mensual').select('*').order('mes');
+  const { data: calDetalle } = await sb.from('calendario_mantenimiento_detalle').select('*').order('fecha');
+  renderCalendarioMantenimiento(calMensual || [], calDetalle || []);
 
   // Compras (cheques, con detalle completo)
   const { data: cheques } = await sb.from('cheques').select('*').order('fecha_pago',{ascending:true});
@@ -2534,7 +2602,36 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   document.getElementById('soc-ot').textContent = otTotal === 0 ? '—' : otCerradas+'/'+otTotal;
   document.getElementById('soc-nc').textContent = ncAbiertas;
   document.getElementById('soc-presu').textContent = presuConCosto;
-  document.getElementById('soc-saldo').textContent = fmtMoney(DATA.dashboard[0] ? DATA.dashboard[0][1] : 0);
+  const saldoActualSoc = parseNum(DATA.dashboard[0] ? DATA.dashboard[0][1] : 0);
+  document.getElementById('soc-saldo').textContent = fmtMoney(saldoActualSoc);
+
+  // Capital de trabajo ideal = 2x costos fijos mensuales (cubre un ciclo de
+  // cobro fallido); fondo anticíclico ideal = 4x adicionales sobre eso
+  // (colchón para shock de demanda/crisis, no para operar el día a día).
+  // Ambos se miden contra el mismo saldo de caja: primero cubre capital de
+  // trabajo, el excedente sobre eso es lo que financia el fondo anticíclico.
+  const capTrabIdeal = totalGastosActivos * 2;
+  const fondoAnticIdeal = totalGastosActivos * 4;
+  const capTrabPct = capTrabIdeal > 0 ? (saldoActualSoc / capTrabIdeal * 100) : 0;
+  const fondoAnticReal = Math.max(0, saldoActualSoc - capTrabIdeal);
+  const fondoAnticPct = fondoAnticIdeal > 0 ? (fondoAnticReal / fondoAnticIdeal * 100) : 0;
+  const semaforo = pct => pct >= 100 ? 'g' : pct >= 50 ? 'w' : 'd';
+  const socCapTrabEl = document.getElementById('soc-captrab');
+  const socFondoAnticEl = document.getElementById('soc-fanticic');
+  if (totalGastosActivos > 0) {
+    socCapTrabEl.textContent = capTrabPct.toFixed(0) + '%';
+    socCapTrabEl.className = 'k-val ' + semaforo(capTrabPct);
+    document.getElementById('soc-captrab-sub').textContent = `${fmtMoney(saldoActualSoc)} / ideal ${fmtMoney(capTrabIdeal)}`;
+    socFondoAnticEl.textContent = fondoAnticPct.toFixed(0) + '%';
+    socFondoAnticEl.className = 'k-val ' + semaforo(fondoAnticPct);
+    document.getElementById('soc-fanticic-sub').textContent = `${fmtMoney(fondoAnticReal)} / ideal ${fmtMoney(fondoAnticIdeal)}`;
+  } else {
+    socCapTrabEl.textContent = '—'; socCapTrabEl.className = 'k-val';
+    socFondoAnticEl.textContent = '—'; socFondoAnticEl.className = 'k-val';
+    document.getElementById('soc-captrab-sub').textContent = 'sin costos fijos cargados';
+    document.getElementById('soc-fanticic-sub').textContent = 'sin costos fijos cargados';
+  }
+
   document.getElementById('soc-empty').style.display = (otTotal === 0 && presuConCosto === 0) ? 'block' : 'none';
 }
 
@@ -2572,10 +2669,49 @@ function poblarSelectsClientesProyectos() {
 function poblarSelectsActivos(activos) {
   window.ACTIVOS = activos || [];
   const activoOpts = '<option value="">—</option>' + (activos||[]).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
-  ['ot-activo','mtto-activo'].forEach(id => {
+  ['ot-activo','mtto-activo','nc-activo'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = activoOpts;
   });
+}
+
+function renderCalendarioMantenimiento(mensual, detalle) {
+  window.CAL_MTTO_DETALLE = detalle;
+  const porMes = {};
+  (mensual||[]).forEach(m => {
+    const key = m.mes.slice(0,7);
+    porMes[key] = (porMes[key]||0) + Number(m.tareas_programadas);
+  });
+  const hoy = new Date();
+  const tintes = ['var(--s2)','#fef3dd','#fde3b0','var(--warn)'];
+  const meses = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1);
+    const key = d.toISOString().slice(0,7);
+    meses.push({ key, label: d.toLocaleDateString('es-AR', { month:'short', year:'2-digit' }), cantidad: porMes[key] || 0 });
+  }
+  const max = Math.max(1, ...meses.map(m => m.cantidad));
+  document.getElementById('cal-mtto-anio').innerHTML = meses.map(m => {
+    const intensidad = m.cantidad === 0 ? 0 : Math.min(3, Math.ceil((m.cantidad / max) * 3));
+    return `<button class="btn ghost" style="flex:0 0 auto;min-width:70px;text-align:center;background:${tintes[intensidad]}${intensidad===3?';color:#fff':''}" onclick="mostrarDetalleMesMtto('${m.key}')">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;opacity:.75">${m.label}</div>
+      <div style="font-size:20px;font-weight:700;font-family:var(--serif)">${m.cantidad}</div>
+    </button>`;
+  }).join('');
+  mostrarDetalleMesMtto(hoy.toISOString().slice(0,7));
+}
+
+function mostrarDetalleMesMtto(mesKey) {
+  const detalle = (window.CAL_MTTO_DETALLE || []).filter(d => d.fecha && d.fecha.slice(0,7) === mesKey);
+  const [anio, mes] = mesKey.split('-');
+  const label = new Date(Number(anio), Number(mes)-1, 1).toLocaleDateString('es-AR', { month:'long', year:'numeric' });
+  document.getElementById('cal-mtto-detalle-ttl').textContent = `Detalle — ${label}`;
+  document.getElementById('tbl-cal-mtto-detalle').innerHTML = detalle.map(d => `<tr>
+      <td>${d.fecha}</td>
+      <td>${d.activo_codigo ? d.activo_codigo + ' — ' : ''}${d.activo_nombre}</td>
+      <td>${d.sistema||'—'}</td>
+      <td>${d.accion||''} ${d.contenido||''}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin tareas programadas este mes</td></tr>';
 }
 
 function poblarSelectTecnicos(tecnicos) {
@@ -2915,7 +3051,22 @@ async function mostrarFichaActivo(id) {
     ? await sb.from('ultima_lectura_medidor').select('*').in('medidor_id', medidorIds)
     : { data: [] };
   const lecturaPorMedidor = {}; (lecturas||[]).forEach(l => { lecturaPorMedidor[l.medidor_id] = l; });
+  const { data: proyeccionHorometro } = await sb.from('proyeccion_medidor').select('*').eq('activo_id', id).eq('tipo', 'Horómetro').maybeSingle();
   const hoyFicha = new Date().toISOString().slice(0,10);
+
+  // Fecha aproximada en la que una tarea por horas va a vencer, a partir
+  // de la tasa de consumo diario del horómetro (proyeccion_medidor,
+  // 20260914000010) -- mismo cálculo que fecha_estimada_por_horas() en
+  // la base, hecho acá en el cliente para no pedir el RPC una vez por
+  // tarea.
+  function fechaEstimadaPorHoras(horasObjetivo) {
+    if (!proyeccionHorometro || !proyeccionHorometro.promedio_diario || proyeccionHorometro.promedio_diario <= 0) return null;
+    if (proyeccionHorometro.ultimo_valor >= horasObjetivo) return null;
+    const dias = Math.ceil((horasObjetivo - proyeccionHorometro.ultimo_valor) / proyeccionHorometro.promedio_diario);
+    const fecha = new Date(proyeccionHorometro.ultima_fecha + 'T00:00:00');
+    fecha.setDate(fecha.getDate() + dias);
+    return fecha.toISOString().slice(0,10);
+  }
 
   document.getElementById('ficha-titulo').textContent = a.nombre + (a.codigo ? ' · ' + a.codigo : '');
   document.getElementById('ficha-activo-contenido').innerHTML = `
@@ -2970,7 +3121,9 @@ async function mostrarFichaActivo(id) {
             <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th>Tarea</th><th>Última ejecución</th><th>Próxima ejecución</th></tr></thead><tbody>
               ${tareas.map(t => {
                 const t2 = t.plan_mantenimiento_tareas || {};
-                const proxima = t.proxima_ejecucion_fecha ? t.proxima_ejecucion_fecha : (t.proxima_ejecucion_horas ? t.proxima_ejecucion_horas + ' hs' : '—');
+                const estimadaPorHoras = t.proxima_ejecucion_horas ? fechaEstimadaPorHoras(t.proxima_ejecucion_horas) : null;
+                const proxima = t.proxima_ejecucion_fecha ? t.proxima_ejecucion_fecha
+                  : (t.proxima_ejecucion_horas ? t.proxima_ejecucion_horas + ' hs' + (estimadaPorHoras ? ` (≈ ${estimadaPorHoras})` : '') : '—');
                 const vencidaPorFecha = t.proxima_ejecucion_fecha && t.proxima_ejecucion_fecha <= hoyFicha;
                 const vencidaPorHoras = t.proxima_ejecucion_horas && lecturaActual !== null && lecturaActual >= t.proxima_ejecucion_horas;
                 const vencida = vencidaPorFecha || vencidaPorHoras;
@@ -2985,10 +3138,11 @@ async function mostrarFichaActivo(id) {
     <div class="card">
       <div class="card-ttl">Medidores</div>
       ${(medidores||[]).length === 0 ? '<p style="text-align:center;color:var(--muted);padding:20px">Sin medidores registrados — se crean solos al cerrar una OT preventiva informando una lectura</p>' : `
-      <div class="tbl-wrap"><table><thead><tr><th>Tipo</th><th>Unidad</th><th>Última lectura</th><th>Fecha</th></tr></thead><tbody>
+      <div class="tbl-wrap"><table><thead><tr><th>Tipo</th><th>Unidad</th><th>Última lectura</th><th>Fecha</th><th>Consumo diario</th></tr></thead><tbody>
         ${(medidores||[]).map(m => {
           const l = lecturaPorMedidor[m.id];
-          return `<tr><td>${m.tipo}</td><td>${m.unidad}</td><td>${l ? l.valor : '—'}</td><td>${l ? l.fecha : '—'}</td></tr>`;
+          const tasa = (m.tipo === 'Horómetro' && proyeccionHorometro && proyeccionHorometro.promedio_diario) ? proyeccionHorometro.promedio_diario + ' ' + m.unidad + '/día' : '—';
+          return `<tr><td>${m.tipo}</td><td>${m.unidad}</td><td>${l ? l.valor : '—'}</td><td>${l ? l.fecha : '—'}</td><td>${tasa}</td></tr>`;
         }).join('')}
       </tbody></table></div>`}
     </div>
@@ -3432,6 +3586,43 @@ async function descartarSolicitud(id) {
   if (!confirm('¿Descartar esta solicitud? No se va a generar ninguna OT a partir de ella.')) return;
   const { error } = await sb.from('solicitudes_cliente').update({ estado: 'Descartada' }).eq('id', id);
   if (error) return alert('No se pudo actualizar: ' + error.message);
+  location.reload();
+}
+
+const KANBAN_ESTADOS = ['ABIERTA', 'EN_CURSO', 'CERRADA', 'CANCELADA'];
+
+function renderKanbanOT(ots, puedeEditar) {
+  const hoyStr = new Date().toISOString().slice(0,10);
+  KANBAN_ESTADOS.forEach(estado => {
+    const col = document.getElementById('kanban-col-' + estado);
+    if (!col) return;
+    const deEsteEstado = ots.filter(o => o.estado === estado);
+    col.innerHTML = deEsteEstado.map(o => {
+      const vencida = o.fecha_vencimiento && o.fecha_vencimiento < hoyStr && estado !== 'CERRADA' && estado !== 'CANCELADA';
+      return `<div class="card" style="padding:10px 12px">
+        <div style="font-weight:600;font-size:13px">${o.activos ? o.activos.nombre : '— sin activo —'}</div>
+        <div style="font-size:12px;color:var(--muted);margin:2px 0">${o.tipo} · <span class="tag ${o.prioridad==='Alta'?'d':o.prioridad==='Media'?'w':'muted'}" style="padding:1px 6px">${o.prioridad||'—'}</span></div>
+        <div style="font-size:12px;color:var(--muted)">${o.tecnico_asignado||'Sin técnico'}${o.fecha_vencimiento ? ' · vence ' + o.fecha_vencimiento : ''}${vencida?' ⚠':''}</div>
+        ${puedeEditar ? `<select style="margin-top:8px;width:100%;font-size:12px" onchange="cambiarEstadoOT('${o.id}', this.value)">
+          ${KANBAN_ESTADOS.map(e => `<option value="${e}" ${e===estado?'selected':''}>${e}</option>`).join('')}
+        </select>` : ''}
+      </div>`;
+    }).join('') || '<p style="color:var(--muted);font-size:12px;padding:8px 0">Sin OT en este estado</p>';
+  });
+}
+
+async function cambiarEstadoOT(id, nuevoEstado) {
+  const ot = window.OT_CACHE[id];
+  if (!ot || nuevoEstado === ot.estado) return;
+  if (nuevoEstado === 'CERRADA') {
+    // Reusa el mismo flujo que "Cerrar" en la lista -- checklist si viene
+    // de un plan, código de falla si es correctiva/emergencia -- en vez
+    // de cerrar a ciegas moviendo la tarjeta.
+    cerrarOT(id);
+    return;
+  }
+  const { error } = await sb.from('ordenes_trabajo').update({ estado: nuevoEstado }).eq('id', id);
+  if (error) { alert('No se pudo cambiar el estado: ' + error.message); return; }
   location.reload();
 }
 
@@ -4583,15 +4774,69 @@ async function eliminarFacturaCompra(id) {
   location.reload();
 }
 
-async function crearNC() {
+let EDITANDO_NC_ID = null;
+
+async function guardarNC() {
   const area = document.getElementById('nc-area').value.trim();
   const responsable = document.getElementById('nc-responsable').value.trim();
+  const activo_id = document.getElementById('nc-activo').value || null;
+  const severidad = document.getElementById('nc-severidad').value || null;
   const fecha_vencimiento = document.getElementById('nc-fecha-vencimiento').value || null;
+  const estado = document.getElementById('nc-estado').value;
   const descripcion = document.getElementById('nc-desc').value.trim();
-  const id = 'NC-' + Date.now();
-  const { error } = await sb.from('no_conformidades').insert({ id, area: area||null, responsable: responsable||null, fecha_vencimiento, descripcion, estado:'ABIERTA' });
-  if (error) return showErr('calidad', error.message);
+  const causa_raiz = document.getElementById('nc-causa-raiz').value.trim();
+  const accion_correctiva = document.getElementById('nc-accion-correctiva').value.trim();
+  const accion_preventiva = document.getElementById('nc-accion-preventiva').value.trim();
+  const fecha_verificacion_eficacia = document.getElementById('nc-fecha-verificacion').value || null;
+  const eficacia_verificada = document.getElementById('nc-eficacia-verificada').checked;
+  if (!descripcion) return showErr('calidad', 'La descripción es obligatoria.');
+  const payload = {
+    area: area||null, responsable: responsable||null, activo_id, severidad, fecha_vencimiento, estado, descripcion,
+    causa_raiz: causa_raiz||null, accion_correctiva: accion_correctiva||null, accion_preventiva: accion_preventiva||null,
+    fecha_verificacion_eficacia, eficacia_verificada,
+  };
+
+  if (EDITANDO_NC_ID) {
+    const { error } = await sb.from('no_conformidades').update(payload).eq('id', EDITANDO_NC_ID);
+    if (error) return showErr('calidad', error.message);
+  } else {
+    const id = 'NC-' + Date.now();
+    const { error } = await sb.from('no_conformidades').insert({ id, ...payload });
+    if (error) return showErr('calidad', error.message);
+  }
   location.reload();
+}
+
+function editarNC(n) {
+  EDITANDO_NC_ID = n.id;
+  document.getElementById('nc-area').value = n.area || '';
+  document.getElementById('nc-responsable').value = n.responsable || '';
+  document.getElementById('nc-activo').value = n.activo_id || '';
+  document.getElementById('nc-severidad').value = n.severidad || '';
+  document.getElementById('nc-fecha-vencimiento').value = n.fecha_vencimiento || '';
+  document.getElementById('nc-estado').value = n.estado || 'ABIERTA';
+  document.getElementById('nc-desc').value = n.descripcion || '';
+  document.getElementById('nc-causa-raiz').value = n.causa_raiz || '';
+  document.getElementById('nc-accion-correctiva').value = n.accion_correctiva || '';
+  document.getElementById('nc-accion-preventiva').value = n.accion_preventiva || '';
+  document.getElementById('nc-fecha-verificacion').value = n.fecha_verificacion_eficacia || '';
+  document.getElementById('nc-eficacia-verificada').checked = !!n.eficacia_verificada;
+  document.getElementById('calidad-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('calidad-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('calidad-form').style.display = 'block';
+  document.getElementById('calidad-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionNC() {
+  EDITANDO_NC_ID = null;
+  ['nc-area','nc-responsable','nc-fecha-vencimiento','nc-desc','nc-causa-raiz','nc-accion-correctiva','nc-accion-preventiva','nc-fecha-verificacion'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('nc-activo').value = '';
+  document.getElementById('nc-severidad').value = '';
+  document.getElementById('nc-estado').value = 'ABIERTA';
+  document.getElementById('nc-eficacia-verificada').checked = false;
+  document.getElementById('calidad-btn-guardar').textContent = 'Guardar';
+  document.getElementById('calidad-btn-cancelar').style.display = 'none';
+  document.getElementById('calidad-form').style.display = 'none';
 }
 
 async function crearProyecto() {

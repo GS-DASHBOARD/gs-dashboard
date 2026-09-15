@@ -262,6 +262,7 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'planes-maestros')"><span class="nav-pip"></span>Planes Maestros</button>
     <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
     <button class="nav-item" onclick="nav(this,'confiabilidad')"><span class="nav-pip"></span>Disponibilidad y Confiabilidad</button>
+    <button class="nav-item" onclick="nav(this,'solicitudes-cliente')"><span class="nav-pip"></span>Solicitudes de Clientes</button>
     <div class="nav-section">Calidad</div>
     <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
     <div class="nav-section">Datos Maestros</div>
@@ -777,7 +778,7 @@ tr:hover td{background:var(--bg)}
   <div id="activos-empty" class="empty"><b>Todavía no hay activos cargados.</b>Este módulo se completa con el relevamiento inicial en River y Kansas.</div>
   <div class="card" id="activos-card" style="display:none">
     <div id="activos-tabs-cliente" class="row-actions" style="margin-bottom:14px;flex-wrap:wrap;gap:8px"></div>
-    <div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Cliente</th><th>Criticidad</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-activos"></tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" id="activos-select-all" onchange="toggleSeleccionarTodosActivos(this)"></th><th>Código</th><th>Nombre</th><th>Categoría</th><th>Cliente</th><th>Criticidad</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-activos"></tbody></table></div>
   </div>
 </div>
 
@@ -892,6 +893,20 @@ tr:hover td{background:var(--bg)}
   <a href="#" class="btn ghost" onclick="irAModulo('ot');return false" style="margin-left:8px">Cancelar</a>
 </div>
 
+<!-- CERRAR OT CORRECTIVA/EMERGENCIA (codigo de falla + certificacion) -->
+<div class="page" id="page-cerrar-ot-correctiva">
+  <div class="ph"><div><h1>Cerrar Orden de <span>Trabajo</span></h1><p id="cerrar-ot-correctiva-subtitulo">Registrá qué falló antes de cerrar</p></div></div>
+  <div class="card">
+    <div class="form-grid">
+      <div class="field"><label>Código de falla</label><select id="cerrar-ot-correctiva-falla"></select></div>
+      <div class="field"><label>Certificado por</label><input id="cerrar-ot-correctiva-certifica"></div>
+      <div class="field"><label>Fecha de cierre</label><input type="date" id="cerrar-ot-correctiva-fecha"></div>
+    </div>
+  </div>
+  <button class="btn" onclick="confirmarCierreOTCorrectiva()">Confirmar cierre</button>
+  <a href="#" class="btn ghost" onclick="irAModulo('ot');return false" style="margin-left:8px">Cancelar</a>
+</div>
+
 <!-- DISPONIBILIDAD Y CONFIABILIDAD (solo lectura, calculada) -->
 <div class="page" id="page-confiabilidad">
   <div class="ph"><div><h1>Disponibilidad y <span>Confiabilidad</span></h1><p>MTBF, MTTR, disponibilidad y backlog por activo. Calculado desde las Órdenes de Trabajo — no editable a mano.</p></div></div>
@@ -902,6 +917,14 @@ tr:hover td{background:var(--bg)}
     </tr></thead><tbody id="tbl-confiabilidad"></tbody></table></div>
   </div>
   <p style="color:var(--muted);font-size:13px">MTBF y MTTR necesitan al menos 2 correctivas cerradas para calcularse — con menos historial quedan en "—", no en cero. "Costo adquisición" es lo único que hoy se puede sumar como costo real; el costo acumulado de mantenimiento (mano de obra + repuestos) se suma cuando exista el módulo de Repuestos.</p>
+</div>
+
+<!-- SOLICITUDES DE CLIENTES (via ficha publica del QR) -->
+<div class="page" id="page-solicitudes-cliente">
+  <div class="ph"><div><h1>Solicitudes de <span>Clientes</span></h1><p>Informes, consultas de estado y reparaciones pedidas desde la ficha pública del QR — se revisan acá antes de convertirse en una OT real</p></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr>
+    <th>Fecha</th><th>Tipo</th><th>Activo</th><th>Solicitante</th><th>Contacto</th><th>Descripción</th><th>Estado</th><th></th>
+  </tr></thead><tbody id="tbl-solicitudes-cliente"></tbody></table></div></div>
 </div>
 
 <!-- COMPRAS -->
@@ -1143,6 +1166,7 @@ const PUEDE_EDITAR = {
   personal: r => r === 'sebastian',
   categorias_activo: r => r === 'ezequiel' || r === 'sebastian',
   repuestos: r => r === 'gonzalo' || r === 'ezequiel' || r === 'sebastian',
+  solicitudes_cliente: r => r === 'ezequiel' || r === 'sebastian',
   tipos_retencion: r => r === 'gonzalo' || r === 'sebastian',
   facturas_compra: r => r === 'gonzalo' || r === 'sebastian',
   cobros: r => r === 'gonzalo' || r === 'sebastian',
@@ -1248,6 +1272,7 @@ async function mostrarFichaPublicaActivo(id) {
     return;
   }
 
+  window.PUBLIC_FICHA_ACTIVO_ID = id;
   cont.innerHTML = `
     <p class="login-sub">Ficha de equipo</p>
     <h2 style="margin:4px 0 16px;font-size:20px">${a.nombre}</h2>
@@ -1258,11 +1283,41 @@ async function mostrarFichaPublicaActivo(id) {
       <div><b>Estado:</b> ${a.estado || '—'}</div>
       <div><b>Criticidad:</b> ${a.criticidad || '—'}</div>
     </div>
-    <p style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)">
-      ¿Notás un problema con este equipo? Reportalo a mantenimiento de GS Group por los canales habituales.
-    </p>
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">¿Necesitás algo sobre este equipo? Pedí un informe, consultá el estado de un servicio, o solicitá una reparación.</p>
+      <div id="solicitudClienteForm" style="display:flex;flex-direction:column;gap:8px">
+        <select id="solCli-tipo">
+          <option value="Reparación">Solicitar reparación</option>
+          <option value="Estado de servicio">Consultar estado de servicio</option>
+          <option value="Informe">Pedir un informe</option>
+        </select>
+        <input id="solCli-nombre" placeholder="Tu nombre">
+        <input id="solCli-contacto" placeholder="Email o teléfono de contacto">
+        <textarea id="solCli-descripcion" rows="3" placeholder="Contanos brevemente qué necesitás"></textarea>
+        <button class="btn" style="justify-content:center" onclick="enviarSolicitudCliente()">Enviar solicitud</button>
+        <p id="solCli-msg" style="font-size:13px;color:var(--muted);margin:0"></p>
+      </div>
+    </div>
     <a href="${location.pathname}" class="btn ghost" style="display:inline-block;margin-top:14px">Iniciar sesión para ver el historial completo</a>
   `;
+}
+
+async function enviarSolicitudCliente() {
+  const tipo = document.getElementById('solCli-tipo').value;
+  const nombre_solicitante = document.getElementById('solCli-nombre').value.trim();
+  const contacto = document.getElementById('solCli-contacto').value.trim();
+  const descripcion = document.getElementById('solCli-descripcion').value.trim();
+  const msgEl = document.getElementById('solCli-msg');
+  if (!nombre_solicitante || !contacto) { msgEl.textContent = 'Falta tu nombre o un dato de contacto.'; return; }
+
+  const { error } = await sb.from('solicitudes_cliente').insert({
+    id: 'SOLCLI-' + Date.now(),
+    activo_id: window.PUBLIC_FICHA_ACTIVO_ID || null,
+    tipo, nombre_solicitante, contacto, descripcion: descripcion || null,
+  });
+  if (error) { msgEl.textContent = 'No se pudo enviar, intentá de nuevo: ' + error.message; return; }
+
+  document.getElementById('solicitudClienteForm').innerHTML = '<p style="color:var(--good);font-size:14px">Listo, recibimos tu solicitud. Te vamos a contactar pronto.</p>';
 }
 
 // ═══════════════════════════════════════════════
@@ -2144,6 +2199,17 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin repuestos cargados</td></tr>';
 
+  // Solicitudes de Clientes (portal público via QR)
+  const { data: solicitudes } = await sb.from('solicitudes_cliente').select('*, activos(nombre)').order('fecha', { ascending: false });
+  window.SOLICITUDES_CLIENTE_CACHE = {}; (solicitudes||[]).forEach(s => window.SOLICITUDES_CLIENTE_CACHE[s.id] = s);
+  const puedeEditarSolCli = PUEDE_EDITAR.solicitudes_cliente(ROL);
+  document.getElementById('tbl-solicitudes-cliente').innerHTML = (solicitudes||[]).map(s => `<tr>
+      <td>${new Date(s.fecha).toLocaleString('es-AR')}</td><td>${s.tipo}</td><td>${s.activos ? s.activos.nombre : '—'}</td>
+      <td>${s.nombre_solicitante}</td><td>${s.contacto}</td><td>${s.descripcion||'—'}</td>
+      <td><span class="tag ${s.estado==='Convertida a OT'?'ok':s.estado==='Descartada'?'muted':'w'}">${s.estado}</span></td>
+      <td>${puedeEditarSolCli && (s.estado==='Pendiente' || s.estado==='En revisión') ? `<button class="btn ghost" onclick="convertirSolicitudAOT('${s.id}')">Convertir a OT</button> <button class="btn ghost" onclick="descartarSolicitud('${s.id}')">Descartar</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin solicitudes de clientes</td></tr>';
+
   // Categorías de Activo
   const { data: categoriasActivo } = await sb.from('categorias_activo').select('*').order('nombre');
   window.CATEGORIAS_ACTIVO_CACHE = {}; (categoriasActivo||[]).forEach(c => window.CATEGORIAS_ACTIVO_CACHE[c.id] = c);
@@ -2592,7 +2658,9 @@ function renderActivosTabsYTabla() {
 
   document.getElementById('activos-tabs-cliente').innerHTML = tabs.map(t =>
     `<button class="btn ${window.ACTIVOS_TAB_CLIENTE === t.id ? '' : 'ghost'}" onclick="filtrarActivosPorCliente('${t.id}')">${t.label} (${t.n})</button>`
-  ).join('') + `<button class="btn ghost" style="margin-left:auto" onclick="exportarActivosCSV()">⭳ Exportar CSV (${window.ACTIVOS_TAB_CLIENTE === 'TODOS' ? 'todos' : 'esta pestaña'})</button>`;
+  ).join('')
+    + `<button class="btn ghost" onclick="imprimirEtiquetasQRSeleccionadas()">🖨️ Imprimir etiquetas seleccionadas</button>`
+    + `<button class="btn ghost" style="margin-left:auto" onclick="exportarActivosCSV()">⭳ Exportar CSV (${window.ACTIVOS_TAB_CLIENTE === 'TODOS' ? 'todos' : 'esta pestaña'})</button>`;
 
   const filtrados = window.ACTIVOS_TAB_CLIENTE === 'TODOS' ? activos
     : activos.filter(a => (a.cliente_id || '__sin_cliente__') === window.ACTIVOS_TAB_CLIENTE);
@@ -2600,13 +2668,18 @@ function renderActivosTabsYTabla() {
   document.getElementById('tbl-activos').innerHTML = filtrados.map(a => {
     const cli = a.cliente_id ? (clienteNombre[a.cliente_id]||a.cliente_id) : '—';
     return `<tr>
+    <td><input type="checkbox" class="chk-activo-print" value="${a.id}"></td>
     <td style="font-family:var(--mono)">${a.codigo||'—'}</td>
     <td>${a.nombre}</td><td>${a.categoria||'—'}</td><td>${cli}</td>
     <td><span class="tag ${a.criticidad==='Alta'?'d':a.criticidad==='Media'?'w':'muted'}">${a.criticidad||'—'}</span></td>
     <td>${a.estado||'—'}</td>
     <td><button class="btn ghost" onclick="verFichaActivo('${a.id}')">Ficha</button> <button class="btn ghost" onclick="verQRActivo('${a.id}')">QR</button> ${puedeEditarActivos ? `<button class="btn ghost" onclick="editarActivo(window.ACTIVOS_CACHE['${a.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarActivo('${a.id}')">✕</button>` : ''}</td>
   </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin activos para este cliente</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin activos para este cliente</td></tr>';
+}
+
+function toggleSeleccionarTodosActivos(checkboxTodos) {
+  document.querySelectorAll('.chk-activo-print').forEach(chk => chk.checked = checkboxTodos.checked);
 }
 
 function filtrarActivosPorCliente(clienteId) {
@@ -2830,7 +2903,7 @@ async function mostrarFichaActivo(id) {
   const { data: a } = await sb.from('activos').select('*, clientes(nombre), proyectos(nombre)').eq('id', id).single();
   if (!a) return;
   const { data: mttos } = await sb.from('planes_mtto').select('*').eq('activo_id', id).order('proxima_ejecucion');
-  const { data: ots } = await sb.from('ordenes_trabajo').select('*').eq('activo_id', id).order('fecha_apertura', { ascending:false });
+  const { data: ots } = await sb.from('ordenes_trabajo').select('*, codigos_falla(problema)').eq('activo_id', id).order('fecha_apertura', { ascending:false });
   const { data: asignaciones } = await sb.from('activo_planes_mantenimiento')
     .select('*, planes_mantenimiento(nombre), activo_plan_tarea_estado(*, plan_mantenimiento_tareas(sistema,accion,contenido,orden))')
     .eq('activo_id', id).eq('vigente', true);
@@ -2946,8 +3019,8 @@ async function mostrarFichaActivo(id) {
     </div>
     <div class="card">
       <div class="card-ttl">Historial de órdenes de trabajo</div>
-      <div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Estado</th><th>Descripción</th></tr></thead><tbody>
-        ${(ots||[]).map(o => `<tr><td>${o.fecha_apertura}</td><td>${o.tipo}</td><td>${o.prioridad||'—'}</td><td>${o.tecnico_asignado||'—'}</td><td><span class="tag ${o.estado==='CERRADA'?'ok':'w'}">${o.estado}</span></td><td>${o.descripcion||'—'}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de trabajo registradas</td></tr>'}
+      <div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Estado</th><th>Falla / Certificado por</th><th>Descripción</th></tr></thead><tbody>
+        ${(ots||[]).map(o => `<tr><td>${o.fecha_apertura}</td><td>${o.tipo}</td><td>${o.prioridad||'—'}</td><td>${o.tecnico_asignado||'—'}</td><td><span class="tag ${o.estado==='CERRADA'?'ok':'w'}">${o.estado}</span></td><td>${o.codigos_falla ? o.codigos_falla.problema + (o.certificado_por ? ' — ' + o.certificado_por : '') : (o.certificado_por || '—')}</td><td>${o.descripcion||'—'}</td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de trabajo registradas</td></tr>'}
       </tbody></table></div>
     </div>
     <a href="${location.pathname}" class="btn ghost" style="display:inline-block;margin-top:8px">← Volver al panel</a>
@@ -3128,6 +3201,51 @@ async function verQRActivo(id) {
   w.document.close();
 }
 
+async function imprimirEtiquetasQRSeleccionadas() {
+  const ids = Array.from(document.querySelectorAll('.chk-activo-print:checked')).map(el => el.value);
+  if (ids.length === 0) { alert('Seleccioná al menos un activo (checkbox a la izquierda de la tabla).'); return; }
+
+  const etiquetas = [];
+  for (const id of ids) {
+    const a = window.ACTIVOS_CACHE[id];
+    if (!a) continue;
+    const url = URL_PRODUCCION + '?activo=' + encodeURIComponent(id);
+    try {
+      const dataUrl = await QRCode.toDataURL(url, { width: 180 });
+      etiquetas.push({ a, dataUrl });
+    } catch (e) {
+      alert('No se pudo generar el QR de ' + a.nombre + ': ' + e.message);
+    }
+  }
+  if (etiquetas.length === 0) return;
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Etiquetas QR (${etiquetas.length})</title>
+    <style>
+      body { font-family:Arial,Helvetica,sans-serif; padding:20px; }
+      .grilla { display:flex; flex-wrap:wrap; gap:16px; }
+      .tag-fisico { display:inline-block; border:2px solid #1a1916; border-radius:10px; padding:16px 20px; text-align:center; break-inside:avoid; }
+      h2 { margin:4px 0 2px; font-size:16px; }
+      .cod { font-family:monospace; font-size:12px; color:#555; margin-bottom:10px; }
+      .no-print { margin-bottom:20px; }
+      button { padding:10px 18px; border-radius:6px; border:none; background:#1a1916; color:#fff; font-weight:700; cursor:pointer; }
+      @media print { .no-print { display:none; } }
+    </style></head>
+    <body>
+      <div class="no-print"><button onclick="window.print()">🖨️ Imprimir ${etiquetas.length} etiquetas</button></div>
+      <div class="grilla">
+        ${etiquetas.map(({a, dataUrl}) => `
+        <div class="tag-fisico">
+          <div style="font-weight:800;font-size:11px;letter-spacing:0.08em;color:#8a8880">GS GROUP</div>
+          <h2>${a.nombre}</h2>
+          <div class="cod">${a.codigo || a.id}</div>
+          <img src="${dataUrl}" width="180" height="180" alt="Código QR">
+        </div>`).join('')}
+      </div>
+    </body></html>`);
+  w.document.close();
+}
+
 async function eliminarActivo(id) {
   if (!confirm('¿Eliminar este activo? También se eliminan sus planes de mantenimiento asociados. Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('activos').delete().eq('id', id);
@@ -3263,6 +3381,14 @@ async function cerrarOT(id) {
     mostrarCierreOTPreventiva(id, tareas);
     return;
   }
+  // Correctiva/emergencia sin checklist: pide código de falla + quién
+  // certifica el cierre, en vez de cerrar sin dejar ningún registro de
+  // qué pasó (que es lo único que hacía esto hasta ahora).
+  const ot = window.OT_CACHE ? window.OT_CACHE[id] : null;
+  if (ot && (ot.tipo === 'correctivo' || ot.tipo === 'emergencia')) {
+    mostrarCierreOTCorrectiva(id, ot);
+    return;
+  }
   const { error } = await sb.from('ordenes_trabajo').update({ estado: 'CERRADA', fecha_cierre: new Date().toISOString().slice(0,10) }).eq('id', id);
   if (error) return alert('No se pudo cerrar la OT: ' + error.message);
   location.reload();
@@ -3286,6 +3412,59 @@ function mostrarCierreOTPreventiva(otId, tareas) {
   renderRepuestosDeCierre();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-cerrar-ot').classList.add('active');
+}
+
+async function convertirSolicitudAOT(id) {
+  const s = window.SOLICITUDES_CLIENTE_CACHE[id];
+  if (!s) return;
+  const otId = 'OT-SOLCLI-' + Date.now();
+  const { error: errorOT } = await sb.from('ordenes_trabajo').insert({
+    id: otId, activo_id: s.activo_id, tipo: 'correctivo', prioridad: 'Media', estado: 'ABIERTA',
+    descripcion: `Solicitud de cliente (${s.tipo}) — ${s.nombre_solicitante} (${s.contacto}): ${s.descripcion || 'sin detalle'}`,
+  });
+  if (errorOT) return alert('No se pudo crear la OT: ' + errorOT.message);
+  const { error: errorSol } = await sb.from('solicitudes_cliente').update({ estado: 'Convertida a OT', ot_generada_id: otId }).eq('id', id);
+  if (errorSol) return alert('La OT se creó, pero no se pudo actualizar la solicitud: ' + errorSol.message);
+  location.reload();
+}
+
+async function descartarSolicitud(id) {
+  if (!confirm('¿Descartar esta solicitud? No se va a generar ninguna OT a partir de ella.')) return;
+  const { error } = await sb.from('solicitudes_cliente').update({ estado: 'Descartada' }).eq('id', id);
+  if (error) return alert('No se pudo actualizar: ' + error.message);
+  location.reload();
+}
+
+async function mostrarCierreOTCorrectiva(otId, ot) {
+  window.CERRANDO_OT_CORRECTIVA_ID = otId;
+  const activo = ot.activo_id ? window.ACTIVOS_CACHE[ot.activo_id] : null;
+  const categoriaId = activo ? activo.categoria_id : null;
+
+  const { data: fallas } = await sb.from('codigos_falla').select('*').order('problema');
+  const relevantes = (fallas||[]).filter(f => !f.categoria_id || f.categoria_id === categoriaId);
+  document.getElementById('cerrar-ot-correctiva-falla').innerHTML =
+    (relevantes.length ? relevantes : (fallas||[])).map(f => `<option value="${f.id}">${f.problema}${f.causa ? ' — ' + f.causa : ''}</option>`).join('');
+
+  document.getElementById('cerrar-ot-correctiva-subtitulo').textContent = `OT ${otId}${activo ? ' — ' + activo.nombre : ''} — registrá qué falló antes de cerrar`;
+  document.getElementById('cerrar-ot-correctiva-certifica').value = document.getElementById('userTxt') ? document.getElementById('userTxt').textContent : '';
+  document.getElementById('cerrar-ot-correctiva-fecha').value = new Date().toISOString().slice(0,10);
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-cerrar-ot-correctiva').classList.add('active');
+}
+
+async function confirmarCierreOTCorrectiva() {
+  const otId = window.CERRANDO_OT_CORRECTIVA_ID;
+  const codigo_falla_id = document.getElementById('cerrar-ot-correctiva-falla').value || null;
+  const certificado_por = document.getElementById('cerrar-ot-correctiva-certifica').value.trim();
+  const fecha_cierre = document.getElementById('cerrar-ot-correctiva-fecha').value || new Date().toISOString().slice(0,10);
+  if (!certificado_por) { alert('Indicá quién certifica el cierre.'); return; }
+
+  const { error } = await sb.from('ordenes_trabajo').update({
+    estado: 'CERRADA', fecha_cierre, codigo_falla_id, certificado_por, certificado_fecha: new Date().toISOString(),
+  }).eq('id', otId);
+  if (error) return alert('No se pudo cerrar la OT: ' + error.message);
+  location.reload();
 }
 
 function agregarRepuestoACierre() {

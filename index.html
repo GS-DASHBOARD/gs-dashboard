@@ -251,6 +251,7 @@ tr:hover td{background:var(--bg)}
     <div class="nav-section">Comercial</div>
     <button class="nav-item" onclick="nav(this,'presupuestos')"><span class="nav-pip"></span>Presupuestos</button>
     <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
+    <button class="nav-item" onclick="nav(this,'gscare-leads')"><span class="nav-pip"></span>GS CARE Leads</button>
     <div class="nav-section">Compras</div>
     <button class="nav-item" onclick="nav(this,'oc')"><span class="nav-pip"></span>Órdenes de Compra</button>
     <button class="nav-item" onclick="nav(this,'op')"><span class="nav-pip"></span>Órdenes de Pago</button>
@@ -1202,6 +1203,21 @@ tr:hover td{background:var(--bg)}
   </div>
 </div>
 
+<!-- GS CARE LEADS (del evaluador público evaluador.greenservicesg.com) -->
+<div class="page" id="page-gscare-leads">
+  <div class="ph"><div><h1>GS CARE <span>ASSESSMENT™</span></h1><p>Leads del evaluador público</p></div></div>
+  <div class="kgrid c4">
+    <div class="kcard"><div class="k-lbl">Assessments</div><div class="k-val" id="gscare-total">—</div></div>
+    <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Leads HOT (A)</div><div class="k-val g" id="gscare-hot">—</div></div>
+    <div class="kcard"><div class="k-lbl">GS CARE Index promedio</div><div class="k-val" id="gscare-indice">—</div></div>
+    <div class="kcard"><div class="k-lbl">Conversión</div><div class="k-val" id="gscare-conversion">—</div></div>
+  </div>
+  <div class="empty" id="gscare-empty" style="display:none"><b>Todavía no hay leads.</b>Van a aparecer acá apenas alguien complete el GS CARE ASSESSMENT.</div>
+  <div class="card" id="gscare-card" style="display:none"><div class="tbl-wrap"><table><thead><tr>
+    <th>Empresa</th><th>Contacto</th><th>Instalación</th><th class="num">Index</th><th>Plan</th><th class="num">Precio anual</th><th>Lead</th><th>Vía</th><th>Estado</th><th>Fecha</th>
+  </tr></thead><tbody id="tbl-gscare-leads"></tbody></table></div></div>
+</div>
+
 </main>
 </div>
 
@@ -1249,6 +1265,7 @@ const PUEDE_EDITAR = {
   cobros: r => r === 'gonzalo' || r === 'sebastian',
   pagos: r => r === 'gonzalo' || r === 'sebastian',
   cierres_periodo: r => r === 'gonzalo' || r === 'sebastian',
+  gs_care_leads: r => r === 'gonzalo' || r === 'sebastian',
 };
 
 document.getElementById('hoy').textContent =
@@ -2289,6 +2306,11 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td><span class="tag ${s.estado==='Convertida a OT'?'ok':s.estado==='Descartada'?'muted':'w'}">${s.estado}</span></td>
       <td>${puedeEditarSolCli && (s.estado==='Pendiente' || s.estado==='En revisión') ? `<button class="btn ghost" onclick="convertirSolicitudAOT('${s.id}')">Convertir a OT</button> <button class="btn ghost" onclick="descartarSolicitud('${s.id}')">Descartar</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin solicitudes de clientes</td></tr>';
+
+  // GS CARE Assessment (leads del evaluador público)
+  const { data: gsCareLeads } = await sb.from('gs_care_assessments').select('*').order('created_at', { ascending: false });
+  window.GSCARE_LEADS_CACHE = {}; (gsCareLeads||[]).forEach(l => window.GSCARE_LEADS_CACHE[l.id] = l);
+  renderGsCareLeads(gsCareLeads || []);
 
   // Categorías de Activo
   const { data: categoriasActivo } = await sb.from('categorias_activo').select('*').order('nombre');
@@ -3627,6 +3649,63 @@ async function descartarSolicitud(id) {
   const { error } = await sb.from('solicitudes_cliente').update({ estado: 'Descartada' }).eq('id', id);
   if (error) return alert('No se pudo actualizar: ' + error.message);
   location.reload();
+}
+
+// ═══════════════════════════════════════════════
+// GS CARE LEADS (evaluador público evaluador.greenservicesg.com)
+// ═══════════════════════════════════════════════
+const GSCARE_ESTADOS = ['NEW', 'RESULT_VIEWED', 'CONTACT_REQUESTED', 'CONTACTED', 'WON', 'LOST', 'NURTURE'];
+
+function tagClaseLeadGsCare(clase) {
+  if (clase === 'A') return 'ok';
+  if (clase === 'B') return 'mant';
+  if (clase === 'C') return 'w';
+  return 'muted';
+}
+
+function formatARSGsCare(n) {
+  if (n == null) return '—';
+  return '$ ' + Math.round(n).toLocaleString('es-AR');
+}
+
+function renderGsCareLeads(leads) {
+  const total = leads.length;
+  const hot = leads.filter(l => l.lead_class === 'A').length;
+  const indicePromedio = total ? Math.round(leads.reduce((s, l) => s + (l.gs_care_index ?? 0), 0) / total) : 0;
+  const ganados = leads.filter(l => l.status === 'WON').length;
+  const conversion = total ? Math.round((ganados / total) * 100) : 0;
+
+  document.getElementById('gscare-total').textContent = total;
+  document.getElementById('gscare-hot').textContent = hot;
+  document.getElementById('gscare-indice').textContent = indicePromedio;
+  document.getElementById('gscare-conversion').textContent = conversion + '%';
+
+  document.getElementById('gscare-empty').style.display = total ? 'none' : 'block';
+  document.getElementById('gscare-card').style.display = total ? 'block' : 'none';
+  if (!total) return;
+
+  const puedeEditar = PUEDE_EDITAR.gs_care_leads(ROL);
+  document.getElementById('tbl-gscare-leads').innerHTML = leads.map(l => `<tr>
+      <td>${l.company ?? '—'}</td>
+      <td>${l.contact_name ?? '—'}<div style="font-size:11px;color:var(--muted)">${l.email ?? ''}</div></td>
+      <td>${l.facility_name || l.facility_type || '—'}</td>
+      <td class="num">${l.gs_care_index ?? '—'}</td>
+      <td>${l.recommended_plan ? l.recommended_plan.replace('GS_CARE_', '').replace(/_/g, ' ') : '—'}</td>
+      <td class="num">${formatARSGsCare(l.price_annual)}</td>
+      <td><span class="tag ${tagClaseLeadGsCare(l.lead_class)}">${l.lead_class ?? '—'}</span></td>
+      <td>${l.contact_method ?? 'formulario'}</td>
+      <td>${puedeEditar
+        ? `<select onchange="cambiarEstadoGsCareLead('${l.id}', this.value)">${GSCARE_ESTADOS.map(e => `<option value="${e}" ${e === l.status ? 'selected' : ''}>${e}</option>`).join('')}</select>`
+        : l.status}</td>
+      <td>${new Date(l.created_at).toLocaleDateString('es-AR')}</td>
+    </tr>`).join('');
+}
+
+async function cambiarEstadoGsCareLead(id, status) {
+  const { error } = await sb.from('gs_care_assessments').update({ status }).eq('id', id);
+  if (error) return alert('No se pudo actualizar el estado: ' + error.message);
+  const l = window.GSCARE_LEADS_CACHE[id];
+  if (l) l.status = status;
 }
 
 const KANBAN_ESTADOS = ['ABIERTA', 'EN_CURSO', 'CERRADA', 'CANCELADA'];

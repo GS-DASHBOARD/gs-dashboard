@@ -3189,6 +3189,7 @@ function cancelarEdicionActivo() {
   document.getElementById('act-cliente').value = '';
   document.getElementById('act-proyecto').value = '';
   document.getElementById('act-ubicacion-id').value = '';
+  window.CATEGORIA_AUTOFILL_ULTIMO = null;
   poblarSelectCategoriaActivo(window.CATEGORIAS_ACTIVO);
   actualizarCategoriaResuelta();
   document.getElementById('activos-btn-guardar').textContent = 'Guardar';
@@ -4752,8 +4753,19 @@ function actualizarCategoriaResuelta(fichaExistente) {
   document.getElementById('act-categoria-resumen').textContent = cat ? breadcrumbCategoria(id) : '';
   // Completa el texto libre "Categoría / familia" para no duplicar carga
   // manual, pero lo deja editable por si hace falta un matiz puntual.
-  if (cat && !document.getElementById('act-categoria').value) {
-    document.getElementById('act-categoria').value = cat.nombre;
+  //
+  // Bug real encontrado 2026-09-16: la guarda original era "solo completar
+  // si está vacío" -- funcionaba para una elección única, pero si el
+  // usuario cambiaba de opinión en el Nivel 1 DESPUÉS de la primera
+  // selección, el campo ya no estaba vacío (lo había llenado esta misma
+  // función la vez anterior) y quedaba pegado con el valor viejo, aunque
+  // categoria_id sí reflejaba el cambio correcto. Se distingue "el usuario
+  // lo escribió a mano" de "esta función lo completó la última vez"
+  // guardando qué fue lo último que autocompletamos.
+  const campoTexto = document.getElementById('act-categoria');
+  if (cat && (campoTexto.value === '' || campoTexto.value === window.CATEGORIA_AUTOFILL_ULTIMO)) {
+    campoTexto.value = cat.nombre;
+    window.CATEGORIA_AUTOFILL_ULTIMO = cat.nombre;
     sugerirCodigoActivo();
   }
   renderCamposFichaTecnica(id || null, fichaExistente || {});
@@ -4764,6 +4776,7 @@ function actualizarCategoriaResuelta(fichaExistente) {
 // activo con categoria_id profundo (ej. 05.04.01) no mostraría nada
 // seleccionado en ninguno de los 4 niveles.
 function precargarCategoriaCascada(categoriaId, fichaExistente) {
+  window.CATEGORIA_AUTOFILL_ULTIMO = null; // no arrastrar estado del activo editado anteriormente
   const cadena = [];
   let actual = categoriaId ? window.CATEGORIAS_ACTIVO_CACHE[categoriaId] : null;
   while (actual) {

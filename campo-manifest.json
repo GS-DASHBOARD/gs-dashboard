@@ -1,0 +1,12 @@
+{
+  "name": "GS Campo — Órdenes de Trabajo",
+  "short_name": "GS Campo",
+  "description": "App de campo para técnicos de GS Group — ver y cerrar Órdenes de Trabajo, con cola offline.",
+  "start_url": "./campo.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f4f1",
+  "theme_color": "#1a1916",
+  "orientation": "portrait",
+  "lang": "es-AR"
+}

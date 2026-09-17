@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>GS Campo</title>
+<link rel="manifest" href="./campo-manifest.json">
+<meta name="theme-color" content="#1a1916">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#f5f4f1;--white:#fff;--s2:#f0eeea;--b1:rgba(0,0,0,0.1);
+    --txt:#1a1916;--muted:#7a786f;
+    --danger:#c42a3a;--good:#2a9e5a;--warn:#c48a1a;
+    --sans:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:16px}
+  body{min-height:100vh;padding-bottom:40px}
+  button,input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
+  .topbar{background:var(--white);border-bottom:1px solid var(--b1);padding:14px 16px;position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .topbar h1{font-size:16px;font-weight:700}
+  .topbar h1 span{color:var(--muted);font-weight:500}
+  .estado-conexion{font-size:11px;font-family:var(--mono);padding:3px 8px;border-radius:999px}
+  .estado-conexion.online{background:#e6f7ed;color:var(--good)}
+  .estado-conexion.offline{background:#fce8ea;color:var(--danger)}
+  main{max-width:560px;margin:0 auto;padding:16px}
+  .card{background:var(--white);border:1px solid var(--b1);border-radius:10px;padding:16px;margin-bottom:12px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  .field input,.field select,.field textarea{width:100%;padding:10px;border:1px solid var(--b1);border-radius:8px;background:var(--bg)}
+  .field textarea{min-height:60px;resize:vertical}
+  .btn{width:100%;padding:13px;border:none;border-radius:8px;background:var(--txt);color:var(--white);font-weight:700;cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--txt);border:1px solid var(--b1)}
+  .btn.sm{width:auto;padding:8px 14px;font-size:13px}
+  .err{background:#fce8ea;color:var(--danger);padding:10px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none}
+  .empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px}
+  .ot-item{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .ot-item .info{flex:1}
+  .ot-item .activo{font-weight:700;font-size:15px}
+  .ot-item .meta{color:var(--muted);font-size:12px;margin-top:2px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .tag.d{background:#fce8ea;color:var(--danger)}
+  .tag.w{background:#fef3dd;color:var(--warn)}
+  .tag.pendiente{background:#e0e7ff;color:#3b4cca}
+  .tarea-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--b1)}
+  .tarea-row:last-child{border-bottom:none}
+  .tarea-row input{width:auto;margin-top:3px}
+  .tarea-row .txt{flex:1;font-size:14px}
+  .tarea-row .sistema{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .banner{padding:10px 14px;font-size:13px;border-radius:8px;margin-bottom:12px}
+  .banner.offline{background:#fef3dd;color:#7a5c0e}
+  .banner.cola{background:#e0e7ff;color:#2c3899;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>GS <span>Campo</span></h1>
+  <span id="estado-conexion" class="estado-conexion online">En línea</span>
+</div>
+
+<main>
+
+<div id="vista-login" class="card">
+  <div id="login-err" class="err"></div>
+  <div class="field"><label>Email</label><input id="login-email" type="email" autocomplete="username"></div>
+  <div class="field"><label>Contraseña</label><input id="login-pass" type="password" autocomplete="current-password"></div>
+  <button class="btn" onclick="hacerLogin()">Ingresar</button>
+</div>
+
+<div id="vista-app" hidden>
+  <div id="banner-offline" class="banner offline" hidden>Sin conexión — mostrando la última lista descargada. Lo que cierres queda pendiente de sincronizar.</div>
+  <div id="banner-cola" class="banner cola" hidden>
+    <span id="banner-cola-texto"></span>
+    <button class="btn sm" onclick="sincronizarCola()">Sincronizar ahora</button>
+  </div>
+
+  <div id="vista-lista">
+    <div id="lista-empty" class="empty" hidden>Sin Órdenes de Trabajo abiertas.</div>
+    <div id="lista-ots"></div>
+  </div>
+
+  <div id="vista-cierre" hidden>
+    <button class="btn ghost sm" style="width:auto;margin-bottom:12px" onclick="volverALista()">← Volver</button>
+    <div class="card">
+      <div id="cierre-err" class="err"></div>
+      <h2 id="cierre-titulo" style="margin-bottom:12px"></h2>
+
+      <div id="cierre-preventivo">
+        <div id="cierre-tareas"></div>
+      </div>
+
+      <div id="cierre-correctivo" hidden>
+        <div class="field"><label>Código de falla</label><select id="cierre-falla"></select></div>
+        <div class="field"><label>Certifica el cierre</label><input id="cierre-certifica" placeholder="Nombre de quien cierra"></div>
+      </div>
+
+      <button class="btn" style="margin-top:14px" onclick="confirmarCierre()">Cerrar Orden de Trabajo</button>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const SUPABASE_URL = "https://ffkatmjtoevuthrztvkb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_XvYuWpq2KejWLnxGlc8JoQ_ZAPhRrWO";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./campo-sw.js').catch(() => {});
+}
+
+// ═══════════════════════════════════════════════
+// IndexedDB — cache de OTs + cola de cierres pendientes de sincronizar.
+// Fase 1 de la app de campo (spec §5): sin esto, un técnico sin señal en
+// planta ve una pantalla vacía y no puede cerrar nada hasta volver a
+// tener datos -- que es exactamente el problema que la PWA offline tenía
+// que resolver.
+// ═══════════════════════════════════════════════
+let DB;
+function abrirDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('gs-campo-db', 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('ot_cache')) db.createObjectStore('ot_cache', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('cola')) db.createObjectStore('cola', { keyPath: 'id', autoIncrement: true });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbTodos(store) {
+  return new Promise((resolve, reject) => {
+    const tx = DB.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbReemplazarTodos(store, items) {
+  return new Promise((resolve, reject) => {
+    const tx = DB.transaction(store, 'readwrite');
+    const os = tx.objectStore(store);
+    os.clear();
+    items.forEach((it) => os.put(it));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+function idbAgregar(store, item) {
+  return new Promise((resolve, reject) => {
+    const tx = DB.transaction(store, 'readwrite');
+    const req = tx.objectStore(store).add(item);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbBorrar(store, key) {
+  return new Promise((resolve, reject) => {
+    const tx = DB.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════
+async function hacerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) {
+    errEl.textContent = error.message === 'Invalid login credentials' ? 'Email o contraseña incorrectos.' : error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  iniciar();
+}
+
+async function iniciar() {
+  document.getElementById('vista-login').hidden = true;
+  document.getElementById('vista-app').hidden = false;
+  await cargarOTs();
+  await actualizarBannerCola();
+}
+
+// ═══════════════════════════════════════════════
+// ESTADO DE CONEXIÓN
+// ═══════════════════════════════════════════════
+function actualizarEstadoConexion() {
+  const el = document.getElementById('estado-conexion');
+  const online = navigator.onLine;
+  el.textContent = online ? 'En línea' : 'Sin conexión';
+  el.className = 'estado-conexion ' + (online ? 'online' : 'offline');
+  document.getElementById('banner-offline').hidden = online;
+}
+window.addEventListener('online', () => { actualizarEstadoConexion(); sincronizarCola(); cargarOTs(); });
+window.addEventListener('offline', actualizarEstadoConexion);
+
+// ═══════════════════════════════════════════════
+// LISTA DE ÓRDENES DE TRABAJO
+// ═══════════════════════════════════════════════
+window.OTS_CACHE = {};
+window.ACTIVOS_CACHE = {};
+
+async function cargarOTs() {
+  try {
+    const { data: ots, error } = await sb.from('ordenes_trabajo')
+      .select('*, activos(nombre, codigo, categoria_id)')
+      .in('estado', ['ABIERTA', 'EN_CURSO'])
+      .order('prioridad', { ascending: false });
+    if (error) throw error;
+    await idbReemplazarTodos('ot_cache', ots || []);
+    renderLista(ots || [], false);
+  } catch (e) {
+    const cacheadas = await idbTodos('ot_cache');
+    renderLista(cacheadas, true);
+  }
+}
+
+function renderLista(ots, esCache) {
+  window.OTS_CACHE = {};
+  ots.forEach((o) => window.OTS_CACHE[o.id] = o);
+  document.getElementById('banner-offline').hidden = !esCache && navigator.onLine;
+  const cont = document.getElementById('lista-ots');
+  document.getElementById('lista-empty').hidden = ots.length > 0;
+  cont.innerHTML = ots.map((o) => {
+    const activo = o.activos || {};
+    const prioridadTag = o.prioridad === 'Alta' ? 'd' : o.prioridad === 'Media' ? 'w' : '';
+    return `<div class="card ot-item">
+      <div class="info">
+        <div class="activo">${activo.codigo ? activo.codigo + ' — ' : ''}${activo.nombre || o.activo_id || 'Sin activo'}</div>
+        <div class="meta">${o.tipo || '—'} · abierta ${o.fecha_apertura || '—'} ${o.prioridad ? `<span class="tag ${prioridadTag}">${o.prioridad}</span>` : ''}</div>
+      </div>
+      <button class="btn sm" onclick="abrirCierre('${o.id}')">Cerrar</button>
+    </div>`;
+  }).join('');
+}
+
+function volverALista() {
+  document.getElementById('vista-cierre').hidden = true;
+  document.getElementById('vista-lista').hidden = false;
+}
+
+// ═══════════════════════════════════════════════
+// CIERRE DE UNA OT — preventiva (checklist) o correctiva (código de falla)
+// ═══════════════════════════════════════════════
+window.CERRANDO = null; // { ot, tareas }
+
+async function abrirCierre(otId) {
+  const ot = window.OTS_CACHE[otId];
+  if (!ot) return;
+  document.getElementById('cierre-err').style.display = 'none';
+  document.getElementById('vista-lista').hidden = true;
+  document.getElementById('vista-cierre').hidden = false;
+  document.getElementById('cierre-titulo').textContent =
+    (ot.activos ? ot.activos.nombre : ot.activo_id || 'Activo') + ' — ' + otId;
+
+  let tareas = [];
+  if (navigator.onLine) {
+    try {
+      const { data } = await sb.from('activo_plan_tarea_estado')
+        .select('*, plan_mantenimiento_tareas(sistema,accion,contenido,orden)')
+        .eq('ot_generada_id', otId);
+      tareas = data || [];
+    } catch (e) { /* sin señal a mitad de camino -- sigue con tareas=[] */ }
+  }
+  window.CERRANDO = { ot, tareas };
+
+  const esPreventivaConChecklist = tareas.length > 0;
+  document.getElementById('cierre-preventivo').hidden = !esPreventivaConChecklist;
+  document.getElementById('cierre-correctivo').hidden = esPreventivaConChecklist;
+
+  if (esPreventivaConChecklist) {
+    tareas.sort((a, b) => (a.plan_mantenimiento_tareas?.orden || 0) - (b.plan_mantenimiento_tareas?.orden || 0));
+    document.getElementById('cierre-tareas').innerHTML = tareas.map((t) => {
+      const info = t.plan_mantenimiento_tareas || {};
+      return `<label class="tarea-row">
+        <input type="checkbox" class="chk-tarea" value="${t.id}" checked>
+        <span class="txt"><div class="sistema">${info.sistema || '—'}</div>${info.accion || ''} ${info.contenido || ''}</span>
+      </label>`;
+    }).join('');
+  } else {
+    const categoriaId = ot.activos ? ot.activos.categoria_id : null;
+    const selFalla = document.getElementById('cierre-falla');
+    if (navigator.onLine) {
+      try {
+        const { data: fallas } = await sb.from('codigos_falla').select('*').order('problema');
+        const relevantes = (fallas || []).filter((f) => !f.categoria_id || f.categoria_id === categoriaId);
+        const lista = relevantes.length ? relevantes : (fallas || []);
+        selFalla.innerHTML = lista.map((f) => `<option value="${f.id}">${f.problema}${f.causa ? ' — ' + f.causa : ''}</option>`).join('');
+      } catch (e) {
+        selFalla.innerHTML = '<option value="">— (sin conexión para cargar el catálogo) —</option>';
+      }
+    } else {
+      selFalla.innerHTML = '<option value="">— (sin conexión para cargar el catálogo) —</option>';
+    }
+    document.getElementById('cierre-certifica').value = '';
+  }
+}
+
+async function confirmarCierre() {
+  const { ot, tareas } = window.CERRANDO;
+  const hoy = new Date().toISOString().slice(0, 10);
+  let accion;
+
+  if (tareas.length > 0) {
+    const marcadas = Array.from(document.querySelectorAll('.chk-tarea')).map((el) => ({ id: el.value, completada: el.checked }));
+    accion = { tipo: 'cierre_preventivo', otId: ot.id, fecha: hoy, tareas: marcadas };
+  } else {
+    const codigo_falla_id = document.getElementById('cierre-falla').value || null;
+    const certificado_por = document.getElementById('cierre-certifica').value.trim();
+    if (!certificado_por) return mostrarErrCierre('Indicá quién certifica el cierre.');
+    accion = { tipo: 'cierre_correctivo', otId: ot.id, fecha: hoy, codigo_falla_id, certificado_por };
+  }
+
+  if (navigator.onLine) {
+    try {
+      await ejecutarCierre(accion);
+      await cargarOTs();
+      volverALista();
+      return;
+    } catch (e) {
+      // Puede ser un corte de señal justo al confirmar -- cae a la cola
+      // en vez de perder el trabajo que el técnico ya cargó en pantalla.
+    }
+  }
+  await idbAgregar('cola', accion);
+  // Optimista: la saca de la lista visible ya mismo -- el técnico no
+  // tiene que acordarse de que la cerró "en el aire" sin conexión.
+  delete window.OTS_CACHE[ot.id];
+  renderLista(Object.values(window.OTS_CACHE), true);
+  await actualizarBannerCola();
+  volverALista();
+}
+
+function mostrarErrCierre(msg) {
+  const el = document.getElementById('cierre-err');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// Ejecuta de verdad el cierre contra Supabase -- misma lógica que
+// cerrarOT()/confirmarCierreOTPreventiva() del panel de escritorio
+// (docs/gs-dashboard-portal.html), reescrita acá para no depender de esa
+// UI. Tira si falla la red -- quien llama decide si eso significa "a la
+// cola" o "reintentar más tarde".
+async function ejecutarCierre(accion) {
+  if (accion.tipo === 'cierre_preventivo') {
+    for (const t of accion.tareas) {
+      const fn = t.completada ? 'cerrar_tarea_mantenimiento' : 'reabrir_tarea_mantenimiento';
+      const params = t.completada ? { p_estado_id: t.id, p_fecha: accion.fecha, p_horas: null } : { p_estado_id: t.id };
+      const { error } = await sb.rpc(fn, params);
+      if (error) throw error;
+    }
+    const { error: errOT } = await sb.from('ordenes_trabajo').update({ estado: 'CERRADA', fecha_cierre: accion.fecha }).eq('id', accion.otId);
+    if (errOT) throw errOT;
+  } else {
+    const { error } = await sb.from('ordenes_trabajo').update({
+      estado: 'CERRADA', fecha_cierre: accion.fecha,
+      codigo_falla_id: accion.codigo_falla_id, certificado_por: accion.certificado_por, certificado_fecha: new Date().toISOString(),
+    }).eq('id', accion.otId);
+    if (error) throw error;
+  }
+}
+
+// ═══════════════════════════════════════════════
+// COLA — sincroniza los cierres hechos offline apenas vuelve la señal
+// ═══════════════════════════════════════════════
+async function actualizarBannerCola() {
+  const pendientes = await idbTodos('cola');
+  const banner = document.getElementById('banner-cola');
+  banner.hidden = pendientes.length === 0;
+  document.getElementById('banner-cola-texto').textContent =
+    `${pendientes.length} cierre${pendientes.length === 1 ? '' : 's'} pendiente${pendientes.length === 1 ? '' : 's'} de sincronizar`;
+}
+
+async function sincronizarCola() {
+  if (!navigator.onLine) return;
+  const pendientes = await idbTodos('cola');
+  for (const item of pendientes) {
+    try {
+      await ejecutarCierre(item);
+      await idbBorrar('cola', item.id);
+    } catch (e) {
+      // Sigue sin conexión de verdad (o falló por otra razón) -- se
+      // reintenta en el próximo 'online' o el próximo login, no se pierde.
+      break;
+    }
+  }
+  await actualizarBannerCola();
+  await cargarOTs();
+}
+
+// ═══════════════════════════════════════════════
+// ARRANQUE
+// ═══════════════════════════════════════════════
+(async function main() {
+  DB = await abrirDB();
+  actualizarEstadoConexion();
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await iniciar();
+  if (navigator.onLine) sincronizarCola();
+})();
+</script>
+</body>
+</html>

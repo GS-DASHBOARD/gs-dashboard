@@ -4,7 +4,13 @@
 // sin señal, y deja pasar directo a la red cualquier llamada a Supabase
 // (nunca se cachea una respuesta de la API -- los datos offline los
 // maneja campo.html por su cuenta via IndexedDB, no este service worker).
-const CACHE_NAME = 'gs-campo-v1';
+// v2: el fetch handler original no filtraba por SHELL antes de cachear,
+// así que cualquier navegador que haya abierto campo.html con la v1 puede
+// tener el dashboard administrativo (portal.greenservicesg.com/) guardado
+// en el cache viejo. Cambiar el nombre fuerza que el 'activate' de abajo
+// (que ya borra cualquier cache con nombre distinto a CACHE_NAME) limpie
+// ese cache viejo apenas el navegador actualice el service worker.
+const CACHE_NAME = 'gs-campo-v2';
 const SHELL = [
   './campo.html',
   './campo-manifest.json',
@@ -25,6 +31,10 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Resuelve el SHELL contra la ubicación real del service worker (una sola
+// vez, no en cada fetch) para poder comparar por URL absoluta exacta.
+const SHELL_URLS = new Set(SHELL.map((ruta) => new URL(ruta, self.location.href).href));
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -32,6 +42,19 @@ self.addEventListener('fetch', (event) => {
   // Si falla por estar offline, el error lo maneja campo.html (cola en
   // IndexedDB), no este service worker.
   if (url.hostname.endsWith('.supabase.co')) {
+    return;
+  }
+
+  // BUG REAL encontrado 2026-09-16 al verificar el deploy en producción:
+  // este service worker se registra sin `scope`, así que por default
+  // controla TODO el origen (portal.greenservicesg.com), no solo
+  // campo.html -- si el handler de abajo corriera para cualquier request,
+  // terminaría cacheando el dashboard administrativo (con datos
+  // financieros) apenas alguien abriera campo.html una vez en el mismo
+  // navegador, exactamente el riesgo que el comentario de arriba decía
+  // evitar. Se restringe explícitamente al SHELL declarado -- todo lo
+  // demás (incluido el dashboard) pasa directo a la red, sin cachear.
+  if (!SHELL_URLS.has(url.href)) {
     return;
   }
 

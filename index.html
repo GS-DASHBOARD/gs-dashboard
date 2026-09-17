@@ -2996,7 +2996,7 @@ async function crearCliente() {
     const { error } = await sb.from('clientes').insert({ id, ...payload });
     if (error) return showErr('clientes', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarCliente(c) {
@@ -3181,7 +3181,7 @@ async function importarActivosCSV(event) {
     ${errores.length > 0 ? `<p><b>${errores.length} fila(s) con error, no se cargaron:</b></p><ul style="color:var(--muted)">${errores.map(e => `<li>${e}</li>`).join('')}</ul>` : ''}
     <button class="btn" onclick="location.reload()">Recargar página</button>
   `;
-  if (errores.length === 0 && !errorInsert) setTimeout(() => location.reload(), 1800);
+  if (errores.length === 0 && !errorInsert) setTimeout(() => cargarTodo(), 1800);
 }
 
 function sugerirCodigoActivo() {
@@ -3239,7 +3239,7 @@ async function crearActivo() {
     const { error } = await sb.from('activos').insert({ id, ...payload });
     if (error) return showErr('activos', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarActivo(a) {
@@ -3662,7 +3662,7 @@ async function eliminarActivo(id) {
   if (!confirm('¿Eliminar este activo? También se eliminan sus planes de mantenimiento asociados. Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('activos').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -3686,7 +3686,7 @@ async function crearPlanMtto() {
     const { error } = await sb.from('planes_mtto').insert({ id, ...payload });
     if (error) return showErr('mtto', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarPlanMtto(m) {
@@ -3713,7 +3713,7 @@ async function eliminarPlanMtto(id) {
   if (!confirm('¿Eliminar esta rutina de mantenimiento? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('planes_mtto').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function marcarMttoEjecutado(id) {
@@ -3723,7 +3723,7 @@ async function marcarMttoEjecutado(id) {
   const proxima = m.frecuencia_dias ? new Date(Date.now() + m.frecuencia_dias*86400000).toISOString().slice(0,10) : null;
   const { error } = await sb.from('planes_mtto').update({ ultima_ejecucion: hoy, proxima_ejecucion: proxima }).eq('id', id);
   if (error) return alert('No se pudo actualizar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 let EDITANDO_OT_ID = null;
@@ -3747,7 +3747,7 @@ async function crearOT() {
     const { error } = await sb.from('ordenes_trabajo').insert({ id, ...payload, estado:'ABIERTA' });
     if (error) return showErr('ot', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarOT(o) {
@@ -3777,7 +3777,7 @@ async function eliminarOT(id) {
   if (!confirm('¿Eliminar esta orden de trabajo? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('ordenes_trabajo').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function cerrarOT(id) {
@@ -3803,7 +3803,7 @@ async function cerrarOT(id) {
   }
   const { error } = await sb.from('ordenes_trabajo').update({ estado: 'CERRADA', fecha_cierre: new Date().toISOString().slice(0,10) }).eq('id', id);
   if (error) return alert('No se pudo cerrar la OT: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 function mostrarCierreOTPreventiva(otId, tareas) {
@@ -3837,14 +3837,14 @@ async function convertirSolicitudAOT(id) {
   if (errorOT) return alert('No se pudo crear la OT: ' + errorOT.message);
   const { error: errorSol } = await sb.from('solicitudes_cliente').update({ estado: 'Convertida a OT', ot_generada_id: otId }).eq('id', id);
   if (errorSol) return alert('La OT se creó, pero no se pudo actualizar la solicitud: ' + errorSol.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function descartarSolicitud(id) {
   if (!confirm('¿Descartar esta solicitud? No se va a generar ninguna OT a partir de ella.')) return;
   const { error } = await sb.from('solicitudes_cliente').update({ estado: 'Descartada' }).eq('id', id);
   if (error) return alert('No se pudo actualizar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -3938,7 +3938,7 @@ async function cambiarEstadoOT(id, nuevoEstado) {
   }
   const { error } = await sb.from('ordenes_trabajo').update({ estado: nuevoEstado }).eq('id', id);
   if (error) { alert('No se pudo cambiar el estado: ' + error.message); return; }
-  location.reload();
+  await cargarTodo();
 }
 
 async function mostrarCierreOTCorrectiva(otId, ot) {
@@ -3970,7 +3970,7 @@ async function confirmarCierreOTCorrectiva() {
     estado: 'CERRADA', fecha_cierre, codigo_falla_id, certificado_por, certificado_fecha: new Date().toISOString(),
   }).eq('id', otId);
   if (error) return alert('No se pudo cerrar la OT: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 function agregarRepuestoACierre() {
@@ -4047,7 +4047,7 @@ async function confirmarCierreOTPreventiva() {
 
   const { error: errorOT } = await sb.from('ordenes_trabajo').update({ estado: 'CERRADA', fecha_cierre: fecha }).eq('id', otId);
   if (errorOT) return alert('Las tareas se guardaron, pero no se pudo cerrar la OT: ' + errorOT.message);
-  location.reload();
+  await cargarTodo();
 }
 
 let EDITANDO_CHQ_ID = null;
@@ -4069,7 +4069,7 @@ async function crearCheque() {
     const { error } = await sb.from('cheques').insert({ id, ...payload });
     if (error) return showErr('compras', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarCheque(c) {
@@ -4097,7 +4097,7 @@ async function eliminarCheque(id) {
   if (!confirm('¿Eliminar este cheque? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('cheques').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 function cambiarVistaCheques(vista) {
@@ -4132,7 +4132,7 @@ async function crearChequeRecibido() {
     const { error } = await sb.from('cheques_recibidos').insert({ id, ...payload });
     if (error) return showErr('chqr', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarChequeRecibido(c) {
@@ -4163,7 +4163,7 @@ async function eliminarChequeRecibido(id) {
   if (!confirm('¿Eliminar este cheque recibido? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('cheques_recibidos').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function depositarChequeRecibido(id) {
@@ -4191,7 +4191,7 @@ async function depositarChequeRecibido(id) {
   }
   const { error } = await sb.from('cheques_recibidos').update({ estado: 'Depositado' }).eq('id', id);
   if (error) return alert('No se pudo actualizar el cheque: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function rechazarChequeRecibido(id) {
@@ -4203,7 +4203,7 @@ async function rechazarChequeRecibido(id) {
   // un cheque rebotado no requiere re-gestion manual del Cobro, vuelve a
   // saldo pendiente solo.
   if (c && c.cobro_id) await sb.from('cobros').update({ estado: 'Revertido' }).eq('id', c.cobro_id);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -4230,7 +4230,7 @@ async function debitarCheque(id) {
   }
   const { error } = await sb.from('cheques').update({ estado: 'Debitado' }).eq('id', id);
   if (error) return alert('No se pudo actualizar el cheque: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function rechazarCheque(id) {
@@ -4239,7 +4239,7 @@ async function rechazarCheque(id) {
   const { error } = await sb.from('cheques').update({ estado: 'Rechazado' }).eq('id', id);
   if (error) return alert('No se pudo actualizar: ' + error.message);
   if (c && c.pago_id) await sb.from('pagos').update({ estado: 'Revertido' }).eq('id', c.pago_id);
-  location.reload();
+  await cargarTodo();
 }
 
 async function importarChequesRecibidosCSV(event) {
@@ -4279,7 +4279,7 @@ async function importarChequesRecibidosCSV(event) {
   }
   msg.innerHTML = `<div class="alert ${fail ? 'w' : 'g'}"><div class="alert-msg">Importación terminada: ${ok} cheque(s) cargado(s)${fail ? `, ${fail} con error` : ''}.</div></div>`;
   event.target.value = '';
-  setTimeout(() => location.reload(), 1500);
+  setTimeout(() => cargarTodo(), 1500);
 }
 
 // ═══════════════════════════════════════════════
@@ -4421,7 +4421,7 @@ async function importarChequesCSV(event) {
   }
   msg.innerHTML = `<div class="alert ${fail ? 'w' : 'g'}"><div class="alert-msg">Importación terminada: ${ok} cheque(s) cargado(s)${fail ? `, ${fail} con error` : ''}.</div></div>`;
   event.target.value = '';
-  setTimeout(() => location.reload(), 1500);
+  setTimeout(() => cargarTodo(), 1500);
 }
 
 // ═══════════════════════════════════════════════
@@ -4443,7 +4443,7 @@ async function crearProveedor() {
     const { error } = await sb.from('proveedores').insert({ id, ...payload });
     if (error) return showErr('proveedores', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarProveedor(p) {
@@ -4468,7 +4468,7 @@ async function eliminarProveedor(id) {
   if (!confirm('¿Eliminar este proveedor? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('proveedores').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -4493,7 +4493,7 @@ async function crearPersonal() {
     const { error } = await sb.from('personal').insert({ id, ...payload });
     if (error) return showErr('personal', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarPersonal(p) {
@@ -4521,7 +4521,7 @@ async function eliminarPersonal(id) {
   if (!confirm('¿Eliminar esta persona del padrón? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('personal').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -4549,7 +4549,7 @@ async function crearRepuesto() {
       await sb.from('stock_repuestos').insert({ id: id + '-DEP-CENTRAL', repuesto_id: id, ubicacion_almacen: 'Depósito central', cantidad: stockInicial });
     }
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarRepuesto(r) {
@@ -4583,7 +4583,7 @@ async function eliminarRepuesto(id) {
   if (!confirm('¿Eliminar este repuesto? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('repuestos').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 function poblarSelectRepuestos(repuestos) {
@@ -4654,7 +4654,7 @@ async function crearUbicacion() {
     const { error } = await sb.from('ubicaciones').insert({ id, ...payload });
     if (error) return showErr('ubicaciones', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarUbicacion(u) {
@@ -4687,7 +4687,7 @@ async function eliminarUbicacion(id) {
   if (!confirm('¿Eliminar esta ubicación? Si tiene ubicaciones hijas o activos asignados, puede fallar hasta reasignarlos primero.')) return;
   const { error } = await sb.from('ubicaciones').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -4741,7 +4741,7 @@ async function crearCategoriaActivo() {
     const { error } = await sb.from('categorias_activo').insert({ id, ...payload });
     if (error) return showErr('categorias-activo', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarCategoriaActivo(c) {
@@ -4772,7 +4772,7 @@ async function eliminarCategoriaActivo(id) {
   if (!confirm('¿Eliminar esta categoría? Los activos que ya la tienen asignada no se borran, solo pierden la referencia.')) return;
   const { error } = await sb.from('categorias_activo').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // Selector en cascada Categoría > Familia > Tipo de Equipo > Componente
@@ -4938,7 +4938,7 @@ async function crearTipoRetencion() {
     const { error } = await sb.from('tipos_retencion').insert({ id, ...payload });
     if (error) return showErr('tipos-retencion', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarTipoRetencion(t) {
@@ -4964,7 +4964,7 @@ async function eliminarTipoRetencion(id) {
   if (!confirm('¿Eliminar este tipo de retención? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('tipos_retencion').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -4991,7 +4991,7 @@ async function crearOC() {
     const { error } = await sb.from('ordenes_compra').insert({ id, ...payload });
     if (error) return showErr('oc', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarOC(o) {
@@ -5020,7 +5020,7 @@ async function eliminarOC(id) {
   if (!confirm('¿Eliminar esta orden de compra? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('ordenes_compra').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -5054,7 +5054,7 @@ async function crearOP() {
     const { error } = await sb.from('ordenes_pago').insert({ id: opId, ...payload });
     if (error) return showErr('op', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarOP(o) {
@@ -5085,7 +5085,7 @@ async function eliminarOP(id) {
   if (!confirm('¿Eliminar esta orden de pago? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('ordenes_pago').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function marcarOPPagada(id) {
@@ -5099,7 +5099,7 @@ async function marcarOPPagada(id) {
   }
   const { error } = await sb.from('ordenes_pago').update({ estado: 'Pagada' }).eq('id', id);
   if (error) return alert('No se pudo actualizar la OP: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -5147,7 +5147,7 @@ async function crearPago() {
   if (!factura_compra_id || !monto) return showErr('pagos', 'Factura de compra y monto son obligatorios.');
   const { error } = await registrarPago(factura_compra_id, monto, medio, fecha, null, concepto || null);
   if (error) return showErr('pagos', error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 function abrirPagoDesdeFacturaCompra(facturaCompraId) {
@@ -5201,7 +5201,7 @@ async function subirDocumentoPago(pagoId) {
   });
   if (errorInsert) { msgEl.textContent = 'Se subió el archivo pero no se pudo guardar el registro: ' + errorInsert.message; return; }
 
-  location.reload();
+  await cargarTodo();
 }
 
 async function eliminarDocumentoPago(id, storagePath) {
@@ -5209,7 +5209,7 @@ async function eliminarDocumentoPago(id, storagePath) {
   await sb.storage.from('pagos-documentos').remove([storagePath]);
   const { error } = await sb.from('documentos_pago').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar el registro: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -5228,14 +5228,14 @@ async function cerrarPeriodo() {
     ? await sb.from('cierres_periodo').update(payload).eq('id', existente.id)
     : await sb.from('cierres_periodo').insert({ id: 'CIERRE-' + Date.now(), periodo, ...payload });
   if (error) return showErr('cierre-periodo', error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function reabrirPeriodo(id) {
   if (!confirm('¿Reabrir este período? Sus movimientos vuelven a ser editables.')) return;
   const { error } = await sb.from('cierres_periodo').update({ reabierto: true, reabierto_por: ROL, fecha_reapertura: new Date().toISOString() }).eq('id', id);
   if (error) return alert('No se pudo reabrir: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -5270,7 +5270,7 @@ async function crearFacturaCompra() {
     const { error } = await sb.from('facturas_compra').insert({ id, ...payload });
     if (error) return showErr('facturas-compra', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarFacturaCompra(f) {
@@ -5302,7 +5302,7 @@ async function eliminarFacturaCompra(id) {
   if (!confirm('¿Eliminar esta factura recibida? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('facturas_compra').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 let EDITANDO_NC_ID = null;
@@ -5336,7 +5336,7 @@ async function guardarNC() {
     const { error } = await sb.from('no_conformidades').insert({ id, ...payload });
     if (error) return showErr('calidad', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarNC(n) {
@@ -5394,7 +5394,7 @@ async function guardarAuditoriaInterna() {
     const { error } = await sb.from('auditorias_internas').insert({ id, ...payload });
     if (error) return showErr('auditorias-internas', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarAuditoriaInterna(a) {
@@ -5476,7 +5476,7 @@ async function guardarRevisionDireccion() {
     const { error } = await sb.from('revisiones_direccion').insert({ id, ...payload });
     if (error) return showErr('revision-direccion', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarRevisionDireccion(r) {
@@ -5510,14 +5510,14 @@ async function crearProyecto() {
   const id = 'PRO-' + Date.now();
   const { error } = await sb.from('proyectos').insert({ id, nombre, cliente_id, area, estado, fecha_inicio, fecha_cierre_estimada });
   if (error) return showErr('proyectos', error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function actualizarEstadoProyecto(id, estado) {
   const { error } = await sb.from('proyectos').update({ estado }).eq('id', id);
   if (error) return alert('No se pudo actualizar el proyecto: ' + error.message);
   if (estado === 'CERRADO') alert('Proyecto cerrado. Se generó la factura a cobrar y su movimiento proyectado en el forecast de caja.');
-  location.reload();
+  await cargarTodo();
 }
 
 let EDITANDO_MOV_ID = null;
@@ -5542,7 +5542,7 @@ async function crearMovimiento() {
     const { error } = await sb.from('movimientos').insert({ id, ...payload, fuente:'Portal GS OS' });
     if (error) return showErr('movimientos', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarMovimiento(m) {
@@ -5573,7 +5573,7 @@ async function eliminarMovimiento(id) {
   if (!confirm('¿Eliminar este movimiento? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('movimientos').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 function clasificarAreaMovimiento(m, proyectoInfo) {
@@ -5625,7 +5625,7 @@ async function conciliarMovimiento(id) {
   if (!fechaReal || !monto) return alert('Fecha y monto son obligatorios.');
   const { error } = await sb.from('movimientos').update({ estado: 'CANCELADO', fecha: fechaReal, monto }).eq('id', id);
   if (error) return alert('No se pudo conciliar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function abrirAjusteSaldo() {
@@ -5644,7 +5644,7 @@ async function abrirAjusteSaldo() {
     concepto: 'Ajuste de saldo bancario', monto: Math.abs(dif), estado: 'CANCELADO', fuente: 'Portal GS OS',
   });
   if (error) return alert('No se pudo ajustar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -5671,7 +5671,7 @@ async function crearGastoFijo() {
     const { error } = await sb.from('costos_fijos').insert({ id, ...payload });
     if (error) return showErr('gastos', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarGastoFijo(g) {
@@ -5700,7 +5700,7 @@ async function eliminarGastoFijo(id) {
   if (!confirm('¿Eliminar este gasto fijo? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('costos_fijos').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -5959,20 +5959,20 @@ async function guardarPresupuesto(estadoFinal) {
 
   EDITANDO_PRE_ID = null;
   localStorage.setItem('gsos_ultimo_firmante', document.getElementById('pre-firmante').value);
-  location.reload();
+  await cargarTodo();
 }
 
 async function marcarEstadoPresupuesto(id, estado) {
   const { error } = await sb.from('presupuestos').update({ estado }).eq('id', id);
   if (error) return alert('No se pudo actualizar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function aprobarPresupuestoDesdeLista(id) {
   if (!confirm('¿Aprobar este presupuesto? Se creará el proyecto asociado automáticamente si todavía no existe.')) return;
   const { error } = await sb.rpc('aprobar_presupuesto', { p_presupuesto_id: id });
   if (error) return alert('No se pudo aprobar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function verDocumentoPresupuesto(presupuestoId) {
@@ -6132,7 +6132,7 @@ async function crearFactura() {
     const { error } = await sb.from('facturas').insert({ id, ...payload });
     if (error) return showErr('facturas', error.message);
   }
-  location.reload();
+  await cargarTodo();
 }
 
 function editarFactura(f) {
@@ -6156,14 +6156,14 @@ async function registrarEmisionFactura(id) {
   if (!confirm('¿Registrar la emisión de esta factura? Pasa de "Pendiente de emitir" a "Emitida" con fecha de hoy.')) return;
   const { error } = await sb.from('facturas').update({ estado: 'Emitida', fecha_emision: new Date().toISOString().slice(0,10) }).eq('id', id);
   if (error) return alert('No se pudo registrar la emisión: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 async function anularFactura(id) {
   if (!confirm('¿Anular esta factura? No se puede deshacer desde acá -- quedaría excluida de la Cuenta Corriente y de la proyección de caja.')) return;
   const { error } = await sb.from('facturas').update({ estado: 'Anulada' }).eq('id', id);
   if (error) return alert('No se pudo anular: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 function cancelarEdicionFactura() {
@@ -6177,7 +6177,7 @@ async function eliminarFactura(id) {
   if (!confirm('¿Eliminar esta factura? Esta acción no se puede deshacer.')) return;
   const { error } = await sb.from('facturas').delete().eq('id', id);
   if (error) return alert('No se pudo eliminar: ' + error.message);
-  location.reload();
+  await cargarTodo();
 }
 
 // ═══════════════════════════════════════════════
@@ -6248,7 +6248,7 @@ async function crearCobro() {
     if (errRet) return showErr('cobros', errRet.message);
   }
   await sincronizarEfectoCobro(id, { fecha, medio, monto_neto, factura: f });
-  location.reload();
+  await cargarTodo();
 }
 
 async function sincronizarEfectoCobro(cobroId, cobro) {

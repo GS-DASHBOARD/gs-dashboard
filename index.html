@@ -19,23 +19,44 @@
   --bg:#f5f4f1;--white:#fff;--s2:#f0eeea;--s3:#e8e5e0;
   --b1:rgba(0,0,0,0.07);--b2:rgba(0,0,0,0.13);
   --txt:#1a1916;--muted:#7a786f;--dim:#bbb8b0;
-  --obras:#c97c1a;--mant:#1a7aad;--energia:#3a9e2a;
-  --danger:#c42a3a;--good:#2a9e5a;--warn:#c48a1a;
+  /* Paleta de estado suavizada (2026-09-17, pedido de Sebastián: "colores
+     pastel, fino, alta calidad" pero manteniendo lo existente) -- mismos
+     6 tonos de siempre, un toque menos saturados, no un cambio de identidad. */
+  --obras:#c08a4a;--mant:#3d7ea6;--energia:#4b9a4a;
+  --danger:#c14458;--good:#3d9c68;--warn:#c2963f;
   --serif:'Syne',sans-serif;--sans:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+  --shadow-card:0 1px 2px rgba(20,18,14,0.04), 0 10px 24px -16px rgba(20,18,14,0.18);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px}
 body{min-height:100vh}
 button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
-.shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.shell{display:flex;flex-direction:column;min-height:100vh}
+
+/* TOPBAR — Fase 1 del rediseño de navegación (2026-09-17): antes el sidebar
+   tenía las 7 secciones + ~40 items apilados en un único scroll largo. Ahora
+   el módulo se elige acá arriba y el sidebar de abajo (.body-grid .sidebar)
+   se acota a mostrar solo los items del módulo activo (.nav-group.active). */
+.topbar{display:flex;align-items:center;gap:4px;height:52px;padding:0 16px;background:var(--white);border-bottom:1px solid var(--b1);position:sticky;top:0;z-index:20;overflow-x:auto}
+.hamburger{display:none;background:none;border:none;cursor:pointer;padding:8px;margin-right:4px;flex-shrink:0}
+.hamburger span{display:block;width:18px;height:2px;background:var(--txt);margin:4px 0;border-radius:2px}
+.sidebar-backdrop{display:none}
+.topbar-logo{display:flex;align-items:center;gap:8px;padding-right:14px;margin-right:6px;border-right:1px solid var(--b1);flex-shrink:0}
+.topbar-logo img{height:26px;width:auto;display:block}
+.topbar-version{font-size:9px;color:var(--dim);font-family:var(--mono);letter-spacing:0.06em;white-space:nowrap}
+.topbar-nav{display:flex;align-items:center;gap:2px}
+.topbar-item{padding:8px 12px;border-radius:7px;cursor:pointer;font-size:12px;color:var(--muted);font-weight:600;border:none;background:none;white-space:nowrap;transition:all 0.15s}
+.topbar-item:hover{background:var(--s2);color:var(--txt)}
+.topbar-item.active{color:var(--txt);background:var(--s2)}
+.body-grid{display:grid;grid-template-columns:210px 1fr;flex:1;min-height:0}
 
 /* SIDEBAR */
-.sidebar{background:var(--white);border-right:1px solid var(--b1);padding:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow:hidden}
-.logo-area{padding:20px 18px 16px;border-bottom:1px solid var(--b1);margin-bottom:14px}
-.logo-area img{width:100%;max-width:160px;display:block}
-.logo-tagline{font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:0.12em;text-transform:uppercase;margin-top:8px;padding-top:8px;border-top:1px solid var(--b1)}
-.nav{padding:0 10px;display:flex;flex-direction:column;gap:1px;flex:1;overflow-y:auto}
+.sidebar{background:var(--white);border-right:1px solid var(--b1);padding:0;display:flex;flex-direction:column;position:sticky;top:52px;height:calc(100vh - 52px);overflow:hidden}
+.nav{padding:10px;display:flex;flex-direction:column;gap:1px;flex:1;overflow-y:auto}
+.nav-group{display:none;flex-direction:column;gap:1px}
+.nav-group.active{display:flex}
 .nav-section{font-size:9px;color:var(--dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.12em;padding:12px 10px 4px}
+.nav-group .nav-section:first-child{padding-top:2px}
 .nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:7px;cursor:pointer;font-size:12px;color:var(--muted);font-weight:500;border:none;background:none;width:100%;text-align:left;transition:all 0.15s}
 .nav-item:hover{background:var(--s2);color:var(--txt)}
 .nav-item.active{color:var(--txt);background:var(--s2);font-weight:600}
@@ -68,15 +89,16 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .loading-txt{font-family:var(--mono);font-size:12px;color:var(--muted)}
 
 /* LOGIN */
-.login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:200}
+.login-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200}
 .login-screen.hidden{display:none}
-.login-card{background:var(--white);border:1px solid var(--b1);border-radius:14px;padding:40px;width:100%;max-width:340px}
+.login-card{background:var(--white);border:1px solid var(--b1);border-radius:16px;padding:40px;width:100%;max-width:340px;box-shadow:var(--shadow-card)}
 .login-logo{font-family:var(--serif);font-weight:700;font-size:24px;letter-spacing:-0.02em}
 .login-sub{font-size:11px;color:var(--muted);font-family:var(--mono);margin:6px 0 24px}
 .login-card input{width:100%;border:1.5px solid var(--b2);border-radius:7px;padding:10px 12px;font-size:13px;background:var(--white);margin-bottom:10px}
 .login-card input:focus{outline:2px solid var(--txt);outline-offset:1px}
 .login-error{background:#fdf0f1;color:var(--danger);border-radius:7px;padding:8px 11px;font-size:11px;margin-bottom:10px;display:none}
 .login-error.show{display:block}
+.login-footer{margin-top:18px;font-size:10px;color:var(--dim);font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase}
 
 /* HEADER */
 .ph{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--b1);flex-wrap:wrap;gap:10px}
@@ -110,7 +132,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .kgrid.c4{grid-template-columns:repeat(4,1fr)}
 .kgrid.c3{grid-template-columns:repeat(3,1fr)}
 .kgrid.c2{grid-template-columns:repeat(2,1fr)}
-.kcard{background:var(--white);border:1px solid var(--b1);border-radius:10px;padding:18px;position:relative;overflow:hidden}
+.kcard{background:var(--white);border:1px solid var(--b1);border-radius:13px;padding:18px;position:relative;overflow:hidden;box-shadow:var(--shadow-card)}
 .kcard::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ka,var(--b1))}
 .k-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-family:var(--mono);margin-bottom:8px}
 .k-val{font-family:var(--serif);font-size:28px;font-weight:700;letter-spacing:-0.02em;line-height:1;color:var(--txt)}
@@ -121,7 +143,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .badge.up{background:#e6f7ed;color:var(--good)}.badge.dn{background:#fce8ea;color:var(--danger)}.badge.eq{background:#fef3dd;color:var(--warn)}
 
 /* CARDS */
-.card{background:var(--white);border:1px solid var(--b1);border-radius:10px;padding:20px;margin-bottom:16px}
+.card{background:var(--white);border:1px solid var(--b1);border-radius:13px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow-card)}
 .card-ttl{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:2px}
 .card-sub{font-size:9px;color:var(--dim);font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:16px}
 .cgrid{display:grid;gap:16px;margin-bottom:16px}
@@ -195,6 +217,39 @@ tr:hover td{background:var(--bg)}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
+
+/* MOBILE (2026-09-17, pedido de Sebastián: "debe poder verse desde un
+   celular, hoy se corta la imagen") -- hasta acá no había un solo @media en
+   todo el archivo, así que el sidebar fijo de 210px + topbar forzaban scroll
+   horizontal de la página entera en cualquier pantalla angosta. Abajo de
+   880px el panel lateral pasa a ser un drawer que se abre con el botón ☰
+   (function toggleSidebar(), hookeada también para cerrarse sola al navegar
+   -- ver nav() en el <script> de abajo); las grillas de KPIs/cards pasan de
+   4/3/2 columnas fijas a 1-2 según ancho real de pantalla. */
+@media (max-width:880px){
+  .hamburger{display:block}
+  .body-grid{grid-template-columns:1fr}
+  .sidebar{position:fixed;top:52px;left:0;width:260px;height:calc(100vh - 52px);z-index:30;transform:translateX(-100%);transition:transform .2s ease;box-shadow:10px 0 28px rgba(0,0,0,0.12)}
+  .shell.sidebar-open .sidebar{transform:translateX(0)}
+  .shell.sidebar-open .sidebar-backdrop{display:block;position:fixed;top:52px;left:0;right:0;bottom:0;background:rgba(20,18,14,0.28);z-index:25}
+  .main{padding:18px 16px}
+  .ph{margin-bottom:16px;padding-bottom:12px}
+  .ph h1{font-size:21px}
+  .kgrid.c4,.kgrid.c3{grid-template-columns:repeat(2,1fr)}
+  .cgrid.c2,.cgrid.c4,.cgrid.ratio{grid-template-columns:1fr}
+  .pred-grid{grid-template-columns:1fr}
+  .semaf{grid-template-columns:1fr}
+  .form-grid{grid-template-columns:1fr}
+  .login-card{padding:28px 24px}
+}
+@media (max-width:520px){
+  .kgrid.c4,.kgrid.c3,.kgrid.c2{grid-template-columns:1fr}
+  .topbar{padding:0 10px}
+  .topbar-logo{padding-right:10px;margin-right:4px}
+  .topbar-logo img{height:22px}
+  .kcard{padding:15px}
+  .k-val{font-size:24px}
+}
 </style>
 </head>
 <body>
@@ -203,12 +258,13 @@ tr:hover td{background:var(--bg)}
 <div class="login-screen" id="loginScreen">
   <div class="login-card">
     <div class="login-logo">GS <span style="color:var(--muted);font-weight:400">Group</span></div>
-    <p class="login-sub">Panel de gestión · acceso de socios</p>
+    <p class="login-sub">Panel de gestión · GS OS 1.0</p>
     <div class="login-error" id="loginError"></div>
     <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
     <input type="password" id="loginPass" placeholder="Contraseña" autocomplete="current-password">
     <button class="btn" style="width:100%;justify-content:center;margin-top:4px" onclick="hacerLogin()">Ingresar</button>
   </div>
+  <div class="login-footer">By NEXUM GO</div>
 </div>
 
 <!-- Ficha pública de activo (escaneo de QR sin login) -->
@@ -226,58 +282,86 @@ tr:hover td{background:var(--bg)}
 </div>
 
 <div class="shell" id="shell" style="display:none">
-<aside class="sidebar">
-  <div class="logo-area">
+<header class="topbar">
+  <button class="hamburger" id="btnHamburger" onclick="toggleSidebar()" aria-label="Abrir menú"><span></span><span></span><span></span></button>
+  <div class="topbar-logo">
     <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEATQBNAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCABsAYEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9U6KKKACiqOta3Y+HtOlvtRuY7S1iGWkkOPwHqfavMPBn7RWja1ctZ6yn9kXO8qkzZMLjPGT1U9Ov50rpAeu0UyKaOeNZInWSNhlXQ5BHsafTAKKKq6lqdro9jNeXtxHa2sKlnlkbCqKALVFeP+F/2jtG1HUZ7PV4zpmJWWG6wTE6Z+Ut3U4x1r1u2uYbyBJoJUmhcZWSNgysPYikncCWiiimAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFYeueJ102YWVnbvqequPktIT90f3pG6IvufwzW5XK3WpvHdXVl4b0+Oe+eU/abuQFYIn7l26uw/uj8xSAwtU0vT9FKeI/HeoxXl3Gc21oAfs8Ldlij6u/+0efpXlMnjvwj41uZLPxpoR0q+DlV1KzQxsBnjevXp65r1XUoPD/gS4j1jxNfPrfiCT/Ub03yZ/uwQjhR7/rXlsvxT0/V7t7D4geFhJ8xVbxITFcRrnjI4JwPQ1DA6DRvCPi3wPbnUPA2uQeJtEY7vsMjg5HoOcZ+hB9q7jwr8ZtL1i6XTdYgl8OayODa342Kx/2WPB/GuA0L4eKfM1X4ZeMNpzlrG4fI/wB1h/iv41sX3jNZYk0z4n+ExboflXUoovNgJ9dw5T8DTWgHqmu+I7bQrdGcPc3M3EFpbjdLM3oo/megrj9V0uFkHiHx7dwxWls2+20oPm3hPbd/z1k/T0FWNKn0bQLOCHwvA2u38sC+Q3nGTZF/DvlP3EHp1Poaq6pYaV4akTxD421FNS1IN/o1uFzFE3ZYIurN/tHn6UwPK734h+E/F+oT2XjHw8bJhIwg1K1jMUypn5d69emPX6Vt6L4K8S+Eom1T4e+IoPEGkt8xsZXByPTHTP0wax9Q+LFpqWozWPjrwoJ7YyN5Vw0JiuY4yflyOM4GOhFaWh/D2yvJH1X4Z+L2trkctY3D8/7rDr+YNQB3vhb416ff3aaZ4htZfDWsdDDeArG5/wBlj/WvSFZXUMpDKRkEHIIrxW98Z3EUCaZ8T/CYa3PyrqcEXmwk+pxyv1B/Ct7w74fuNNtFvvAniKPUdJbkaXfSGWH6I4+aM+xzVpgem0VDaSSy2sLzxCCdkBeMNuCtjkZ71NVAFFFeYeNv2mvhj8PrqW11nxfYJeRHD2tqTcSqfdYwxH40Aen0V4poX7Zfwf8AEF2LeHxjBayHgG/gltlJ9NzqB+tex2N/bapaRXdncRXdrKN0c8Dh0ceoYcGgCxRRXGeP/jJ4K+FyKfFHiSx0mR1LJbyyZmce0Yyx/KgDs6K8Ksv23Pg3fXSwL4s8ksceZPY3EaD6sUwK9b8K+NNB8c6auoeH9YstZsz/AMtrKZZAPrg8fjQBtUUUUAFFFVNS1Wz0a0e6v7qKzt0+9LM4VR+JoAt0V59c/HnwRbTNGdZ8wg43RQSOp+hC4rb8O/Enw14rkEWmavbzznpAx2SH/gLYNK6A6aiisjxP4q03wdpZ1HVZzb2gdYy6oz8npwoJpga9Fec/8NA+B/8AoKyf+Akv/wATUtt8efBF1MsY1nyy3G6WCRFH1JXApXQHoNFVtP1K01a0S6srmK7t3GVlhcMp/EVZpgFFIzBQSSABySe1cZrPxj8H6DOYLnW4XlU4ZLcNMVPvtBoA7SiuH0r41eDNYuBDDrcUcjHCi4RogT7FgBXbRyLKiujB0YZDKcgj2pXuA6iiuU8Q/FDw54W1qLSdSvWgvpQhWMQOwIY4HIBHWmB1dFFFABRXKxfE7w7N4qPhxL1jq4kMRg8l8bgMkbsY6e9dVQAUVxviT4ueF/CWrSabql+8F5GqsyC3kcAEZHIUisv/AIaB8D/9BWT/AMBJf/iaV0B6NRXI6B8WfCfiW4WCx1mA3DHCxTZiZvoGAzXXUwCiiigArm9Rn1vVJpLTSol0q3VysmoXKBmPPPlR9/8Aebj2NdJXOanpes67NJFJf/2PpqsQRZnNxMvqXPCA+wJ96TA5i5vPC3w3vWKrPr3ie46hf9JvZD7/ANxfyFeaT/FjWNPmey8eeFRqNizEBrm2CSopPABxtOPwr0pPE/hrwbLLpvhXSn1vV2P7yPT18xi3rLMc4/EmvOm+IPxB8HtLF4l0F9W0t2JKXcO8KCegkUEHHvUMCfSvB3gXxjKLvwf4huPDWrjlbd5CpU+mCckfQmuvi1bx/wCDYvI8QaTD4v0oDa1zYgeeB6shHzfl+NcTbXPwo8friaCTwpqR6FG8tQ3sRlf0FdrpvhXxz4Shjl8PeI7bxPpgHy2monkr6LICf50IDpNM1ptR0tIfCGkLYrKNz3F3bmGKAnqCowXYeg49TWdf/wDCOfD68GoatcT6/wCJ5xiMMvm3DH0ijHEa/TH1raim8T+JbGKNoF8MBlAnlLLNNnuIx90D/aP5Vhyav4X+H97NbaTZza94lm/1iW+bi6kPrJIfuj64+lUB5tqHxY17TLye28ZeFBf6VJIxRL23CyRoTkANjaSBUmm+F/h743lFx4Y1u48LawOUglk24Ptk8j6NTrrx98RfCV1cNrmgvqGkyyM32e6h8xUUnO0SLnoD3zUFvqnwq8eqUvrF/Cmon/lpEdibvUEfL+YFQB20N98RfBEXlavp8PjPSANrTWuPtAX1Kn734j8adosHgzxTqTXOgXtx4T8Q5+e3j/0eQt/tQt8rj6CodI8G+MvCttHP4U8U2/iHTBylnfnKsvorgnH5irmoeJtL1ZEt/HvhOXSZRwt5JF5sAPqsycr/AJ5qgPULSOWK1iSeUTzKoDyBdoY9zjtU1VNKFuNMtRZy+daiNfKk379y44Oe/Hen6hcG0sLmdRloomcD6AmrA+Jv2sPj94n8c/ENPg/8OZJlneUWl/cWr7JJ5iOYQ/8AAij75+o6Dns/hV/wT48E+HNMhn8ZtN4p1d13TRCV4bVGPUKFIZsH+Inn0ryf/gn7p0fin42+M/El/wDv9Qt7Z5Y3fkq80x3t+Qx+NfoNQB8++Kv2FvhH4h017ez0KXQLkg7LvT7qTcpxxlXZlI9sc1V/Zc/Zv8VfAXW/EMWoeLf7S8NykJYabEDsbofOZT/q3/hwvB5PpX0ZXn3g/wCPfgfx54yv/Cuh619t12x8z7Ra/Z5U2bG2v8zKFODxwaANL4u+NJPh18MvEviSKMSz6bYyTxI3QvjC59txFfD/AOyl+z1Y/tJXev8Aj74g6hd6uBemE2wmKtcS4Ds0jDkKAwAVcfpX3r418KWfjrwlq/h7UN32PUrWS1lK9VDDGR7jr+Ffn1pWl/Gr9ifxDqQ07SH1/wALTyBnkjgee0uQOFc7PmifAwf6jBoA+rdQ/Yn+Dd/ZPbp4QSzYjAntrycSJ7glyM/UGovgN+ydovwD8a6/relatd39tqECQW9tdAbrddxLZYYDk4XBIB615f4L/wCCkvhjUHjg8UeGdQ0aXhXnsXW5jDd/lO1gB+Jr6e+HvxP8L/FTRv7U8Laxb6taA7X8okPE3o6HDKfqBQB1NFFFAGT4q8SWvhHQLzVrwnyLZN20dXPZR7k4FfOOg6D4h/aD8RXGoaldtaaRbvg7eUi7iONehbHVjXe/tRX0kHhHTLZSRHPd5cDvtUkfqa7H4MaZDpfw00NIlAMsPnuR/EzHJP8An0qHq7AUNO+AHgmxtxHJpbXr95bidyx/IgfpXLeNP2a7GeI3Xhed9PvUO5beaQmM/Ruqn869urJ8TeKdN8IaYdQ1a4+zWgcR+ZsZvmPQYAJp2QB4V0u90Xw9Y2WoX76neQxhZLlxguf/AK3TJ5rg/wBpD/kmsn/X3D/M16D4f8QWHijSodS02b7RZzZ2SbSucHB4IB7V59+0h/yTWT/r7h/maHsBzvwW+GHhfxT4CtdQ1TSY7u8eWVWlaRwSA2BwGArr9S+APgq/tWii0s2Mh6TW8z7h+ZI/SoP2d/8AkmFl/wBd5v8A0M16WzBFLMQqgZJJwAKElYD5f8N3WpfBD4qLokly0+l3MqI6nhZI3OFkx2YHr+NfUNfLXxD1GL4h/Gqxt9JYXMaSQ2wlj5DbW3OwPoOefavpDxTdvp3hnVbmPIkhtZHUjsQpxSj1A8F+JvjzWPiT4v8A+EQ8NOy2QkMLtG23z2H3mZh0Refrj6V2vhb9nDw1pNon9rLJrF2R85Z2jiB/2VUg/ma5D9lnTop9R13UZAHuI444lY9QGJLfngV9E0JX1YHlviP9nTwnq1oy2EEmj3OPkkhkZ1z/ALSsTn9K838G+Ldb+CnjL/hG9elM2kO4U5JZUVvuyxk9B6j69xX01XhH7U+mQtpmiahtAuFleAt3KkZx+Y/Whq2qA92Vg6hlIKkZBHevmT48/wDJYNN/6523/ow17r8Mr+TU/h/oFxMSZHtEBJ74GP6V4V8ef+Swab/1ztv/AEYaJbAfTlFFFWB8zad/yc1L/wBf8n/oBr6Zr5m07/k5qX/r/k/9ANfTNTED5c+L1pFf/HWC2uEEkE0lrHIh/iUgAivaf+FHeBv+hfh/7+yf/FV458Uv+TgLL/rvZ/0r6dpJasDw/wCJX7Pejrol1qPh6OSxu7ZDL9m3l45AoyQM8g+hzWj+zr49u/E+h3Wl6hK1xc6dt8uZzlmiPQE9yCMZ+ld58QPFFl4T8K6heXkqJmF0ijJ+aRyMBQO/JryD9ljSZxNrmqMpWBlS3VuzNkscfTj86NnoB9BUUUVYBXLa74ehvzLca/q7jS0YkWiyfZ4AvYOQct+Jx7V1Ncb4jtvCmmXwvdfuUubjduhhvZDLs9o4v8BmkwMmPx5aW8R07wN4dk1Zl+US28XkWan1MhAB/D8686XUvi34DlkNxZS6rZMxYxMBcooJzgMPmAr0y48c6/qg8jwt4UnaLol5qeLaED1C/eI/AV5lB4a+Lng6RpNPuDf2zMX8uGdZo+Tk4V+R+FQwHf8ACyfA/iYfZ/GPhL+yrs8NPFCRz65GGH610Xh74e6VKou/AHje4smPIt/NE0f0ZDg/mKy5fi3qlvB9m8ceBGuI8YeZbY4PvhgR+tOsLb4Q+L3WS0uG8P3x6BJWtnU/qv5UAemf8I/rWqaakfiPWkhgRcTLpmYBLjqXc8gH0XH1rGi8ZaNoQfS/BWhPrV2OG+wJtgDeskx4Pvyau3Xh/QNM0a2fxJrsmq2USjyjqFyPLcdjtGA59zmoH8d391Gtp4P8LT3cI+VLq5T7Jar7jOCR9BVAebzX3xc8F3txcPZy39nLI0htxi6iQE52jB3ADOKYfif4Q8QH7N408HDT7o8G4hiI/Hsw/WnHwx8W/C95Pdafc/a4ppGlaK2uBLECTkgI/T8KtyfFrXbKE23jbwMbyHGGmFuRke4II/WoA0PD3w+8P3v+l+AfG1zpkx5FuswkXPo0Zwfzrr7bUPHmhKYtX0qy8S2gGGn09xHMR7xtwfoK4Cy/4U/4xZWjLeHb49AJGtmU+x5Wu70rwl4l0mJJNB8Zrqtl/BDqkYnXHoJFOapeQHe6dMs9hbyJbvao6AiCRNjR8fdI7EVPLGs0bxuMowKkeoNRWRuGtITdrGlyVHmLESUDd8E84qerA/OL4S69/wAMm/tYa3oniIm00LUZHtGunGEEMj77eb/dB4J7c+lfo1FKk8SSRuskbgMrochgehB7ivIv2h/2a/D/AO0BokSXkh0zXrNSLLVYkDMgPVHX+NCe3bqK+ZNH8M/tQfs5xHTNDg/4SzQITtt4owL2IDtsQlZUHtwPrQB991+f/wCyH/yeL48+mof+lArWn+I/7WnxAifTbPwmfDZkGGulsVtWA74kmcgfgM+lel/srfsnax8H/El94x8Va4moeIr6B4WtbYl403sGZnkYZdyR2AHPegD6bnnjtYXmmkSKKNSzyOwVVA6kk9BTlZZUDKQ6MMgg5BFcl8XPAL/FD4da54Wj1SbRm1KAw/a4FDFRkHBB6qcYI44Jr480/wAD/tQfs9J9h8O3C+MPD8Hywwqy3cYXsFjciVPopx7mgD648cfAzwF8RraSLX/Cum3rsu0XAgEc6/7si4YfnXw98KdGm+An7b8fg/w/qM13pM9z9imVmyXgeIyBZMcFkOOfb3rsZfi/+1j4pjbTrTwOdHmlG37WNL8kp7h5ZCg/EV6H+y9+yZqvw+8U3Hj7x7qC6n4vuA5jhWTzRAz/AH3eQ/fkI444HOCaAPqeiiigDzL9oLwvN4i8BSTWyGSfT5BchFGSUAIf9Dn8Kz/2d/HVtrXhWLQpZVXUdOBVYyeZIs5DD1xnB/CvXGUMpBAIPBB714X45+AF5b6s2t+DLr7HchzJ9k8zyyjdzG/b6Hj3qXdO6A91ryz9pH/kmz/9fcP8zXGweM/jHo6fZZdCe/ZOPOez3k/8CRgDVS+8IfFH4qtHFrZXTNO3bvLmxGin18sZYn0z+dJu6A9O+Af/ACS3SP8Atp/6Gaz/ANpD/kmsn/X3D/M12ngfwpH4J8MWWjxTvcrbqcyuACxJJPHbrXL/AB60a/17wBJa6bZzX1ybmJhDAu5sAnJxT6AeQfDvwL4913wvBd6B4iOm6azuEt/tkkeCDgnaoI5NQ/EjwV8QPDmhC71zW5tU08uEcR3ckgTPQsCBwele1/AvSL7Q/h5aWmo2k1jdLNKTDOu1gCxwcV22p6bbaxp9xZXkSz21whjkjYcEGp5boDyv9n7wh4cttAi13T5GvdTlXyppJgA1u38SKB0+vcYr1XUbJNS0+6tJOEniaJvowI/rXgXhLw54o+EHxEuLe00u+1bw5csFklt4i42H7r8fxL39RmvoUHIBqlsB8w/B3Xf+FX/EXUdB1k/ZorhvszSOcKsin5GJ9CD19xX08DkZHIrzz4p/B2x+IsS3UUgsdYiXalwFysi9lcdx6HqK82sF+L3w6QWUFo+r2afLGNouUA9iCGA9j+VJe7oB9G181ftA+KR4y8U6b4a0g/a2tZCjeXyGnfA2j6Dr+NW7zUPjD44Q2JsJNIgcbXZIxbAj3ZiW/Ku5+FXwRtPAko1LUJU1DWSMK4H7uDPXbnkn/aND97QDvfDGjL4e8O6bpikEWtukRI7kDk/nmvn79pG0k0vx7o+rFC0MkKEH1aN8kfkRX0rXL/ETwDZfEPQG0+6YwzIfMt7hRkxP6+4PcU2rqwG7pWow6xptrfW7iSC4jWVGU5BBGasu6xozuwVVGSxOABXzhpuk/FX4VbrLTbU6rp24lEjQTx/UDIZfpxT9Tn+LvxEgOmz6c+lWknEuI/sysP8AaYksR7D8qOYCn8PHHi/9oG81S2G61Sae43jptAKqfxJFfTVcJ8KfhdbfDfS5FMoutTucG4uAMDA6IvsP1ru6IqyA+VvjXb3F38aTBZy+Rdy/Zkhl3FdjkDByOmDXVf8ACrfiv/0OJ/8ABhN/8TUHxG8Ha7qPxttNStdIvLjT1mtSbqOImMBcbufavoala7YHgFj+zjrWt36XPinxGbgA5ZYmeWRh7O/T8q9u0DQLDwxpMGm6bbrbWkIwqL39ST3J9a0aKpJIAooopgFcdea/4d0TVbj7Lp76hqxcmVdPtDNLu75bGB+Jrsa5nUPE+oQXMttpnhu9vmRiDK7JBET6hmOSPcCkwMa813x5rJK6ToFpo8J6T6rcBnA9diZx9Ca8ttPhZ8Q9HnluNC8QwXALlyLW8IXJOT8p4/CvUryD4jawcRT6NoER/uh7mT8yAP0ryez+CepPdPPonjewluS5J8iZkbdnnhSe9QwOlt/F/wAWPDsYTVPDSa3CBgtEoLEe+w4/Sh/iP4O1geX4p8FT6ZL0ZprHev8A30ADS22ifGTw8oEOo2mrxr/DNIrk/iwB/Wta18f+PLJBHrngJ7xR96SxkDZ/4DyP1oA1dO1PwFo1lZ3GmW8d4zxg20VtC9zMq9gAclfxxVi88S+NNZJXQ/DcenQnpdazMFb6+WuT+dWrTxlIbKFtN8J6mbiVQzweSsCxn0ZmIGfpmq12fiJrPFsmkeHoj3kZrmX9AFH61QHlo+FfxCsNQubzR/EVtNLJI0kgtLxkG4nJG08DntWzb+Kvi34aj2al4fTXIAMFlRWYj6of6Vz/APwpbUbjU7i40zxvp8t+0rNII5WjfzM85CnjmuhtvDvxj8OAC31S21aNf4JpVcn/AL7AP61IAfiZ4V1QeV4r8DT6dL0Z3shIv5gAitPQND+HmryeZ4Y8QzaLcHnyrK+aIg+8b/4U+08ffEKwUR634FN+g6yWTjJ/DLCpJfFnhLWiE8Q+DLzTn7vdaXvUf8CQE0Aep6fA9tYwRPcPduiBTO+N0nH3jjjmrFUdE+xDR7P+zgBYeUvkAZxsxx15/Or1aAFFeceNPinq+g+O7XwroXhGbxLfy6cdSd1v4rVY4xJ5ePn6nPpXbeH76+1LRrS51PTTpF/Im6axM6zGFs/d3rw31FAGjRXnfiH41aV4c+LGh+BZrS4kudTi3tfpjybaRt3lRv8A7Umx8fT3r0MkKCSQAOSTQAtFeTr8bNY11bi+8JeAdT8T+HoJHjGqJeQWwuSjEOYI5DukUEEA8BiOK73wb4usPHXhuz1vTROlrdKSI7qIxSxsCQyOh5VgQQR7UAbdFcx4I8cxeNZfEUcVpJaf2Nqs2lOXcN5rRhSXGOgO7ofSjw744i8Q+MPFWgJaSQSaC9sjzs4KzedH5gwOox05oA6eiuX+I/jqL4deGv7Yms5L5PtVva+VE4U5llWMNk+m7P4Vq+JNQ1HS9FubrStKOt38YBisRcLAZTkZG9uBxk8+lAGnRXl3ww+LniD4i6reQzeBptF06yu57C5vpdThl8ueLhkCLywJOMjiun8S+PI/C3i3w3pF5ZSCz1ySS2i1IOPLiuFXckTDrlwG2n1XHegDqqK5Xwl48j8YeIPEtjZ2UgsNFuVsjqLOClxOFzKiDr8mQCfUkdq6qgAorgvFPxg0vwj8T/C3gu+glW48QxTPbXm4eUrpjEbDrlu3vS/E/wCL2mfC+88LWd5BLeXviHU49NtoIWAK7j80jZ/hXIz9RQB3lFFed/Dn41aV8SPFninQrK0uLaXRJvLjnmxsvYwxRpYvVQ6sh9xQB6JRXI/Ff4hRfCvwFqfiebT59UjsQhNpbMBJJudUAXPf5ulUNW+MGlWfg/w34ksIn1TT9cvrSyhMbBChnfbls91OQV65BFAHe0UV538MfjVpXxQ1/wAT6XY2lxavotx5aSz423sW5l8+LH8G9HX6igD0SisTxn4x0zwF4bvNc1eVorK2AyI0LySMSFVEUcszMQAB1JrgT8bNb0d7S88TfDvWPD/h+5lSIal9ohumty7AI08MZLxqSRk87c80Aes0VneIdZTw/wCHtS1ZozPHZWst0Y0OC4RC2AffFcZ8NPiN4l8eR6fe33geXQNGvrRbuG+k1SGckMoZFMa/MMg/hQB6JRXB/EX4v6X8NPEng3StUglKeJb17GK7VgEt3CgqXz2JIGe2aX4w/F3TPg34atdW1GCS8e7vYbG3tYWAeR5GAyM9lGWP0oA7uisXxp4mj8G+ENZ1+WB7qLTbOW7aBGCs4RS20E9CcVz3w98deJvGLQT6p4Jk8PaZcWq3MN4+pw3G/cAVXYnIyDnPtQB3dFee/E74z6X8Kte8J2OrWszWuvXMlsb6Mjy7PaoIeQddpLAE9uprZu/HkNr8R9M8I/ZHeW+02bUVuw42Ksbom3HUk7859qAOporz/wCLvxJ1f4Y6LNrNp4Tl8Q6VaW73F5PFfxQGALjja/LZHp6VteAvEms+KNIN7rPhx/DcjEGGB7yO5MiFQQ2U4HXGDQB01FFFABXNahdeK5bqWOwsNMggDEJPd3DsWHY7VXj6ZrpahmtVmzl5F/3JGX+RoA4e88LeOdWOJ/F1vpsZ/g06xAP/AH05JryGL4OeGtRu5Dp/xAtTd723eYFR92ef4getfQlz4XtLvPmT3xB7C+mH8mrmX+BPgeRiz6GrMTkkzykk/wDfVQ0Bw2nfCPxtpq50fx8siDou9yP5kVu2Vj8XtJwrXujaug/575Vj+IArorf4L+ELQ5g0ySA/9M7uZf5PW/p/hSx0sAW0l6ijorXsrD8ixppAZEep+NZ7SFf7E023utv72Sa9JTd/sqqk4+pqleeHfHmrcS+KLLSoz1XTrLc3/fTk13D26uu0tIB6hyDWfc+G7a7z5k99g9lvZVH6NTsB863nwn8L3Wp3Oz4h2w1ASt5v2hFR/Mz82fmHOa3NN+F3iiwAbRfiNbuv8KidiD/48a9Hl+BvgmeR5JdFEkjkszNcSkknqT81NX4E+B4zldEVT6rcSj/2ao5QOe0/T/i7pYG3UtH1iMf89+CfxAFbtp4l+IFrgX/hK0ugOrWV+oJ/Bq0bf4SeGLQgwWdxDjpsvpx/7PW1Z+GLSwAEM16FH8LXsrD9WqkmBf0+4lurGCaa2azldAzwOQTGe6kjg49qsU1V2KFBJA4yTk06qA8M8d+BpfG37RNlD/a+vaDDF4Xdvtmh3JtmdvtQ+Rn2kEd9v417TY2y6VpkEDXE1wtvEEM9y++RwoxuY9ycZJq1RQB8h32hfETx54Z8ZeKtL8MadJ/bOppq+mXt3qEkN7DFZsBbAQ+URnEbEAsM+bzjNfTGjaqnxD+HttfQeZZrrGnbgHUo8JkjwQQeQVJP5V0lFAHg/wAN/ixo3wp8A6Z4S8WwX2jeIdCt1sms47CaYXgQ7Ukt2RSJA4APByCSDivXvB2uX3iTw5Z6lqOjXHh+5uVLnT7t1aaJcnbv28BiMEr2zjtW1RQB5b8DYJYLv4jebFJFv8WXjpvQruXZFgjPUe4rA8O+ONF8G/HP4k2+tXhsJdRm037IJIJCJsW+07WCkHkgda9xooA8r/aUglufhkEhikmf+1tOO2JCxwLuIk4HpXqlFFAHlvwCglgsPGwlikiLeK9RdfMQruUuuCM9QfWtj44aHHr3wp8SIRKLq1s3vrOW3H72G5hBkidP9oMo/lXdUUAcZ8G9Dg8P/C7wzbQxujyWMVzO0v8ArJJ5VEkrvnncXZic+tdnRRQB4J8ZfBM3jr4vaZYQK8VyPDV5LZXoU7be7S4heFt2MAhlHHpmuG1qbV/ida6V491bSLuwuE8QaTpFlYTQsHgSO4U3Uu3HAeUEBv7sY9a+tKKAOO+Lviq58GfDnXNTsIZLnUxB5NlDEhZnuJCEiGB/tMCfYGvC/D3h7xp8Jdc+Gmoar4c02x0rTo/+Ef1C70zUJLuWZLggiSRDEuAJxvJycbz2r6looA8t/aYhmuPg9qiQRSTS/abMhIkLNxdRHoK83+MPhfVPA/irQbLS7Ga78JeIPFFhflIELDTLxZQ0vA6RSgbvQOD/AHq+mqKAOI+NHie98J/DXWrzS4ZLjV5ohZ2EUali1xKRHH06AMwJPYA14v4a0Hxj8KPFnw4vdU8Oadp2jW1sPDF7c6XfyXckqy4aOSRTEuAJlJLZOPMNfT9FAHnHx28O6nrnhGwu9Js21O80TVbXVxpyEBrtIXy0a54LbSSo7lRXlnxC8cQfEeWVfh/4p8ax+MbxUgt9GtYpLW1s3zhpbgSQ4RVyS3z8kYHWvpqigDlfG9rPF8Ltft5Ha7ul0aeNnC5aV/IYE49Sf515D+zBqXhpbDRLOx8Z+JtX1n+x4lm0fVnmNtbFUTeEVolVSp+UfMeK+iKKAPFfjx4Ph8dePPh7o11FI1ndpqsUk0aE+SxtRsfPYhgCPcV5V41HiL4leBdb1fxFpd3Bd+FI7bRIYWiY/aL77VELq6Qd1KKgUjszV9f0UAcR8a4pJ/g540jijaWRtHugsaKWZj5TcADrXAfs5an4ZaO2tNL8aeJfEGpnTIvO07WpJmhttoXd5YeJQpBO3qeK92ooA8j+K+iQ+IPix8NrK9svtum3EeqwXUbRloyj2oBDHoM+9cZ4B0zX/D37ROk+G9Yhubu10Pw/dw6frUillu7V5ojErt08xApRvXaD3r6PooA87/aIhkuPgf41jijeaVtMlCpGpZmOOgA5Ndp4eBXQNMBBBFrECCMEfIK0KKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//2Q==" alt="GS Group">
-    <div class="logo-tagline">Panel de gestión · Supabase</div>
+    <span class="topbar-version">GS OS 1.0</span>
   </div>
+  <nav class="topbar-nav">
+    <button class="topbar-item active" data-modulo="inteligencia" onclick="mostrarModulo(this,'inteligencia')">Inteligencia</button>
+    <button class="topbar-item" data-modulo="financiero" onclick="mostrarModulo(this,'financiero')">Financiero</button>
+    <button class="topbar-item" data-modulo="comercial" onclick="mostrarModulo(this,'comercial')">Comercial</button>
+    <button class="topbar-item" data-modulo="compras" onclick="mostrarModulo(this,'compras')">Compras</button>
+    <button class="topbar-item" data-modulo="activos" onclick="mostrarModulo(this,'activos')">Activos y Mantenimiento</button>
+    <button class="topbar-item" data-modulo="calidad" onclick="mostrarModulo(this,'calidad')">Calidad</button>
+    <button class="topbar-item" data-modulo="datos-maestros" onclick="mostrarModulo(this,'datos-maestros')">Datos Maestros</button>
+  </nav>
+</header>
+<div class="body-grid">
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(false)"></div>
+<aside class="sidebar">
   <nav class="nav">
-    <div class="nav-section">Inteligencia</div>
-    <button class="nav-item active" onclick="nav(this,'overview')"><span class="nav-pip"></span>Resumen ejecutivo</button>
-    <button class="nav-item" onclick="nav(this,'prediccion')"><span class="nav-pip"></span>Predicción & alertas IA</button>
-    <button class="nav-item" onclick="nav(this,'socios')"><span class="nav-pip"></span>Panel de Socios</button>
-    <div class="nav-section">Financiero</div>
-    <button class="nav-item" onclick="nav(this,'movimientos')"><span class="nav-pip"></span>Movimientos</button>
-    <button class="nav-item" onclick="nav(this,'cobros')"><span class="nav-pip"></span>Cobros</button>
-    <button class="nav-item" onclick="nav(this,'pagos')"><span class="nav-pip"></span>Pagos</button>
-    <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Cheques</button>
-    <button class="nav-item" onclick="nav(this,'gastos')"><span class="nav-pip"></span>Gastos fijos</button>
-    <button class="nav-item" onclick="nav(this,'cashflow')"><span class="nav-pip"></span>Liquidez & Cash Flow</button>
-    <button class="nav-item" onclick="nav(this,'rigidez')"><span class="nav-pip"></span>Rigidez de estructura</button>
-    <button class="nav-item" onclick="nav(this,'cobranzas')"><span class="nav-pip"></span>Cobranzas & DSO</button>
-    <button class="nav-item" onclick="nav(this,'cuenta-corriente')"><span class="nav-pip"></span>Cuenta Corriente</button>
-    <button class="nav-item" onclick="nav(this,'antiguedad')"><span class="nav-pip"></span>Antigüedad & Retenciones</button>
-    <button class="nav-item" onclick="nav(this,'cierre-periodo')"><span class="nav-pip"></span>Cierre de Período</button>
-    <div class="nav-section">Comercial</div>
-    <button class="nav-item" onclick="nav(this,'presupuestos')"><span class="nav-pip"></span>Presupuestos</button>
-    <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
-    <button class="nav-item" onclick="nav(this,'gscare-leads')"><span class="nav-pip"></span>GS CARE Leads</button>
-    <div class="nav-section">Compras</div>
-    <button class="nav-item" onclick="nav(this,'oc')"><span class="nav-pip"></span>Órdenes de Compra</button>
-    <button class="nav-item" onclick="nav(this,'op')"><span class="nav-pip"></span>Órdenes de Pago</button>
-    <button class="nav-item" onclick="nav(this,'facturas-compra')"><span class="nav-pip"></span>Facturas Recibidas</button>
-    <button class="nav-item" onclick="nav(this,'repuestos')"><span class="nav-pip"></span>Repuestos e Inventario</button>
-    <div class="nav-section">Activos y Mantenimiento</div>
-    <button class="nav-item" onclick="nav(this,'activos')"><span class="nav-pip"></span>Activos</button>
-    <button class="nav-item" onclick="nav(this,'mtto')"><span class="nav-pip"></span>Planes de Mantenimiento</button>
-    <button class="nav-item" onclick="nav(this,'planes-maestros')"><span class="nav-pip"></span>Planes Maestros</button>
-    <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
-    <button class="nav-item" onclick="nav(this,'ot-kanban')"><span class="nav-pip"></span>Kanban de OT</button>
-    <button class="nav-item" onclick="nav(this,'confiabilidad')"><span class="nav-pip"></span>Disponibilidad y Confiabilidad</button>
-    <button class="nav-item" onclick="nav(this,'calendario-mtto')"><span class="nav-pip"></span>Calendario de Mantenimiento</button>
-    <button class="nav-item" onclick="nav(this,'solicitudes-cliente')"><span class="nav-pip"></span>Solicitudes de Clientes</button>
-    <div class="nav-section">Calidad</div>
-    <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
-    <button class="nav-item" onclick="nav(this,'auditorias-internas')"><span class="nav-pip"></span>Auditorías Internas</button>
-    <button class="nav-item" onclick="nav(this,'revision-direccion')"><span class="nav-pip"></span>Revisión por la Dirección</button>
-    <div class="nav-section">Datos Maestros</div>
-    <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
-    <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
-    <button class="nav-item" onclick="nav(this,'proveedores')"><span class="nav-pip"></span>Proveedores</button>
-    <button class="nav-item" onclick="nav(this,'personal')"><span class="nav-pip"></span>Personal</button>
-    <button class="nav-item" onclick="nav(this,'categorias-activo')"><span class="nav-pip"></span>Categorías de Activo</button>
-    <button class="nav-item" onclick="nav(this,'ubicaciones')"><span class="nav-pip"></span>Ubicaciones</button>
-    <button class="nav-item" onclick="nav(this,'tipos-retencion')"><span class="nav-pip"></span>Tipos de Retención</button>
+    <div class="nav-group active" data-modulo="inteligencia">
+      <div class="nav-section">Inteligencia</div>
+      <button class="nav-item active" onclick="nav(this,'overview')"><span class="nav-pip"></span>Resumen ejecutivo</button>
+      <button class="nav-item" onclick="nav(this,'prediccion')"><span class="nav-pip"></span>Predicción & alertas IA</button>
+      <button class="nav-item" onclick="nav(this,'socios')"><span class="nav-pip"></span>Panel de Socios</button>
+    </div>
+    <div class="nav-group" data-modulo="financiero">
+      <div class="nav-section">Financiero</div>
+      <button class="nav-item" onclick="nav(this,'movimientos')"><span class="nav-pip"></span>Movimientos</button>
+      <button class="nav-item" onclick="nav(this,'cobros')"><span class="nav-pip"></span>Cobros</button>
+      <button class="nav-item" onclick="nav(this,'pagos')"><span class="nav-pip"></span>Pagos</button>
+      <button class="nav-item" onclick="nav(this,'compras')"><span class="nav-pip"></span>Cheques</button>
+      <button class="nav-item" onclick="nav(this,'gastos')"><span class="nav-pip"></span>Gastos fijos</button>
+      <button class="nav-item" onclick="nav(this,'cashflow')"><span class="nav-pip"></span>Liquidez & Cash Flow</button>
+      <button class="nav-item" onclick="nav(this,'rigidez')"><span class="nav-pip"></span>Rigidez de estructura</button>
+      <button class="nav-item" onclick="nav(this,'cobranzas')"><span class="nav-pip"></span>Cobranzas & DSO</button>
+      <button class="nav-item" onclick="nav(this,'cuenta-corriente')"><span class="nav-pip"></span>Cuenta Corriente</button>
+      <button class="nav-item" onclick="nav(this,'antiguedad')"><span class="nav-pip"></span>Antigüedad & Retenciones</button>
+      <button class="nav-item" onclick="nav(this,'cierre-periodo')"><span class="nav-pip"></span>Cierre de Período</button>
+    </div>
+    <div class="nav-group" data-modulo="comercial">
+      <div class="nav-section">Comercial</div>
+      <button class="nav-item" onclick="nav(this,'presupuestos')"><span class="nav-pip"></span>Presupuestos</button>
+      <button class="nav-item" onclick="nav(this,'facturas')"><span class="nav-pip"></span>Facturas</button>
+      <button class="nav-item" onclick="nav(this,'gscare-leads')"><span class="nav-pip"></span>GS CARE Leads</button>
+    </div>
+    <div class="nav-group" data-modulo="compras">
+      <div class="nav-section">Compras</div>
+      <button class="nav-item" onclick="nav(this,'oc')"><span class="nav-pip"></span>Órdenes de Compra</button>
+      <button class="nav-item" onclick="nav(this,'op')"><span class="nav-pip"></span>Órdenes de Pago</button>
+      <button class="nav-item" onclick="nav(this,'facturas-compra')"><span class="nav-pip"></span>Facturas Recibidas</button>
+      <button class="nav-item" onclick="nav(this,'repuestos')"><span class="nav-pip"></span>Repuestos e Inventario</button>
+    </div>
+    <div class="nav-group" data-modulo="activos">
+      <div class="nav-section">Activos y Mantenimiento</div>
+      <button class="nav-item" onclick="nav(this,'activos')"><span class="nav-pip"></span>Activos</button>
+      <button class="nav-item" onclick="nav(this,'mtto')"><span class="nav-pip"></span>Planes de Mantenimiento</button>
+      <button class="nav-item" onclick="nav(this,'planes-maestros')"><span class="nav-pip"></span>Planes Maestros</button>
+      <button class="nav-item" onclick="nav(this,'ot')"><span class="nav-pip"></span>Órdenes de Trabajo</button>
+      <button class="nav-item" onclick="nav(this,'ot-kanban')"><span class="nav-pip"></span>Kanban de OT</button>
+      <button class="nav-item" onclick="nav(this,'confiabilidad')"><span class="nav-pip"></span>Disponibilidad y Confiabilidad</button>
+      <button class="nav-item" onclick="nav(this,'calendario-mtto')"><span class="nav-pip"></span>Calendario de Mantenimiento</button>
+      <button class="nav-item" onclick="nav(this,'solicitudes-cliente')"><span class="nav-pip"></span>Solicitudes de Clientes</button>
+    </div>
+    <div class="nav-group" data-modulo="calidad">
+      <div class="nav-section">Calidad</div>
+      <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
+      <button class="nav-item" onclick="nav(this,'auditorias-internas')"><span class="nav-pip"></span>Auditorías Internas</button>
+      <button class="nav-item" onclick="nav(this,'revision-direccion')"><span class="nav-pip"></span>Revisión por la Dirección</button>
+    </div>
+    <div class="nav-group" data-modulo="datos-maestros">
+      <div class="nav-section">Datos Maestros</div>
+      <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
+      <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
+      <button class="nav-item" onclick="nav(this,'proveedores')"><span class="nav-pip"></span>Proveedores</button>
+      <button class="nav-item" onclick="nav(this,'personal')"><span class="nav-pip"></span>Personal</button>
+      <button class="nav-item" onclick="nav(this,'categorias-activo')"><span class="nav-pip"></span>Categorías de Activo</button>
+      <button class="nav-item" onclick="nav(this,'ubicaciones')"><span class="nav-pip"></span>Ubicaciones</button>
+      <button class="nav-item" onclick="nav(this,'tipos-retencion')"><span class="nav-pip"></span>Tipos de Retención</button>
+    </div>
   </nav>
   <div class="sidebar-bottom">
     <div class="status-row">
@@ -351,14 +435,14 @@ tr:hover td{background:var(--bg)}
     <div class="card"><div class="card-ttl">Semáforo de rigidez</div><div class="card-sub">estado actual</div>
       <div class="gauge-wrap">
         <svg viewBox="0 0 200 115" width="200" height="115">
-          <defs><linearGradient id="gG" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#2a9e5a"/><stop offset="50%" stop-color="#c48a1a"/><stop offset="100%" stop-color="#c42a3a"/></linearGradient></defs>
+          <defs><linearGradient id="gG" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#3d9c68"/><stop offset="50%" stop-color="#c2963f"/><stop offset="100%" stop-color="#c14458"/></linearGradient></defs>
           <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#e8e5e0" stroke-width="14" stroke-linecap="round"/>
           <path id="gauge-fill" d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="url(#gG)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="126"/>
-          <text id="gauge-txt" x="100" y="84" text-anchor="middle" font-family="'Syne',sans-serif" font-size="28" font-weight="700" fill="#c48a1a">—</text>
+          <text id="gauge-txt" x="100" y="84" text-anchor="middle" font-family="'Syne',sans-serif" font-size="28" font-weight="700" fill="#c2963f">—</text>
           <text x="100" y="100" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#7a786f">CF / FACTURACIÓN</text>
-          <text x="22" y="113" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#2a9e5a">0%</text>
-          <text x="100" y="113" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#c48a1a">50%</text>
-          <text x="178" y="113" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#c42a3a">100%</text>
+          <text x="22" y="113" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#3d9c68">0%</text>
+          <text x="100" y="113" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#c2963f">50%</text>
+          <text x="178" y="113" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8" fill="#c14458">100%</text>
         </svg>
       </div>
       <div class="semaf" id="semaf-rig">
@@ -390,7 +474,7 @@ tr:hover td{background:var(--bg)}
 <!-- OBRAS -->
 <!-- PANEL DE SOCIOS -->
 <div class="page" id="page-socios">
-  <div class="ph"><div><h1>Panel de <span>Socios</span></h1><p>Vista cruzada — visibilidad total, edición según área de cada uno</p></div><span class="area-badge all">Sebastián · Gonzalo · Ezequiel</span></div>
+  <div class="ph"><div><h1>Panel de <span>Socios</span></h1><p>Vista cruzada — visibilidad total, edición según área de cada uno</p></div><span class="area-badge all">Sebastián · Gonzalo</span></div>
   <div class="kgrid c4">
     <div class="kcard"><div class="k-lbl">OT ejecutadas / totales</div><div class="k-val" id="soc-ot">—</div><div class="k-sub">cerradas / totales</div></div>
     <div class="kcard"><div class="k-lbl">No conformidades abiertas</div><div class="k-val" id="soc-nc">—</div><div class="k-sub">calidad · ISO 9001</div></div>
@@ -616,7 +700,6 @@ tr:hover td{background:var(--bg)}
         <select id="pre-firmante">
           <option value="sebastian">Sebastián Olivares</option>
           <option value="gonzalo">Gonzalo Marsa</option>
-          <option value="ezequiel">Ezequiel Romano</option>
         </select>
       </div>
     </div>
@@ -1277,6 +1360,7 @@ tr:hover td{background:var(--bg)}
 
 </main>
 </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════
@@ -1294,34 +1378,40 @@ let SESSION = null;
 // Sebastián pidió acceso de escritura a todo para poder probar todas las
 // funciones (no solo su dominio original de clientes/presupuestos) — cada
 // entrada acá tiene su espejo en una política RLS "_write_sebastian_testing"
-// nueva por tabla (no se tocaron las políticas de Gonzalo/Ezequiel).
+// nueva por tabla.
+// 2026-09-17: Ezequiel deja de participar del sistema (no se suma como
+// socio); sus áreas pasan a Gonzalo (además de Sebastián, que ya tenía
+// acceso total). Se deja `r === 'ezequiel'` en cada chequeo como
+// referencia histórica inerte -- ya no existe ningún usuario con ese rol
+// (ver DELETE en 20260917000001_revocar_acceso_ezequiel_transferir_gonzalo.sql),
+// así que esa rama nunca vuelve a ser true.
 const PUEDE_EDITAR = {
   clientes: r => r === 'sebastian',
-  proyectos: r => r === 'ezequiel' || r === 'sebastian',
-  activos: r => r === 'ezequiel' || r === 'sebastian',
-  planes_mtto: r => r === 'ezequiel' || r === 'sebastian',
-  planes_maestros: r => r === 'ezequiel' || r === 'sebastian',
-  ordenes_trabajo: r => r === 'ezequiel' || r === 'sebastian',
-  no_conformidades: r => r === 'ezequiel' || r === 'sebastian',
-  auditorias_internas: r => r === 'ezequiel' || r === 'sebastian',
+  proyectos: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
+  activos: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
+  planes_mtto: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
+  planes_maestros: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
+  ordenes_trabajo: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
+  no_conformidades: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
+  auditorias_internas: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
   // Revisión por la dirección es una actividad de Dirección (ISO 55001/9001
   // §9.3), no de gestión operativa del día a día -- a diferencia del resto
-  // de Calidad, Ezequiel no la edita.
+  // de Calidad, Ezequiel no la editaba y Gonzalo tampoco la edita.
   revisiones_direccion: r => r === 'sebastian',
   cheques: r => r === 'gonzalo' || r === 'sebastian',
   cheques_recibidos: r => r === 'gonzalo' || r === 'sebastian',
   costos_fijos: r => r === 'gonzalo' || r === 'sebastian',
   movimientos: r => r === 'gonzalo' || r === 'sebastian',
   facturas: r => r === 'gonzalo' || r === 'sebastian',
-  presupuestos: r => r === 'sebastian' || r === 'ezequiel',
+  presupuestos: r => r === 'sebastian' || r === 'ezequiel' || r === 'gonzalo',
   ordenes_compra: r => r === 'gonzalo' || r === 'sebastian',
   ordenes_pago: r => r === 'gonzalo' || r === 'sebastian',
   proveedores: r => r === 'gonzalo' || r === 'sebastian',
   personal: r => r === 'sebastian',
-  categorias_activo: r => r === 'ezequiel' || r === 'sebastian',
-  ubicaciones: r => r === 'ezequiel' || r === 'sebastian',
+  categorias_activo: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
+  ubicaciones: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
   repuestos: r => r === 'gonzalo' || r === 'ezequiel' || r === 'sebastian',
-  solicitudes_cliente: r => r === 'ezequiel' || r === 'sebastian',
+  solicitudes_cliente: r => r === 'ezequiel' || r === 'sebastian' || r === 'gonzalo',
   tipos_retencion: r => r === 'gonzalo' || r === 'sebastian',
   facturas_compra: r => r === 'gonzalo' || r === 'sebastian',
   cobros: r => r === 'gonzalo' || r === 'sebastian',
@@ -1886,7 +1976,7 @@ function renderOverview(k) {
     type:'line',
     data:{labels:cfLabels,datasets:[{
       data:cfData,
-      borderColor:'#1a7aad',borderWidth:2,
+      borderColor:'#3d7ea6',borderWidth:2,
       backgroundColor:'rgba(26,122,173,0.08)',
       fill:true,tension:0.4,pointRadius:0,pointHoverRadius:4
     }]},
@@ -1906,7 +1996,7 @@ function renderOverview(k) {
     type:'doughnut',
     data:{
       labels: gastosData.map(g=>g.concepto.substring(0,20)),
-      datasets:[{data:gastosData.map(g=>g.monto),backgroundColor:['#c97c1a','#1a7aad','#3a9e2a','#c42a3a','#c48a1a','#7a786f'],borderWidth:0,hoverOffset:6}]
+      datasets:[{data:gastosData.map(g=>g.monto),backgroundColor:['#c08a4a','#3d7ea6','#4b9a4a','#c14458','#c2963f','#7a786f'],borderWidth:0,hoverOffset:6}]
     },
     options:{responsive:true,cutout:'65%',plugins:{legend:{display:true,position:'bottom',labels:{color:'#7a786f',boxWidth:8,font:{size:10},padding:10}},tooltip:{backgroundColor:'#fff',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#1a1916',bodyColor:'#7a786f',padding:10,cornerRadius:8}}}
   });
@@ -1962,7 +2052,7 @@ function renderCashflow(k) {
   CHARTS.saldo = new Chart('ch-saldo', {
     type:'line',
     data:{labels,datasets:[{
-      data:datos,borderColor:'#3a9e2a',borderWidth:2,
+      data:datos,borderColor:'#4b9a4a',borderWidth:2,
       backgroundColor:'rgba(58,158,42,0.07)',fill:true,tension:0.4,pointRadius:0,pointHoverRadius:4
     }]},
     options:{responsive:true,plugins:{legend:{display:false},tooltip:{
@@ -2030,7 +2120,7 @@ function renderRigidez(k) {
   document.getElementById('gauge-fill').setAttribute('stroke-dashoffset', offset);
   const gtxt = document.getElementById('gauge-txt');
   gtxt.textContent = k.sinCobros30d ? 'Sin cobros' : (k.rigidez > 0 ? k.rigidez.toFixed(1)+'%' : '—');
-  gtxt.setAttribute('fill', k.sinCobros30d || k.rigidez>70?'#c42a3a':k.rigidez>50?'#c48a1a':'#2a9e5a');
+  gtxt.setAttribute('fill', k.sinCobros30d || k.rigidez>70?'#c14458':k.rigidez>50?'#c2963f':'#3d9c68');
 
   const items = document.getElementById('semaf-rig').querySelectorAll('.semaf-item');
   items.forEach(i=>i.className='semaf-item');
@@ -2116,9 +2206,9 @@ function renderPrediccion(k) {
   CHARTS.pred = new Chart('ch-pred', {
     type:'line',
     data:{labels:meses,datasets:[
-      {label:'Optimista',data:base.map(v=>v*1.3),borderColor:'#3a9e2a',borderWidth:1.5,borderDash:[5,4],fill:false,tension:0.4,pointRadius:3},
-      {label:'Base',     data:base,                borderColor:'#1a7aad',borderWidth:2.5,fill:false,tension:0.4,pointRadius:4,pointBackgroundColor:'#1a7aad'},
-      {label:'Pesimista',data:base.map(v=>v*0.6),borderColor:'#c42a3a',borderWidth:1.5,borderDash:[5,4],fill:false,tension:0.4,pointRadius:3}
+      {label:'Optimista',data:base.map(v=>v*1.3),borderColor:'#4b9a4a',borderWidth:1.5,borderDash:[5,4],fill:false,tension:0.4,pointRadius:3},
+      {label:'Base',     data:base,                borderColor:'#3d7ea6',borderWidth:2.5,fill:false,tension:0.4,pointRadius:4,pointBackgroundColor:'#3d7ea6'},
+      {label:'Pesimista',data:base.map(v=>v*0.6),borderColor:'#c14458',borderWidth:1.5,borderDash:[5,4],fill:false,tension:0.4,pointRadius:3}
     ]},
     options:{responsive:true,plugins:{legend:{display:true,labels:{color:'#7a786f',boxWidth:10,font:{size:10},padding:12}},tooltip:{backgroundColor:'#fff',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#1a1916',bodyColor:'#7a786f',padding:10,cornerRadius:8,callbacks:{label:ctx=>' $'+ctx.raw.toFixed(1)+'M'}}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#7a786f'}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{color:'#7a786f',callback:v=>'$'+v.toFixed(1)+'M'}}}}
   });
@@ -5774,8 +5864,8 @@ async function verHistorialPresupuesto(id) {
 }
 
 async function guardarPresupuesto(estadoFinal) {
-  if (estadoFinal !== 'Borrador' && ROL === 'ezequiel') {
-    return showErr('presupuestos', 'Como Ezequiel solo podés guardar presupuestos como Borrador.');
+  if (estadoFinal !== 'Borrador' && (ROL === 'ezequiel' || ROL === 'gonzalo')) {
+    return showErr('presupuestos', 'Con este rol solo podés guardar presupuestos como Borrador.');
   }
   const cliente_id = document.getElementById('pre-cliente').value || null;
   // Proyecto es un combobox: si el texto matchea el nombre de un proyecto ya
@@ -6196,11 +6286,32 @@ function nav(el, id) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   el.classList.add('active');
+  // Fase 1 rediseño (2026-09-17): cualquier activación de un nav-item (sea
+  // click directo o vía irAModulo) sincroniza también el panel contextual y
+  // la Top Bar con el módulo dueño de ese item -- así un link cruzado tipo
+  // "Ir a Pagos" desde otro módulo deja todo consistente, no solo la página.
+  const grupo = el.closest('.nav-group');
+  if (grupo) mostrarModulo(null, grupo.getAttribute('data-modulo'));
+  // En mobile el sidebar es un drawer -- al elegir una página tiene que
+  // cerrarse solo, si no queda tapando el contenido recién elegido.
+  toggleSidebar(false);
+}
+
+function mostrarModulo(el, modulo) {
+  document.querySelectorAll('.nav-group').forEach(g=>g.classList.toggle('active', g.getAttribute('data-modulo') === modulo));
+  document.querySelectorAll('.topbar-item').forEach(b=>b.classList.toggle('active', b.getAttribute('data-modulo') === modulo));
 }
 
 function irAModulo(id) {
   const btn = Array.from(document.querySelectorAll('.nav-item')).find(b => b.getAttribute('onclick') === `nav(this,'${id}')`);
   if (btn) nav(btn, id);
+}
+
+// Drawer del sidebar en mobile (2026-09-17) -- ver bloque @media en <style>.
+// Sin argumento alterna; con true/false fuerza el estado (usado por nav()
+// para autocerrar y por el backdrop para cerrar al tocar afuera).
+function toggleSidebar(forzar) {
+  document.getElementById('shell').classList.toggle('sidebar-open', forzar);
 }
 </script>
 </body>

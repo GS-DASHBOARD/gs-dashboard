@@ -214,6 +214,27 @@ tr:hover td{background:var(--bg)}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
 .form-err{background:#fdf0f1;color:var(--danger);border-radius:7px;padding:8px 11px;font-size:11px;margin-bottom:10px}
 
+/* ASISTENTE IA */
+.ia-chips{display:flex;flex-wrap:wrap;gap:8px;padding:16px 20px;border-bottom:1px solid var(--b1)}
+.ia-chip{all:unset;cursor:pointer;font-size:11px;padding:7px 12px;border-radius:20px;border:1.5px solid var(--b2);color:var(--muted);font-family:var(--mono);transition:all .15s}
+.ia-chip:hover{background:var(--s2);color:var(--txt);border-color:var(--txt)}
+.ia-log{max-height:440px;min-height:200px;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.ia-msg{display:flex}
+.ia-msg-user{justify-content:flex-end}
+.ia-bubble{max-width:75%;padding:10px 14px;border-radius:13px;font-size:13px;line-height:1.55;white-space:pre-wrap}
+.ia-msg-bot .ia-bubble{background:var(--s2);color:var(--txt);border-bottom-left-radius:4px}
+.ia-msg-user .ia-bubble{background:var(--txt);color:#fff;border-bottom-right-radius:4px}
+.ia-bubble.loading{color:var(--muted);font-family:var(--mono);font-size:11px}
+.ia-bubble.error{background:#fdf0f1;color:var(--danger)}
+.ia-inputrow{display:flex;gap:10px;padding:16px 20px;border-top:1px solid var(--b1)}
+.ia-inputrow input{flex:1;border:1.5px solid var(--b2);border-radius:9px;padding:10px 14px;font-size:13px;background:var(--white)}
+.ia-inputrow input:focus{outline:2px solid var(--txt);outline-offset:1px}
+@media (max-width:520px){
+  .ia-bubble{max-width:88%}
+  .ia-chips,.ia-inputrow{padding:12px 14px}
+  .ia-log{max-height:60vh}
+}
+
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
@@ -306,6 +327,7 @@ tr:hover td{background:var(--bg)}
       <div class="nav-section">Inteligencia</div>
       <button class="nav-item active" onclick="nav(this,'overview')"><span class="nav-pip"></span>Resumen ejecutivo</button>
       <button class="nav-item" onclick="nav(this,'prediccion')"><span class="nav-pip"></span>Predicción & alertas IA</button>
+      <button class="nav-item" onclick="nav(this,'asistente-ia')"><span class="nav-pip"></span>Asistente IA</button>
       <button class="nav-item" onclick="nav(this,'socios')"><span class="nav-pip"></span>Panel de Socios</button>
     </div>
     <div class="nav-group" data-modulo="financiero">
@@ -468,6 +490,27 @@ tr:hover td{background:var(--bg)}
   </div>
   <div class="card"><div class="card-ttl">Cheques emitidos</div><div class="card-sub">pendientes de pago ordenados por fecha</div>
     <div class="tbl-wrap"><table><thead><tr><th>N° Cheque</th><th>Emitido por</th><th>Banco</th><th>Fecha pago</th><th>Importe</th><th>Estado</th></tr></thead><tbody id="tbl-banco"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ASISTENTE IA -->
+<div class="page" id="page-asistente-ia">
+  <div class="ph"><div><h1>Asistente <span>IA</span></h1><p>Preguntale por KPIs financieros y de gestión — responde con los datos reales del sistema, no inventa</p></div><span class="area-badge all">Beta</span></div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="ia-chips" id="ia-chips">
+      <button class="ia-chip" onclick="preguntarIA('¿Cuánto tenemos en el banco hoy y cómo viene la proyección a 30 días?')">Saldo y proyección 30d</button>
+      <button class="ia-chip" onclick="preguntarIA('¿Qué facturas están vencidas sin cobrar?')">Facturas vencidas</button>
+      <button class="ia-chip" onclick="preguntarIA('¿Cuántas órdenes de trabajo están abiertas y cuántas vencidas?')">OTs abiertas/vencidas</button>
+      <button class="ia-chip" onclick="preguntarIA('¿Cómo viene la rigidez de estructura este mes?')">Rigidez de estructura</button>
+      <button class="ia-chip" onclick="preguntarIA('¿Qué planes de mantenimiento preventivo están atrasados?')">Mantenimiento atrasado</button>
+    </div>
+    <div class="ia-log" id="ia-log">
+      <div class="ia-msg ia-msg-bot"><div class="ia-bubble">Preguntame por cualquier KPI financiero o de gestión — por ejemplo "¿cuánto cobramos este mes?" o "¿qué activos tienen mantenimiento atrasado?". Solo leo datos, no ejecuto ninguna acción.</div></div>
+    </div>
+    <div class="ia-inputrow">
+      <input type="text" id="ia-input" placeholder="Escribí tu pregunta..." onkeydown="if(event.key==='Enter') enviarPreguntaIA()">
+      <button class="btn" onclick="enviarPreguntaIA()">Preguntar</button>
+    </div>
   </div>
 </div>
 
@@ -6276,6 +6319,52 @@ async function sincronizarEfectoCobro(cobroId, cobro) {
 function cancelarEdicionCobro() {
   document.getElementById('cobros-form').style.display = 'none';
   document.getElementById('cob-retenciones-list').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════
+// ASISTENTE IA — llama a la Edge Function 'kpi-agent', que le pasa a Claude
+// un snapshot de KPIs leido en el momento (server-side, con el JWT del
+// usuario logueado para que RLS siga aplicando) + la pregunta. Solo lee
+// datos, nunca ejecuta acciones -- ni esta funcion ni la Edge Function
+// tienen ningun camino de escritura hacia Supabase.
+// ═══════════════════════════════════════════════
+function escapeHtmlIA(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function preguntarIA(texto) {
+  document.getElementById('ia-input').value = texto;
+  enviarPreguntaIA();
+}
+
+async function enviarPreguntaIA() {
+  const input = document.getElementById('ia-input');
+  const pregunta = input.value.trim();
+  if (!pregunta) return;
+  input.value = '';
+  input.disabled = true;
+
+  const log = document.getElementById('ia-log');
+  log.insertAdjacentHTML('beforeend', `<div class="ia-msg ia-msg-user"><div class="ia-bubble">${escapeHtmlIA(pregunta)}</div></div>`);
+  const loadingId = 'ia-loading-' + Date.now();
+  log.insertAdjacentHTML('beforeend', `<div class="ia-msg ia-msg-bot" id="${loadingId}"><div class="ia-bubble loading">Leyendo los datos y pensando...</div></div>`);
+  log.scrollTop = log.scrollHeight;
+
+  try {
+    const { data, error } = await sb.functions.invoke('kpi-agent', { body: { pregunta } });
+    document.getElementById(loadingId)?.remove();
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    log.insertAdjacentHTML('beforeend', `<div class="ia-msg ia-msg-bot"><div class="ia-bubble">${escapeHtmlIA(data.respuesta || 'Sin respuesta.')}</div></div>`);
+  } catch (e) {
+    document.getElementById(loadingId)?.remove();
+    log.insertAdjacentHTML('beforeend', `<div class="ia-msg ia-msg-bot"><div class="ia-bubble error">No pude responder: ${escapeHtmlIA(e.message || 'error desconocido')}</div></div>`);
+  }
+  log.scrollTop = log.scrollHeight;
+  input.disabled = false;
+  input.focus();
 }
 
 // ═══════════════════════════════════════════════

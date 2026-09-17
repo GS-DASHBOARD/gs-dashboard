@@ -268,6 +268,8 @@ tr:hover td{background:var(--bg)}
     <button class="nav-item" onclick="nav(this,'solicitudes-cliente')"><span class="nav-pip"></span>Solicitudes de Clientes</button>
     <div class="nav-section">Calidad</div>
     <button class="nav-item" onclick="nav(this,'calidad')"><span class="nav-pip"></span>No Conformidades</button>
+    <button class="nav-item" onclick="nav(this,'auditorias-internas')"><span class="nav-pip"></span>Auditorías Internas</button>
+    <button class="nav-item" onclick="nav(this,'revision-direccion')"><span class="nav-pip"></span>Revisión por la Dirección</button>
     <div class="nav-section">Datos Maestros</div>
     <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
     <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
@@ -491,6 +493,7 @@ tr:hover td{background:var(--bg)}
     <div id="categorias-activo-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Nombre</label><input id="cat-nombre" placeholder="Generador diésel, Bomba, HVAC..."></div>
+      <div class="field"><label>Categoría padre (árbol ISO 14224, opcional)</label><select id="cat-padre"><option value="">— (nodo raíz) —</option></select></div>
       <div class="field"><label>Prefijo (código estructurado)</label><input id="cat-prefijo" placeholder="GRUP, BOMB, HVAC..." maxlength="6"></div>
       <div class="field" style="grid-column:1/-1">
         <label>Campos de ficha técnica (JSON)</label>
@@ -500,7 +503,8 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="categorias-activo-btn-guardar" onclick="crearCategoriaActivo()">Guardar</button>
     <button class="btn ghost" id="categorias-activo-btn-cancelar" onclick="cancelarEdicionCategoriaActivo()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nombre</th><th>Prefijo</th><th>Campos técnicos</th><th></th></tr></thead><tbody id="tbl-categorias-activo"></tbody></table></div></div>
+  <p style="color:var(--muted);font-size:13px">Árbol ISO 14224 (496 nodos) — indentado por nivel: Categoría &gt; Familia &gt; Tipo de Equipo &gt; Componente. Las filas sin indentar sin código con puntos son el catálogo clásico (Generador diésel, Bomba, etc.), previo a la importación del catálogo ISO.</p>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Categoría</th><th>Prefijo</th><th>Campos técnicos</th><th></th></tr></thead><tbody id="tbl-categorias-activo"></tbody></table></div></div>
 </div>
 
 <!-- UBICACIONES (jerarquia fisica: Sitio > Edificio > Sistema > Zona) -->
@@ -774,8 +778,16 @@ tr:hover td{background:var(--bg)}
         </select>
       </div>
       <div class="field"><label>Categoría / familia</label><input id="act-categoria" placeholder="Caldera, Tablero eléctrico..." oninput="sugerirCodigoActivo()"></div>
-      <div class="field"><label>Categoría (catálogo, opcional)</label>
-        <select id="act-categoria-id" onchange="alCambiarCategoriaCatalogo()"></select>
+      <div class="field" style="grid-column:1/-1">
+        <label>Categoría del catálogo (ISO 14224, opcional) — Categoría &gt; Familia &gt; Tipo de Equipo &gt; Componente</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div id="act-cat-n1-wrap" style="flex:1;min-width:170px"><select id="act-cat-n1" onchange="onCambioCatN1()" style="width:100%"></select></div>
+          <div id="act-cat-n2-wrap" style="flex:1;min-width:170px;display:none"><select id="act-cat-n2" onchange="onCambioCatN2()" style="width:100%"></select></div>
+          <div id="act-cat-n3-wrap" style="flex:1;min-width:170px;display:none"><select id="act-cat-n3" onchange="onCambioCatN3()" style="width:100%"></select></div>
+          <div id="act-cat-n4-wrap" style="flex:1;min-width:170px;display:none"><select id="act-cat-n4" onchange="onCambioCatN4()" style="width:100%"></select></div>
+        </div>
+        <div id="act-categoria-resumen" style="font-size:11px;color:var(--muted);margin-top:4px;font-family:var(--mono)"></div>
+        <input type="hidden" id="act-categoria-id">
       </div>
       <div class="field"><label>Cliente</label><select id="act-cliente" onchange="sugerirCodigoActivo()"><option value="">—</option></select></div>
       <div class="field"><label>Proyecto</label><select id="act-proyecto"><option value="">—</option></select></div>
@@ -1175,6 +1187,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Área</label><input id="nc-area"></div>
       <div class="field"><label>Responsable</label><input id="nc-responsable"></div>
       <div class="field"><label>Activo relacionado</label><select id="nc-activo"><option value="">—</option></select></div>
+      <div class="field"><label>Auditoría de origen (opcional)</label><select id="nc-auditoria"><option value="">— (reporte de cliente/técnico) —</option></select></div>
       <div class="field"><label>Severidad</label><select id="nc-severidad"><option value="">—</option><option value="Alta">Alta</option><option value="Media">Media</option><option value="Baja">Baja</option></select></div>
       <div class="field"><label>Fecha de vencimiento</label><input type="date" id="nc-fecha-vencimiento"></div>
       <div class="field"><label>Estado</label><select id="nc-estado"><option value="ABIERTA">Abierta</option><option value="EN_ANALISIS">En análisis</option><option value="CERRADA">Cerrada</option></select></div>
@@ -1190,6 +1203,50 @@ tr:hover td{background:var(--bg)}
   </div>
   <div id="calidad-empty" class="empty"><b>Sin no conformidades registradas todavía.</b>Se carga cuando un cliente o técnico reporta un desvío.</div>
   <div class="card" id="calidad-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Área</th><th>Activo</th><th>Severidad</th><th>Descripción</th><th>Responsable</th><th>Vencimiento</th><th>Estado</th><th>Eficacia verificada</th><th></th></tr></thead><tbody id="tbl-calidad"></tbody></table></div></div>
+</div>
+
+<!-- AUDITORÍAS INTERNAS (ISO 55001/9001 §9.2) -->
+<div class="page" id="page-auditorias-internas">
+  <div class="ph"><div><h1>Auditorías <span>Internas</span></h1><p>Registro del programa de auditorías internas del Sistema de Gestión — ISO 55001/9001 §9.2. Los hallazgos que resultan no conformidad se cargan en "No Conformidades", vinculados a la auditoría que los originó.</p></div></div>
+  <div class="row-actions" id="auditorias-internas-actions" style="display:none"><button class="btn" onclick="toggleForm('auditorias-internas')">+ Nueva auditoría</button></div>
+  <div class="card" id="auditorias-internas-form" style="display:none">
+    <div id="auditorias-internas-err" class="form-err" style="display:none"></div>
+    <div class="form-grid">
+      <div class="field"><label>Fecha</label><input type="date" id="audi-fecha"></div>
+      <div class="field"><label>Auditor</label><input id="audi-auditor" placeholder="Quién audita"></div>
+      <div class="field"><label>Estado</label><select id="audi-estado"><option value="Planificada">Planificada</option><option value="En curso">En curso</option><option value="Cerrada">Cerrada</option></select></div>
+      <div class="field" style="grid-column:1/-1"><label>Alcance</label><textarea id="audi-alcance" placeholder="Qué se audita — ej. Cierre de OT preventivas del último trimestre, cumplimiento del plan Cummins..."></textarea></div>
+      <div class="field" style="grid-column:1/-1"><label>Conclusión</label><textarea id="audi-conclusion" placeholder="Se completa al cerrar la auditoría"></textarea></div>
+    </div>
+    <button class="btn" id="auditorias-internas-btn-guardar" onclick="guardarAuditoriaInterna()">Guardar</button>
+    <button class="btn ghost" id="auditorias-internas-btn-cancelar" onclick="cancelarEdicionAuditoriaInterna()" style="display:none">Cancelar edición</button>
+  </div>
+  <div id="auditorias-internas-empty" class="empty"><b>Sin auditorías internas registradas todavía.</b>Se carga cuando se planifica o ejecuta una.</div>
+  <div class="card" id="auditorias-internas-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Alcance</th><th>Auditor</th><th>Estado</th><th>Hallazgos (NC)</th><th></th></tr></thead><tbody id="tbl-auditorias-internas"></tbody></table></div></div>
+</div>
+
+<!-- REVISIÓN POR LA DIRECCIÓN (ISO 55001/9001 §9.3) -->
+<div class="page" id="page-revision-direccion">
+  <div class="ph"><div><h1>Revisión por la <span>Dirección</span></h1><p>Proceso periódico, no un botón suelto — ISO 55001/9001 §9.3. Registra qué insumos se revisaron y qué decisiones salieron.</p></div></div>
+  <div class="row-actions" id="revision-direccion-actions" style="display:none"><button class="btn" onclick="prepararNuevaRevisionDireccion()">+ Nueva revisión</button></div>
+  <div class="card" id="revision-direccion-form" style="display:none">
+    <div id="revision-direccion-err" class="form-err" style="display:none"></div>
+    <div class="card" style="background:var(--s2);margin-bottom:12px">
+      <div class="card-ttl">Insumos sugeridos al momento de abrir esta revisión</div>
+      <div id="revision-direccion-insumos" style="font-size:13px;line-height:1.7"></div>
+    </div>
+    <div class="form-grid">
+      <div class="field"><label>Fecha</label><input type="date" id="revd-fecha"></div>
+      <div class="field"><label>Próxima revisión</label><input type="date" id="revd-proxima"></div>
+      <div class="field" style="grid-column:1/-1"><label>Participantes</label><input id="revd-participantes" placeholder="Sebastián, Ezequiel..."></div>
+      <div class="field" style="grid-column:1/-1"><label>Entradas revisadas</label><textarea id="revd-entradas" placeholder="Resultados de auditorías, estado de no conformidades, indicadores de Disponibilidad y Confiabilidad, cumplimiento de la Política de Gestión de Activos..."></textarea></div>
+      <div class="field" style="grid-column:1/-1"><label>Decisiones y acciones</label><textarea id="revd-decisiones"></textarea></div>
+    </div>
+    <button class="btn" id="revision-direccion-btn-guardar" onclick="guardarRevisionDireccion()">Guardar</button>
+    <button class="btn ghost" id="revision-direccion-btn-cancelar" onclick="cancelarEdicionRevisionDireccion()" style="display:none">Cancelar edición</button>
+  </div>
+  <div id="revision-direccion-empty" class="empty"><b>Sin revisiones por la dirección registradas todavía.</b>Se recomienda al menos una vez al año (ver Política de Gestión de Activos).</div>
+  <div class="card" id="revision-direccion-card" style="display:none"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Participantes</th><th>Decisiones</th><th>Próxima revisión</th><th></th></tr></thead><tbody id="tbl-revision-direccion"></tbody></table></div></div>
 </div>
 
 <!-- PREDICCIÓN -->
@@ -1246,6 +1303,11 @@ const PUEDE_EDITAR = {
   planes_maestros: r => r === 'ezequiel' || r === 'sebastian',
   ordenes_trabajo: r => r === 'ezequiel' || r === 'sebastian',
   no_conformidades: r => r === 'ezequiel' || r === 'sebastian',
+  auditorias_internas: r => r === 'ezequiel' || r === 'sebastian',
+  // Revisión por la dirección es una actividad de Dirección (ISO 55001/9001
+  // §9.3), no de gestión operativa del día a día -- a diferencia del resto
+  // de Calidad, Ezequiel no la edita.
+  revisiones_direccion: r => r === 'sebastian',
   cheques: r => r === 'gonzalo' || r === 'sebastian',
   cheques_recibidos: r => r === 'gonzalo' || r === 'sebastian',
   costos_fijos: r => r === 'gonzalo' || r === 'sebastian',
@@ -1318,6 +1380,8 @@ function aplicarPermisosUI() {
   document.getElementById('chqr-actions').style.display = PUEDE_EDITAR.cheques_recibidos(ROL) ? 'flex' : 'none';
   document.getElementById('gastos-actions').style.display = PUEDE_EDITAR.costos_fijos(ROL) ? 'flex' : 'none';
   document.getElementById('calidad-actions').style.display = PUEDE_EDITAR.no_conformidades(ROL) ? 'flex' : 'none';
+  document.getElementById('auditorias-internas-actions').style.display = PUEDE_EDITAR.auditorias_internas(ROL) ? 'flex' : 'none';
+  document.getElementById('revision-direccion-actions').style.display = PUEDE_EDITAR.revisiones_direccion(ROL) ? 'flex' : 'none';
   document.getElementById('proyectos-actions').style.display = PUEDE_EDITAR.proyectos(ROL) ? 'flex' : 'none';
   document.getElementById('movimientos-actions').style.display = PUEDE_EDITAR.movimientos(ROL) ? 'flex' : 'none';
   document.getElementById('mov-btn-ajustar-saldo').style.display = PUEDE_EDITAR.movimientos(ROL) ? 'inline-block' : 'none';
@@ -2312,13 +2376,15 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   window.GSCARE_LEADS_CACHE = {}; (gsCareLeads||[]).forEach(l => window.GSCARE_LEADS_CACHE[l.id] = l);
   renderGsCareLeads(gsCareLeads || []);
 
-  // Categorías de Activo
+  // Categorías de Activo (árbol ISO 14224, 20260915000001)
   const { data: categoriasActivo } = await sb.from('categorias_activo').select('*').order('nombre');
   window.CATEGORIAS_ACTIVO_CACHE = {}; (categoriasActivo||[]).forEach(c => window.CATEGORIAS_ACTIVO_CACHE[c.id] = c);
   poblarSelectCategoriaActivo(categoriasActivo);
+  window.CATEGORIAS_ACTIVO_ARBOL = construirArbolCategorias(categoriasActivo || []);
+  poblarSelectCategoriaPadre(window.CATEGORIAS_ACTIVO_ARBOL);
   const puedeEditarCatAct = PUEDE_EDITAR.categorias_activo(ROL);
-  document.getElementById('tbl-categorias-activo').innerHTML = (categoriasActivo||[]).map(c => `<tr>
-      <td>${c.nombre}</td><td style="font-family:var(--mono)">${c.prefijo_familia||'—'}</td>
+  document.getElementById('tbl-categorias-activo').innerHTML = window.CATEGORIAS_ACTIVO_ARBOL.map(c => `<tr>
+      <td>${'— '.repeat(c.profundidad)}${c.nombre}</td><td style="font-family:var(--mono)">${c.prefijo_familia||'—'}</td>
       <td>${(c.esquema_campos||[]).map(f => f.etiqueta).join(', ') || '—'}</td>
       <td>${puedeEditarCatAct ? `<button class="btn ghost" onclick="editarCategoriaActivo(window.CATEGORIAS_ACTIVO_CACHE['${c.id}'])">Editar</button> <button class="btn ghost" onclick="eliminarCategoriaActivo('${c.id}')">✕</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin categorías cargadas</td></tr>';
@@ -2507,6 +2573,15 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarCierre && !c.reabierto ? `<button class="btn ghost" onclick="reabrirPeriodo('${c.id}')">Reabrir</button>` : ''}</td>
     </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin períodos cerrados</td></tr>';
 
+  // Auditorías internas (ISO 55001/9001 §9.2) -- se carga antes que No
+  // Conformidades porque el select "Auditoría de origen" y el conteo de
+  // hallazgos por auditoría dependen de esta data.
+  const { data: auditorias } = await sb.from('auditorias_internas').select('*').order('fecha',{ascending:false});
+  window.AUDITORIAS_CACHE = {}; (auditorias||[]).forEach(a => window.AUDITORIAS_CACHE[a.id] = a);
+  const ncAuditoriaEl = document.getElementById('nc-auditoria');
+  if (ncAuditoriaEl) ncAuditoriaEl.innerHTML = '<option value="">— (reporte de cliente/técnico) —</option>' +
+    (auditorias||[]).map(a => `<option value="${a.id}">${a.fecha} — ${a.alcance}</option>`).join('');
+
   // No conformidades (CAPA: origen, severidad, accion preventiva, verificacion de eficacia)
   const { data: ncs } = await sb.from('no_conformidades').select('*').order('fecha',{ascending:false});
   window.NC_CACHE = {}; (ncs||[]).forEach(n => window.NC_CACHE[n.id] = n);
@@ -2530,6 +2605,37 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${puedeEditarNC ? `<button class="btn ghost" onclick="editarNC(window.NC_CACHE['${n.id}'])">Editar</button>` : ''}</td>
     </tr>`;
     }).join('');
+  }
+
+  // Tabla de Auditorías Internas -- cuenta cuántas NC salieron de cada una
+  const puedeEditarAudi = PUEDE_EDITAR.auditorias_internas(ROL);
+  if (auditorias && auditorias.length > 0) {
+    document.getElementById('auditorias-internas-empty').style.display = 'none';
+    document.getElementById('auditorias-internas-card').style.display = 'block';
+    document.getElementById('tbl-auditorias-internas').innerHTML = auditorias.map(a => {
+      const hallazgos = (ncs||[]).filter(n => n.auditoria_id === a.id).length;
+      return `<tr>
+      <td>${a.fecha}</td><td>${a.alcance}</td><td>${a.auditor||'—'}</td>
+      <td><span class="tag ${a.estado==='Cerrada'?'ok':a.estado==='En curso'?'w':'muted'}">${a.estado}</span></td>
+      <td>${hallazgos}</td>
+      <td>${puedeEditarAudi ? `<button class="btn ghost" onclick="editarAuditoriaInterna(window.AUDITORIAS_CACHE['${a.id}'])">Editar</button>` : ''}</td>
+    </tr>`;
+    }).join('');
+  }
+
+  // Revisión por la Dirección (ISO 55001/9001 §9.3)
+  const { data: revisionesDireccion } = await sb.from('revisiones_direccion').select('*').order('fecha',{ascending:false});
+  window.REVISIONES_DIRECCION_CACHE = {}; (revisionesDireccion||[]).forEach(r => window.REVISIONES_DIRECCION_CACHE[r.id] = r);
+  const puedeEditarRevD = PUEDE_EDITAR.revisiones_direccion(ROL);
+  if (revisionesDireccion && revisionesDireccion.length > 0) {
+    document.getElementById('revision-direccion-empty').style.display = 'none';
+    document.getElementById('revision-direccion-card').style.display = 'block';
+    document.getElementById('tbl-revision-direccion').innerHTML = revisionesDireccion.map(r => `<tr>
+      <td>${r.fecha}</td><td>${r.participantes||'—'}</td>
+      <td>${(r.decisiones||'—').slice(0,120)}${(r.decisiones||'').length>120?'…':''}</td>
+      <td>${r.proxima_revision||'—'}</td>
+      <td>${puedeEditarRevD ? `<button class="btn ghost" onclick="editarRevisionDireccion(window.REVISIONES_DIRECCION_CACHE['${r.id}'])">Editar</button>` : ''}</td>
+    </tr>`).join('');
   }
 
   // Calendario de mantenimiento — vistas de solo lectura (20260914000008)
@@ -3066,9 +3172,8 @@ function editarActivo(a) {
   document.getElementById('act-garantia').value = a.garantia_hasta || '';
   document.getElementById('act-criticidad').value = a.criticidad || 'Media';
   document.getElementById('act-estado').value = a.estado || 'ACTIVO';
-  document.getElementById('act-categoria-id').value = a.categoria_id || '';
   document.getElementById('act-ubicacion-id').value = a.ubicacion_id || '';
-  renderCamposFichaTecnica(a.categoria_id, a.ficha_tecnica || {});
+  precargarCategoriaCascada(a.categoria_id, a.ficha_tecnica || {});
   document.getElementById('activos-btn-guardar').textContent = 'Guardar cambios';
   document.getElementById('activos-btn-cancelar').style.display = 'inline-block';
   document.getElementById('activos-form').style.display = 'block';
@@ -3083,9 +3188,9 @@ function cancelarEdicionActivo() {
   });
   document.getElementById('act-cliente').value = '';
   document.getElementById('act-proyecto').value = '';
-  document.getElementById('act-categoria-id').value = '';
   document.getElementById('act-ubicacion-id').value = '';
-  renderCamposFichaTecnica(null, {});
+  poblarSelectCategoriaActivo(window.CATEGORIAS_ACTIVO);
+  actualizarCategoriaResuelta();
   document.getElementById('activos-btn-guardar').textContent = 'Guardar';
   document.getElementById('activos-btn-cancelar').style.display = 'none';
   document.getElementById('activos-form').style.display = 'none';
@@ -4499,8 +4604,35 @@ async function eliminarUbicacion(id) {
 // ═══════════════════════════════════════════════
 let EDITANDO_CATACT_ID = null;
 
+// Mismo patrón que construirArbolUbicaciones -- recorrido en profundidad
+// para que la tabla de gestión se lea como árbol real, no como una lista
+// alfabética de 496 filas sin relación visible entre sí.
+function construirArbolCategorias(categorias) {
+  const porPadre = {};
+  categorias.forEach(c => { const p = c.padre_id || '__raiz__'; (porPadre[p] = porPadre[p]||[]).push(c); });
+  Object.values(porPadre).forEach(lista => lista.sort((a,b) => a.id.localeCompare(b.id)));
+  const resultado = [];
+  function recorrer(padreId, profundidad) {
+    (porPadre[padreId] || []).forEach(c => {
+      resultado.push({ ...c, profundidad });
+      recorrer(c.id, profundidad + 1);
+    });
+  }
+  recorrer('__raiz__', 0);
+  return resultado;
+}
+
+function poblarSelectCategoriaPadre(arbol) {
+  const el = document.getElementById('cat-padre');
+  if (!el) return;
+  el.innerHTML = '<option value="">— (nodo raíz) —</option>' + arbol
+    .filter(c => c.id !== EDITANDO_CATACT_ID)
+    .map(c => `<option value="${c.id}" ${c.id === EDITANDO_CATACT_ID ? 'disabled' : ''}>${'— '.repeat(c.profundidad)}${c.nombre}</option>`).join('');
+}
+
 async function crearCategoriaActivo() {
   const nombre = document.getElementById('cat-nombre').value.trim();
+  const padre_id = document.getElementById('cat-padre').value || null;
   const prefijo_familia = document.getElementById('cat-prefijo').value.trim().toUpperCase();
   const esquemaTexto = document.getElementById('cat-esquema').value.trim();
   if (!nombre) return showErr('categorias-activo', 'El nombre es obligatorio.');
@@ -4509,7 +4641,7 @@ async function crearCategoriaActivo() {
     try { esquema_campos = JSON.parse(esquemaTexto); }
     catch (e) { return showErr('categorias-activo', 'El JSON de campos técnicos no es válido: ' + e.message); }
   }
-  const payload = { nombre, prefijo_familia: prefijo_familia||null, esquema_campos };
+  const payload = { nombre, padre_id, prefijo_familia: prefijo_familia||null, esquema_campos };
   if (EDITANDO_CATACT_ID) {
     const { error } = await sb.from('categorias_activo').update(payload).eq('id', EDITANDO_CATACT_ID);
     if (error) return showErr('categorias-activo', error.message);
@@ -4526,6 +4658,8 @@ function editarCategoriaActivo(c) {
   document.getElementById('cat-nombre').value = c.nombre || '';
   document.getElementById('cat-prefijo').value = c.prefijo_familia || '';
   document.getElementById('cat-esquema').value = c.esquema_campos ? JSON.stringify(c.esquema_campos) : '';
+  poblarSelectCategoriaPadre(window.CATEGORIAS_ACTIVO_ARBOL); // re-poblar para deshabilitar auto-referencia
+  document.getElementById('cat-padre').value = c.padre_id || '';
   document.getElementById('categorias-activo-btn-guardar').textContent = 'Guardar cambios';
   document.getElementById('categorias-activo-btn-cancelar').style.display = 'inline-block';
   document.getElementById('categorias-activo-form').style.display = 'block';
@@ -4534,6 +4668,10 @@ function editarCategoriaActivo(c) {
 
 function cancelarEdicionCategoriaActivo() {
   EDITANDO_CATACT_ID = null;
+  document.getElementById('cat-nombre').value = '';
+  document.getElementById('cat-prefijo').value = '';
+  document.getElementById('cat-esquema').value = '';
+  poblarSelectCategoriaPadre(window.CATEGORIAS_ACTIVO_ARBOL || []);
   document.getElementById('categorias-activo-btn-guardar').textContent = 'Guardar';
   document.getElementById('categorias-activo-btn-cancelar').style.display = 'none';
   document.getElementById('categorias-activo-form').style.display = 'none';
@@ -4546,14 +4684,99 @@ async function eliminarCategoriaActivo(id) {
   location.reload();
 }
 
-// Puebla el <select> de categoría en el alta de Activos y engancha el
-// render de campos dinámicos de ficha técnica según la categoría elegida.
+// Selector en cascada Categoría > Familia > Tipo de Equipo > Componente
+// (catálogo ISO 14224, 20260915000001 -- 496 filas, imposible de navegar
+// como un <select> plano). Cada nivel muestra solo los hijos del nivel
+// anterior; el id final resuelto (el más profundo elegido) queda en el
+// input oculto #act-categoria-id, que es lo que ya leía crearActivo().
 function poblarSelectCategoriaActivo(categorias) {
   window.CATEGORIAS_ACTIVO = categorias || [];
-  const el = document.getElementById('act-categoria-id');
-  if (!el) return;
-  el.innerHTML = '<option value="">— (texto libre en "Categoría / familia") —</option>' +
-    (categorias||[]).map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  const n1 = document.getElementById('act-cat-n1');
+  if (!n1) return;
+  const raices = (categorias||[]).filter(c => !c.padre_id).sort((a,b) => a.id.localeCompare(b.id));
+  n1.innerHTML = '<option value="">— (texto libre en "Categoría / familia") —</option>' +
+    raices.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+  n1.value = '';
+  for (let n = 2; n <= 4; n++) {
+    document.getElementById('act-cat-n'+n).innerHTML = '<option value="">—</option>';
+    document.getElementById('act-cat-n'+n+'-wrap').style.display = 'none';
+  }
+}
+
+function configurarNivelSiguienteCategoria(nivelSiguiente, padreId) {
+  for (let n = nivelSiguiente; n <= 4; n++) {
+    document.getElementById('act-cat-n'+n).innerHTML = '<option value="">—</option>';
+    document.getElementById('act-cat-n'+n+'-wrap').style.display = 'none';
+  }
+  if (padreId) {
+    const hijos = (window.CATEGORIAS_ACTIVO||[]).filter(c => c.padre_id === padreId).sort((a,b) => a.id.localeCompare(b.id));
+    if (hijos.length > 0) {
+      const el = document.getElementById('act-cat-n'+nivelSiguiente);
+      el.innerHTML = '<option value="">—</option>' + hijos.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+      document.getElementById('act-cat-n'+nivelSiguiente+'-wrap').style.display = '';
+    }
+  }
+  actualizarCategoriaResuelta();
+}
+
+function onCambioCatN1() { configurarNivelSiguienteCategoria(2, document.getElementById('act-cat-n1').value || null); }
+function onCambioCatN2() { configurarNivelSiguienteCategoria(3, document.getElementById('act-cat-n2').value || null); }
+function onCambioCatN3() { configurarNivelSiguienteCategoria(4, document.getElementById('act-cat-n3').value || null); }
+function onCambioCatN4() { actualizarCategoriaResuelta(); }
+
+// La categoría "resuelta" es la más profunda con valor elegido -- si
+// solo se eligió nivel 1 (o el nodo no tiene hijos, como las 6 filas
+// legado CAT-GENERADOR/etc.), esa es la categoría final.
+function categoriaResuelta() {
+  for (let n = 4; n >= 1; n--) {
+    const v = document.getElementById('act-cat-n'+n).value;
+    if (v) return v;
+  }
+  return '';
+}
+
+function breadcrumbCategoria(id) {
+  const partes = [];
+  let actual = id ? window.CATEGORIAS_ACTIVO_CACHE[id] : null;
+  while (actual) {
+    partes.unshift(actual.nombre);
+    actual = actual.padre_id ? window.CATEGORIAS_ACTIVO_CACHE[actual.padre_id] : null;
+  }
+  return partes.join(' > ');
+}
+
+function actualizarCategoriaResuelta(fichaExistente) {
+  const id = categoriaResuelta();
+  document.getElementById('act-categoria-id').value = id;
+  const cat = id ? window.CATEGORIAS_ACTIVO_CACHE[id] : null;
+  document.getElementById('act-categoria-resumen').textContent = cat ? breadcrumbCategoria(id) : '';
+  // Completa el texto libre "Categoría / familia" para no duplicar carga
+  // manual, pero lo deja editable por si hace falta un matiz puntual.
+  if (cat && !document.getElementById('act-categoria').value) {
+    document.getElementById('act-categoria').value = cat.nombre;
+    sugerirCodigoActivo();
+  }
+  renderCamposFichaTecnica(id || null, fichaExistente || {});
+}
+
+// Reconstruye la cadena de ancestros de un activo ya categorizado (edición)
+// y precarga cada nivel del selector en cascada -- sin esto, editar un
+// activo con categoria_id profundo (ej. 05.04.01) no mostraría nada
+// seleccionado en ninguno de los 4 niveles.
+function precargarCategoriaCascada(categoriaId, fichaExistente) {
+  const cadena = [];
+  let actual = categoriaId ? window.CATEGORIAS_ACTIVO_CACHE[categoriaId] : null;
+  while (actual) {
+    cadena.unshift(actual);
+    actual = actual.padre_id ? window.CATEGORIAS_ACTIVO_CACHE[actual.padre_id] : null;
+  }
+  poblarSelectCategoriaActivo(window.CATEGORIAS_ACTIVO);
+  for (let i = 0; i < cadena.length && i < 4; i++) {
+    const nivel = i + 1;
+    document.getElementById('act-cat-n'+nivel).value = cadena[i].id;
+    if (i + 1 < cadena.length) configurarNivelSiguienteCategoria(nivel + 1, cadena[i].id);
+  }
+  actualizarCategoriaResuelta(fichaExistente);
 }
 
 function renderCamposFichaTecnica(categoriaId, valoresActuales) {
@@ -4571,18 +4794,6 @@ function renderCamposFichaTecnica(categoriaId, valoresActuales) {
       <input class="ficha-tecnica-input" data-campo="${f.campo}" type="${f.tipo === 'numeric' ? 'number' : (f.tipo === 'date' ? 'date' : 'text')}" value="${valoresActuales[f.campo] ?? ''}">
     </div>
   `).join('');
-}
-
-function alCambiarCategoriaCatalogo() {
-  const categoriaId = document.getElementById('act-categoria-id').value;
-  const cat = categoriaId ? window.CATEGORIAS_ACTIVO_CACHE[categoriaId] : null;
-  // Completa el texto libre "Categoría / familia" para no duplicar carga
-  // manual, pero lo deja editable por si hace falta un matiz puntual.
-  if (cat && !document.getElementById('act-categoria').value) {
-    document.getElementById('act-categoria').value = cat.nombre;
-    sugerirCodigoActivo();
-  }
-  renderCamposFichaTecnica(categoriaId, {});
 }
 
 function leerFichaTecnicaDelForm() {
@@ -4997,6 +5208,7 @@ async function guardarNC() {
   const area = document.getElementById('nc-area').value.trim();
   const responsable = document.getElementById('nc-responsable').value.trim();
   const activo_id = document.getElementById('nc-activo').value || null;
+  const auditoria_id = document.getElementById('nc-auditoria').value || null;
   const severidad = document.getElementById('nc-severidad').value || null;
   const fecha_vencimiento = document.getElementById('nc-fecha-vencimiento').value || null;
   const estado = document.getElementById('nc-estado').value;
@@ -5008,7 +5220,7 @@ async function guardarNC() {
   const eficacia_verificada = document.getElementById('nc-eficacia-verificada').checked;
   if (!descripcion) return showErr('calidad', 'La descripción es obligatoria.');
   const payload = {
-    area: area||null, responsable: responsable||null, activo_id, severidad, fecha_vencimiento, estado, descripcion,
+    area: area||null, responsable: responsable||null, activo_id, auditoria_id, severidad, fecha_vencimiento, estado, descripcion,
     causa_raiz: causa_raiz||null, accion_correctiva: accion_correctiva||null, accion_preventiva: accion_preventiva||null,
     fecha_verificacion_eficacia, eficacia_verificada,
   };
@@ -5029,6 +5241,7 @@ function editarNC(n) {
   document.getElementById('nc-area').value = n.area || '';
   document.getElementById('nc-responsable').value = n.responsable || '';
   document.getElementById('nc-activo').value = n.activo_id || '';
+  document.getElementById('nc-auditoria').value = n.auditoria_id || '';
   document.getElementById('nc-severidad').value = n.severidad || '';
   document.getElementById('nc-fecha-vencimiento').value = n.fecha_vencimiento || '';
   document.getElementById('nc-estado').value = n.estado || 'ABIERTA';
@@ -5048,12 +5261,140 @@ function cancelarEdicionNC() {
   EDITANDO_NC_ID = null;
   ['nc-area','nc-responsable','nc-fecha-vencimiento','nc-desc','nc-causa-raiz','nc-accion-correctiva','nc-accion-preventiva','nc-fecha-verificacion'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('nc-activo').value = '';
+  document.getElementById('nc-auditoria').value = '';
   document.getElementById('nc-severidad').value = '';
   document.getElementById('nc-estado').value = 'ABIERTA';
   document.getElementById('nc-eficacia-verificada').checked = false;
   document.getElementById('calidad-btn-guardar').textContent = 'Guardar';
   document.getElementById('calidad-btn-cancelar').style.display = 'none';
   document.getElementById('calidad-form').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// AUDITORÍAS INTERNAS (ISO 55001/9001 §9.2)
+// ═══════════════════════════════════════════════
+let EDITANDO_AUDI_ID = null;
+
+async function guardarAuditoriaInterna() {
+  const fecha = document.getElementById('audi-fecha').value || new Date().toISOString().slice(0,10);
+  const auditor = document.getElementById('audi-auditor').value.trim();
+  const estado = document.getElementById('audi-estado').value;
+  const alcance = document.getElementById('audi-alcance').value.trim();
+  const conclusion = document.getElementById('audi-conclusion').value.trim();
+  if (!alcance) return showErr('auditorias-internas', 'El alcance es obligatorio.');
+  const payload = { fecha, auditor: auditor||null, estado, alcance, conclusion: conclusion||null };
+  if (EDITANDO_AUDI_ID) {
+    const { error } = await sb.from('auditorias_internas').update(payload).eq('id', EDITANDO_AUDI_ID);
+    if (error) return showErr('auditorias-internas', error.message);
+  } else {
+    const id = 'AUDI-' + Date.now();
+    const { error } = await sb.from('auditorias_internas').insert({ id, ...payload });
+    if (error) return showErr('auditorias-internas', error.message);
+  }
+  location.reload();
+}
+
+function editarAuditoriaInterna(a) {
+  EDITANDO_AUDI_ID = a.id;
+  document.getElementById('audi-fecha').value = a.fecha || '';
+  document.getElementById('audi-auditor').value = a.auditor || '';
+  document.getElementById('audi-estado').value = a.estado || 'Planificada';
+  document.getElementById('audi-alcance').value = a.alcance || '';
+  document.getElementById('audi-conclusion').value = a.conclusion || '';
+  document.getElementById('auditorias-internas-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('auditorias-internas-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('auditorias-internas-form').style.display = 'block';
+  document.getElementById('auditorias-internas-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionAuditoriaInterna() {
+  EDITANDO_AUDI_ID = null;
+  document.getElementById('audi-fecha').value = '';
+  document.getElementById('audi-auditor').value = '';
+  document.getElementById('audi-estado').value = 'Planificada';
+  document.getElementById('audi-alcance').value = '';
+  document.getElementById('audi-conclusion').value = '';
+  document.getElementById('auditorias-internas-btn-guardar').textContent = 'Guardar';
+  document.getElementById('auditorias-internas-btn-cancelar').style.display = 'none';
+  document.getElementById('auditorias-internas-form').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════
+// REVISIÓN POR LA DIRECCIÓN (ISO 55001/9001 §9.3)
+// ═══════════════════════════════════════════════
+let EDITANDO_REVD_ID = null;
+
+// A diferencia del resto de "+ Nuevo", esto calcula en vivo un resumen de
+// los insumos reales que la norma pide revisar -- no conformidades
+// abiertas, acciones correctivas sin verificar, auditorías cerradas,
+// disponibilidad promedio y backlog -- para que la revisión parta de
+// datos del sistema, no de la memoria de quien la hace.
+async function prepararNuevaRevisionDireccion() {
+  EDITANDO_REVD_ID = null;
+  document.getElementById('revd-fecha').value = '';
+  document.getElementById('revd-proxima').value = '';
+  document.getElementById('revd-participantes').value = '';
+  document.getElementById('revd-entradas').value = '';
+  document.getElementById('revd-decisiones').value = '';
+  document.getElementById('revision-direccion-btn-guardar').textContent = 'Guardar';
+  document.getElementById('revision-direccion-btn-cancelar').style.display = 'none';
+
+  const ncAbiertas = Object.values(window.NC_CACHE||{}).filter(n => n.estado !== 'CERRADA');
+  const ncSinVerificar = Object.values(window.NC_CACHE||{}).filter(n => n.accion_correctiva && !n.eficacia_verificada);
+  const audiCerradas = Object.values(window.AUDITORIAS_CACHE||{}).filter(a => a.estado === 'Cerrada');
+  const { data: indicadores } = await sb.from('indicadores_confiabilidad_activo').select('disponibilidad_pct, ot_backlog_mas_7d');
+  const disponibilidades = (indicadores||[]).map(i => i.disponibilidad_pct).filter(v => v !== null && v !== undefined);
+  const dispProm = disponibilidades.length ? (disponibilidades.reduce((a,b)=>a+b,0)/disponibilidades.length).toFixed(1) : null;
+  const backlogTotal = (indicadores||[]).reduce((a,i) => a + (i.ot_backlog_mas_7d||0), 0);
+
+  document.getElementById('revision-direccion-insumos').innerHTML = `
+    <div>• No conformidades abiertas: <b>${ncAbiertas.length}</b>${ncAbiertas.length ? ' (' + ncAbiertas.map(n=>n.id).join(', ') + ')' : ''}</div>
+    <div>• Acciones correctivas sin verificar eficacia todavía: <b>${ncSinVerificar.length}</b></div>
+    <div>• Auditorías internas cerradas registradas: <b>${audiCerradas.length}</b></div>
+    <div>• Disponibilidad promedio de activos: <b>${dispProm !== null ? dispProm + '%' : '— (sin datos suficientes)'}</b></div>
+    <div>• Backlog total de OT &gt;7 días: <b>${backlogTotal}</b></div>
+  `;
+  document.getElementById('revision-direccion-form').style.display = 'block';
+  document.getElementById('revision-direccion-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function guardarRevisionDireccion() {
+  const fecha = document.getElementById('revd-fecha').value || new Date().toISOString().slice(0,10);
+  const proxima_revision = document.getElementById('revd-proxima').value || null;
+  const participantes = document.getElementById('revd-participantes').value.trim();
+  const entradas = document.getElementById('revd-entradas').value.trim();
+  const decisiones = document.getElementById('revd-decisiones').value.trim();
+  const payload = { fecha, proxima_revision, participantes: participantes||null, entradas: entradas||null, decisiones: decisiones||null };
+  if (EDITANDO_REVD_ID) {
+    const { error } = await sb.from('revisiones_direccion').update(payload).eq('id', EDITANDO_REVD_ID);
+    if (error) return showErr('revision-direccion', error.message);
+  } else {
+    const id = 'REVD-' + Date.now();
+    const { error } = await sb.from('revisiones_direccion').insert({ id, ...payload });
+    if (error) return showErr('revision-direccion', error.message);
+  }
+  location.reload();
+}
+
+function editarRevisionDireccion(r) {
+  EDITANDO_REVD_ID = r.id;
+  document.getElementById('revd-fecha').value = r.fecha || '';
+  document.getElementById('revd-proxima').value = r.proxima_revision || '';
+  document.getElementById('revd-participantes').value = r.participantes || '';
+  document.getElementById('revd-entradas').value = r.entradas || '';
+  document.getElementById('revd-decisiones').value = r.decisiones || '';
+  document.getElementById('revision-direccion-insumos').innerHTML = '<i>Editando una revisión ya registrada — los insumos sugeridos solo se recalculan al crear una nueva.</i>';
+  document.getElementById('revision-direccion-btn-guardar').textContent = 'Guardar cambios';
+  document.getElementById('revision-direccion-btn-cancelar').style.display = 'inline-block';
+  document.getElementById('revision-direccion-form').style.display = 'block';
+  document.getElementById('revision-direccion-form').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelarEdicionRevisionDireccion() {
+  EDITANDO_REVD_ID = null;
+  document.getElementById('revision-direccion-btn-guardar').textContent = 'Guardar';
+  document.getElementById('revision-direccion-btn-cancelar').style.display = 'none';
+  document.getElementById('revision-direccion-form').style.display = 'none';
 }
 
 async function crearProyecto() {

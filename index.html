@@ -1746,6 +1746,24 @@ async function cargarTodo() {
     const { data: gastos } = await sb.from('costos_fijos').select('*').eq('activo', true);
     DATA.gastos = (gastos || []).map(g => [g.concepto, Number(g.monto), g.dia_pago, g.fuente, g.meses]);
 
+    setMsg('Leyendo pagos a proveedores del mes...');
+    const inicioMes = new Date(); inicioMes.setDate(1); inicioMes.setHours(0,0,0,0);
+    const inicioMesStr = inicioMes.toISOString().slice(0,10);
+    const { data: pagosMes } = await sb.from('pagos')
+      .select('monto, fecha, facturas_compra(proveedor_id, proveedores(rubro))')
+      .eq('estado', 'Confirmado')
+      .gte('fecha', inicioMesStr);
+    // Distribucion de egresos del Resumen Ejecutivo mostraba solo Costos
+    // Fijos -- las facturas recibidas pagadas (gasto variable de compras)
+    // nunca entraban ahi. Se agrupa por rubro de proveedor para sumarlas
+    // como categorias mas en el mismo grafico.
+    DATA.pagosMesPorRubro = {};
+    (pagosMes || []).forEach(p => {
+      const rubro = p.facturas_compra && p.facturas_compra.proveedores && p.facturas_compra.proveedores.rubro
+        ? p.facturas_compra.proveedores.rubro : 'Compras sin rubro';
+      DATA.pagosMesPorRubro[rubro] = (DATA.pagosMesPorRubro[rubro] || 0) + parseNum(p.monto);
+    });
+
     setMsg('Leyendo saldo de caja...');
     const { data: caja } = await sb.from('caja_diaria').select('*').order('fecha', { ascending:false }).limit(1);
     const saldoActual = caja && caja[0] ? Number(caja[0].saldo_acumulado) : 0;
@@ -2108,13 +2126,18 @@ function renderOverview(k) {
     }}
   });
 
-  const gastosData = k.gastosList.slice(0,6);
+  // "Egresos del mes" = costos fijos aplicables + compras a proveedores
+  // efectivamente pagadas este mes (antes solo mostraba costos fijos,
+  // las facturas recibidas pagadas nunca entraban al grafico).
+  const gastosFijosData = k.gastosList.map(g => ({concepto: g.concepto, monto: g.monto}));
+  const comprasData = Object.entries(DATA.pagosMesPorRubro || {}).map(([rubro, monto]) => ({concepto: 'Compras: ' + rubro, monto}));
+  const gastosData = [...gastosFijosData, ...comprasData].sort((a,b) => b.monto - a.monto).slice(0,8);
   if (CHARTS.donut) CHARTS.donut.destroy();
   CHARTS.donut = new Chart('ch-donut', {
     type:'doughnut',
     data:{
-      labels: gastosData.map(g=>g.concepto.substring(0,20)),
-      datasets:[{data:gastosData.map(g=>g.monto),backgroundColor:['#c08a4a','#3d7ea6','#4b9a4a','#c14458','#c2963f','#7a786f'],borderWidth:0,hoverOffset:6}]
+      labels: gastosData.map(g=>g.concepto.substring(0,24)),
+      datasets:[{data:gastosData.map(g=>g.monto),backgroundColor:['#c08a4a','#3d7ea6','#4b9a4a','#c14458','#c2963f','#7a786f','#8a6fb0','#5aa4a4'],borderWidth:0,hoverOffset:6}]
     },
     options:{responsive:true,cutout:'65%',plugins:{legend:{display:true,position:'bottom',labels:{color:'#7a786f',boxWidth:8,font:{size:10},padding:10}},tooltip:{backgroundColor:'#fff',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#1a1916',bodyColor:'#7a786f',padding:10,cornerRadius:8}}}
   });

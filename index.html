@@ -786,7 +786,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Tipo de comprobante</label><select id="fac-tipo-comprobante"><option value="A">A</option><option value="B">B</option><option value="FCE A">FCE A</option></select></div>
       <div class="field"><label>Cliente</label><select id="fac-cliente"><option value="">—</option></select></div>
       <div class="field"><label>Trabajo</label><select id="fac-proyecto"><option value="">—</option></select></div>
-      <div class="field"><label>Fecha de emisión</label><input type="date" id="fac-emision"></div>
+      <div class="field"><label>Fecha de emisión</label><input type="date" id="fac-emision" onchange="autocompletarVencimientoFactura()"></div>
       <div class="field"><label>Fecha de vencimiento</label><input type="date" id="fac-vencimiento"></div>
       <div class="field"><label>Monto</label><input type="number" step="0.01" id="fac-monto"></div>
       <div class="field"><label>Estado (calculado, no editable)</label><input id="fac-estado" readonly style="background:var(--s2);color:var(--muted)"></div>
@@ -1269,7 +1269,12 @@ tr:hover td{background:var(--bg)}
 <!-- FACTURAS RECIBIDAS (facturas de compra) -->
 <div class="page" id="page-facturas-compra">
   <div class="ph"><div><h1>Facturas Recibidas</h1><p>Devengado del lado de Compras — espejo de Facturas Emitidas. La OC es respaldo opcional, no un paso obligatorio previo.</p></div></div>
-  <div class="row-actions" id="facturas-compra-actions" style="display:none"><button class="btn" onclick="toggleForm('facturas-compra')">+ Nueva factura recibida</button></div>
+  <div class="row-actions" id="facturas-compra-actions" style="display:none">
+    <button class="btn" onclick="toggleForm('facturas-compra')">+ Nueva factura recibida</button>
+    <button class="btn ghost" onclick="document.getElementById('faccompra-csv-input').click()">Importar CSV (AFIP "Mis Comprobantes")</button>
+    <input type="file" id="faccompra-csv-input" accept=".csv" style="display:none" onchange="importarFacturasCompraCSV(event)">
+  </div>
+  <div id="faccompra-csv-msg" style="display:none;margin-bottom:12px"></div>
   <div class="card" id="facturas-compra-form" style="display:none">
     <div id="facturas-compra-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
@@ -4428,7 +4433,11 @@ function mapEstadoChequeCSV(raw, tipo) {
   if (e === 'anulado') return null;
   if (e === 'rechazado') return 'Rechazado';
   if (tipo === 'emitido') {
-    if (e === 'pendiente') return 'Emitido';
+    // "Emitido"/"Pendiente" (e-cheq recien creado, todavia no aceptado por
+    // el beneficiario) mapean igual -- confirmado 17-sep contra un export
+    // real de Banco Galicia, donde "Emitido" es el valor que trae la
+    // columna Estado (no "Pendiente").
+    if (e === 'pendiente' || e === 'emitido') return 'Emitido';
     if (e === 'pagado' || e === 'cobrado' || e === 'depositado' || e === 'debitado' || e === 'depositoenproceso') return 'Debitado';
     return 'En cartera';
   }
@@ -4472,6 +4481,77 @@ async function importarChequesCSV(event) {
     if (error) fail++; else ok++;
   }
   msg.innerHTML = `<div class="alert ${fail ? 'w' : 'g'}"><div class="alert-msg">Importación terminada: ${ok} cheque(s) cargado(s)${fail ? `, ${fail} con error` : ''}.</div></div>`;
+  event.target.value = '';
+  setTimeout(() => cargarTodo(), 1500);
+}
+
+// Letra del comprobante segun el codigo de tipo que usa AFIP ("Mis
+// Comprobantes" / "Comprobantes en linea") -- el modulo de Facturas
+// Recibidas solo distingue A/B/C/M (ver select faccompra-tipo-comprobante),
+// no Factura vs Nota de Credito/Debito, asi que varios codigos AFIP caen
+// en la misma letra a proposito. Un codigo no listado (ej. 81, tiques)
+// queda sin mapear en vez de arriesgar una letra incorrecta.
+const LETRA_COMPROBANTE_AFIP = {
+  '1':'A','2':'A','3':'A',
+  '6':'B','7':'B','8':'B',
+  '11':'C','12':'C','13':'C',
+  '51':'M','52':'M','53':'M',
+};
+
+// Carga masiva de Facturas Recibidas (facturas_compra) desde el reporte
+// "Mis Comprobantes recibidos" de AFIP -- mismo patron que
+// importarChequesCSV: parseCSV detecta el delimitador y saltea filas de
+// agrupacion, pickField encuentra columnas por nombre con variantes.
+//
+// A proposito NO usa upsert: este reporte no trae estado de pago (eso se
+// asienta despues, a mano, desde Pagos cuando el pago se acredita) --
+// si usara upsert, volver a importar el mismo reporte el mes que viene
+// pisaria a 'Recibida' facturas que un usuario ya marco 'Pagada'. Un
+// insert que choca contra el unique index (proveedor_id, numero,
+// tipo_comprobante) se cuenta como "ya existia", no como error, y no
+// toca la fila existente.
+async function importarFacturasCompraCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const msg = document.getElementById('faccompra-csv-msg');
+  msg.style.display = 'block';
+  const text = await file.text();
+  const rows = parseCSV(text);
+  const parsed = rows.map(r => {
+    const puntoVenta = pickField(r, ['punto de venta']);
+    const numDesde = pickField(r, ['numero desde','nro desde','numero']);
+    const tipoCod = pickField(r, ['tipo de comprobante','tipo comprobante']).trim();
+    const numero = (puntoVenta && numDesde) ? (String(puntoVenta).padStart(4,'0') + '-' + String(numDesde).padStart(8,'0')) : (numDesde || null);
+    return {
+      proveedorNombre: pickField(r, ['denominacion emisor','razon social emisor','emisor','proveedor']),
+      numero,
+      tipo_comprobante: LETRA_COMPROBANTE_AFIP[tipoCod] || null,
+      fecha_recepcion: parseFechaLocal(pickField(r, ['fecha de emision','fecha emision','fecha'])),
+      monto: parseMontoLocal(pickField(r, ['imp total','importe total','total'])),
+    };
+  }).filter(r => r.proveedorNombre && r.numero && r.fecha_recepcion && !isNaN(r.monto) && r.monto > 0);
+
+  if (!parsed.length) {
+    msg.innerHTML = '<div class="alert d"><div class="alert-msg">No se reconoció ninguna fila válida. Se espera el CSV "Mis Comprobantes recibidos" de AFIP, con columnas de Denominación Emisor, Punto de Venta, Número Desde, Fecha de Emisión e Imp. Total.</div></div>';
+    event.target.value = '';
+    return;
+  }
+  if (!confirm(`Se detectaron ${parsed.length} facturas recibidas en el archivo. Quedan cargadas como "Recibida" -- el pago se marca después, a mano, desde Pagos cuando se acredite. Si una factura (mismo proveedor + número + tipo) ya existe, no se toca. ¿Confirmás la carga?`)) { event.target.value = ''; return; }
+
+  msg.innerHTML = 'Importando...';
+  let ok = 0, dup = 0, fail = 0;
+  for (let i = 0; i < parsed.length; i++) {
+    const r = parsed[i];
+    const proveedor_id = await obtenerOCrearProveedor(r.proveedorNombre);
+    if (!proveedor_id) { fail++; continue; }
+    const id = 'FCC-' + proveedor_id + '-' + (r.tipo_comprobante || 'X') + '-' + r.numero.replace(/[^A-Za-z0-9]/g,'');
+    const { error } = await sb.from('facturas_compra').insert({
+      id, proveedor_id, numero: r.numero, tipo_comprobante: r.tipo_comprobante,
+      fecha_recepcion: r.fecha_recepcion, monto: r.monto, estado: 'Recibida',
+    });
+    if (error) { if (error.code === '23505') dup++; else fail++; } else ok++;
+  }
+  msg.innerHTML = `<div class="alert ${fail ? 'w' : 'g'}"><div class="alert-msg">Importación terminada: ${ok} factura(s) nueva(s) cargada(s)${dup ? `, ${dup} ya existían (sin cambios)` : ''}${fail ? `, ${fail} con error` : ''}.</div></div>`;
   event.target.value = '';
   setTimeout(() => cargarTodo(), 1500);
 }
@@ -6172,6 +6252,19 @@ let EDITANDO_FAC_ID = null;
 // Facturas es puro devengado -- no crea Movimiento. Lo que suma a "Cobros
 // próx. 30d" y al cash flow antes de cobrarse es facturas_saldo_pendiente
 // (vista, fase 6), leída directo en calcKPIs (fase 7).
+// Regla de negocio confirmada por Sebastián (17-sep-2026): las facturas
+// que emite GS vencen a los 30 días de la emisión salvo que se indique lo
+// contrario -- autocompleta el campo apenas se carga la emisión, pero
+// nunca pisa un vencimiento que ya tenga un valor (auto o manual).
+function autocompletarVencimientoFactura() {
+  const emisionEl = document.getElementById('fac-emision');
+  const vencEl = document.getElementById('fac-vencimiento');
+  if (!emisionEl.value || vencEl.value) return;
+  const d = new Date(emisionEl.value + 'T00:00:00');
+  d.setDate(d.getDate() + 30);
+  vencEl.value = d.toISOString().slice(0, 10);
+}
+
 async function crearFactura() {
   const numero = document.getElementById('fac-numero').value.trim();
   const tipo_comprobante = document.getElementById('fac-tipo-comprobante').value;

@@ -485,11 +485,8 @@ tr:hover td{background:var(--bg)}
     <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Cobros esperados 30d</div><div class="k-val" id="cob-30d">—</div><div class="k-sub"><span class="badge up">ingresos proyectados</span></div></div>
     <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Total movimientos</div><div class="k-val" id="cob-total">—</div><div class="k-sub">registros</div></div>
   </div>
-  <div class="card"><div class="card-ttl">Detalle de cobros pendientes</div><div class="card-sub">importes positivos futuros</div>
+  <div class="card"><div class="card-ttl">Detalle de cobros pendientes</div><div class="card-sub">facturas emitidas con saldo + cheques recibidos en cartera, por fecha</div>
     <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Concepto</th><th>Importe</th><th>Días</th><th>Estado</th></tr></thead><tbody id="tbl-cobros"></tbody></table></div>
-  </div>
-  <div class="card"><div class="card-ttl">Cheques emitidos</div><div class="card-sub">pendientes de pago ordenados por fecha</div>
-    <div class="tbl-wrap"><table><thead><tr><th>N° Cheque</th><th>Emitido por</th><th>Banco</th><th>Fecha pago</th><th>Importe</th><th>Estado</th></tr></thead><tbody id="tbl-banco"></tbody></table></div>
   </div>
 </div>
 
@@ -826,6 +823,9 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="cobros-btn-cancelar" onclick="cancelarEdicionCobro()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Bruto</th><th>Retenciones</th><th>Neto</th><th>Medio</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-cobros-registrados"></tbody></table></div></div>
+  <div class="card"><div class="card-ttl">Cobros por Cliente</div><div class="card-sub">acumulado de cobros confirmados — analizar ventas por cliente</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Cantidad</th><th>Bruto</th><th>Retenciones</th><th>Neto cobrado</th></tr></thead><tbody id="tbl-cobros-por-cliente"></tbody></table></div>
+  </div>
 </div>
 
 <!-- PAGOS -->
@@ -845,6 +845,12 @@ tr:hover td{background:var(--bg)}
     <button class="btn ghost" id="pagos-btn-cancelar" onclick="cancelarEdicionPago()" style="display:none">Cancelar edición</button>
   </div>
   <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Factura</th><th>Monto</th><th>Medio</th><th>Estado</th><th>OP</th><th>Comprobante</th></tr></thead><tbody id="tbl-pagos"></tbody></table></div></div>
+  <div class="card"><div class="card-ttl">Pagos por Proveedor</div><div class="card-sub">acumulado de pagos confirmados — analizar compras por proveedor</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Proveedor</th><th>Rubro</th><th>Cantidad</th><th>Total pagado</th></tr></thead><tbody id="tbl-pagos-por-proveedor"></tbody></table></div>
+  </div>
+  <div class="card"><div class="card-ttl">Pagos por Rubro</div><div class="card-sub">acumulado de pagos confirmados agrupado por rubro de proveedor</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Rubro</th><th>Cantidad</th><th>Total pagado</th></tr></thead><tbody id="tbl-pagos-por-rubro"></tbody></table></div>
+  </div>
 </div>
 
 <!-- CUENTA CORRIENTE (solo lectura, calculada) -->
@@ -1768,7 +1774,7 @@ function calcKPIs() {
     saldoBanco: 0, cobros30d:0, pagos30d:0, cobros7d:0, pagos7d:0,
     cheques30d:0, cheques7d:0, costosFijos:0, rigidez:0,
     vencido:0, vencidoCount:0, porVencer7d:0,
-    movimientos:[], gastosList:[], cobrosProgramados:[],
+    movimientos:[], gastosList:[], cobrosProgramados:[], cobrosPendientesDetalle:[],
     saldosProyectados:[],
     obras:{cobros:0,pagos:0,movs:[]},
     mant:{cobros:0,pagos:0,movs:[]},
@@ -1848,6 +1854,10 @@ function calcKPIs() {
     if (diff !== null && diff >= 0) {
       k.cobrosProgramados.push({fecha, imp, nombre: clienteNombre[f.cliente_id] || f.cliente_id || '—'});
     }
+    // Detalle de Cobranzas: a diferencia de cobrosProgramados (solo futuro,
+    // usado en el grafico de prediccion), esta lista incluye tambien lo
+    // vencido -- es la que alimenta la tabla "Detalle de cobros pendientes".
+    k.cobrosPendientesDetalle.push({fecha, cliente: clienteNombre[f.cliente_id] || f.cliente_id || '—', concepto: 'Factura ' + f.factura_id, imp, diff});
   });
 
   DATA.chequesRecibidos.forEach(c => {
@@ -1860,7 +1870,11 @@ function calcKPIs() {
     if (diff !== null && diff >= 0) {
       k.cobrosProgramados.push({fecha, imp, nombre: c.librador || '—'});
     }
+    const clienteChq = c.cliente_id ? (clienteNombre[c.cliente_id] || c.cliente_id) : (c.librador || '—');
+    k.cobrosPendientesDetalle.push({fecha, cliente: clienteChq, concepto: 'Cheque ' + (c.numero_cheque || c.id), imp, diff});
   });
+
+  k.cobrosPendientesDetalle.sort((a,b) => a.fecha - b.fecha);
 
   DATA.facturasCompraPendientes.forEach(fc => {
     const fecha = parseDate(fc.fecha_vencimiento);
@@ -2200,10 +2214,7 @@ function renderCobranzas(k) {
   document.getElementById('cob-30d').textContent = fmtMoney(k.cobros30d);
   document.getElementById('cob-total').textContent = k.movimientos.length;
 
-  const cobros = k.movimientos
-    .filter(m=>m.imp>0 && m.diff!==null)
-    .sort((a,b)=>a.fecha-b.fecha);
-  document.getElementById('tbl-cobros').innerHTML = cobros.map(m => {
+  document.getElementById('tbl-cobros').innerHTML = k.cobrosPendientesDetalle.map(m => {
     const diff = m.diff;
     let estado, cls;
     if (diff < 0)       { estado='Vencido';    cls='d'; }
@@ -2217,23 +2228,7 @@ function renderCobranzas(k) {
       <td style="font-family:var(--mono);${diff<0?'color:var(--danger)':''}">${diff!==null?(diff<0?diff+'d':'+'+diff+'d'):'—'}</td>
       <td><span class="tag ${cls}">${estado}</span></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Sin cobros registrados</td></tr>';
-
-  document.getElementById('tbl-banco').innerHTML = DATA.banco.slice(0,15).map(row => {
-    const fecha = parseDate(row[4]);
-    const diff  = diffDias(fecha);
-    const imp   = parseNum(row[38]!==undefined?row[38]:row[6]);
-    let cls = diff!==null && diff<=3 ? 'w' : 'ok';
-    if (diff!==null && diff<0) cls='d';
-    return `<tr>
-      <td style="font-family:var(--mono)">${row[0]||'—'}</td>
-      <td>${(row[1]||'—').substring(0,25)}</td>
-      <td>${(row[9]||'—').substring(0,20)}</td>
-      <td style="font-family:var(--mono)">${fmtFecha(fecha)}</td>
-      <td style="font-family:var(--mono);color:var(--warn)">${fmtMoney(imp)}</td>
-      <td><span class="tag ${cls}">${diff!==null&&diff<0?'Vencido':diff!==null&&diff<=3?'Urgente':'Pendiente'}</span></td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Sin cheques cargados</td></tr>';
+  }).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Sin cobros pendientes</td></tr>';
 }
 
 function renderPrediccion(k) {
@@ -2613,7 +2608,7 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
   // error una vez, tiraba "Cannot read properties of undefined" a mitad de
   // cargarModulosGestion() y dejaba sin poblar todo lo que venia despues,
   // incluido el select de Factura de compra del formulario de OP).
-  const { data: facsCompra } = await sb.from('facturas_compra').select('*, proveedores(nombre)').order('fecha_recepcion', {ascending:false});
+  const { data: facsCompra } = await sb.from('facturas_compra').select('*, proveedores(nombre, rubro)').order('fecha_recepcion', {ascending:false});
   window.FACCOMPRA_CACHE = {}; (facsCompra||[]).forEach(f => window.FACCOMPRA_CACHE[f.id] = f);
   const puedeEditarFacCompra = PUEDE_EDITAR.facturas_compra(ROL);
   const estadoFacCompraTag = { Recibida:'w', Pagada:'ok', Vencida:'d', Anulada:'muted' };
@@ -2653,6 +2648,36 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>${comprobanteCell}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin pagos registrados</td></tr>';
+
+  // Pagos por Proveedor y por Rubro -- analisis de compras pedido por Sebastian
+  const pagosPorProveedor = {};
+  const pagosPorRubro = {};
+  (pagos||[]).filter(p => p.estado === 'Confirmado').forEach(p => {
+    const fc = window.FACCOMPRA_CACHE[p.factura_compra_id];
+    const pid = fc && fc.proveedor_id ? fc.proveedor_id : '_SIN_PROVEEDOR';
+    const nombreProv = fc && fc.proveedores ? fc.proveedores.nombre : (pid === '_SIN_PROVEEDOR' ? 'Sin proveedor asignado' : pid);
+    const rubro = fc && fc.proveedores && fc.proveedores.rubro ? fc.proveedores.rubro : 'Sin rubro';
+    const monto = Number(p.monto) || 0;
+    if (!pagosPorProveedor[pid]) pagosPorProveedor[pid] = { nombre: nombreProv, rubro, cant:0, total:0 };
+    pagosPorProveedor[pid].cant++;
+    pagosPorProveedor[pid].total += monto;
+    if (!pagosPorRubro[rubro]) pagosPorRubro[rubro] = { cant:0, total:0 };
+    pagosPorRubro[rubro].cant++;
+    pagosPorRubro[rubro].total += monto;
+  });
+  const filasPagosProv = Object.values(pagosPorProveedor).sort((a,b) => b.total - a.total);
+  document.getElementById('tbl-pagos-por-proveedor').innerHTML = filasPagosProv.map(g => `<tr>
+      <td>${g.nombre}</td><td>${g.rubro}</td>
+      <td style="font-family:var(--mono)">${g.cant}</td>
+      <td style="font-family:var(--mono);font-weight:700">${fmtMoney(g.total)}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin pagos confirmados</td></tr>';
+
+  const filasPagosRubro = Object.entries(pagosPorRubro).map(([rubro,g]) => ({rubro, ...g})).sort((a,b) => b.total - a.total);
+  document.getElementById('tbl-pagos-por-rubro').innerHTML = filasPagosRubro.map(g => `<tr>
+      <td>${g.rubro}</td>
+      <td style="font-family:var(--mono)">${g.cant}</td>
+      <td style="font-family:var(--mono);font-weight:700">${fmtMoney(g.total)}</td>
+    </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">Sin pagos confirmados</td></tr>';
 
   // Cuenta Corriente (fase 6, vistas calculadas -- solo lectura)
   const { data: ccCliente } = await sb.from('cuenta_corriente_cliente').select('*').order('nombre');
@@ -2906,6 +2931,29 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td>—</td>
     </tr>`;
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin cobros registrados</td></tr>';
+
+  // Cobros por Cliente -- analisis de ventas por cliente pedido por Sebastian
+  const cobrosPorCliente = {};
+  (cobros||[]).filter(c => c.estado === 'Confirmado').forEach(c => {
+    const f = window.FACS_CACHE[c.factura_id];
+    const cid = f && f.cliente_id ? f.cliente_id : '_SIN_CLIENTE';
+    if (!cobrosPorCliente[cid]) cobrosPorCliente[cid] = { cant:0, bruto:0, ret:0, neto:0 };
+    const g = cobrosPorCliente[cid];
+    g.cant++;
+    g.bruto += Number(c.monto_bruto)||0;
+    g.neto += Number(c.monto_neto)||0;
+    g.ret += (c.cobro_retenciones||[]).reduce((s,r)=>s+(Number(r.monto)||0),0);
+  });
+  const filasCobrosCliente = Object.entries(cobrosPorCliente)
+    .map(([cid,g]) => ({nombre: cid==='_SIN_CLIENTE' ? 'Sin cliente asignado' : (clienteNombre[cid]||cid), ...g}))
+    .sort((a,b) => b.neto - a.neto);
+  document.getElementById('tbl-cobros-por-cliente').innerHTML = filasCobrosCliente.map(g => `<tr>
+      <td>${g.nombre}</td>
+      <td style="font-family:var(--mono)">${g.cant}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(g.bruto)}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(g.ret)}</td>
+      <td style="font-family:var(--mono);font-weight:700">${fmtMoney(g.neto)}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin cobros confirmados</td></tr>';
 
   // Panel de Socios
   const otTotal = (ots||[]).length, otCerradas = (ots||[]).filter(o=>o.estado==='CERRADA').length;

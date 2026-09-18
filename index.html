@@ -129,6 +129,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 
 /* KPI */
 .kgrid{display:grid;gap:12px;margin-bottom:18px}
+.kgrid.c5{grid-template-columns:repeat(5,1fr)}
 .kgrid.c4{grid-template-columns:repeat(4,1fr)}
 .kgrid.c3{grid-template-columns:repeat(3,1fr)}
 .kgrid.c2{grid-template-columns:repeat(2,1fr)}
@@ -256,7 +257,7 @@ tr:hover td{background:var(--bg)}
   .main{padding:18px 16px}
   .ph{margin-bottom:16px;padding-bottom:12px}
   .ph h1{font-size:21px}
-  .kgrid.c4,.kgrid.c3{grid-template-columns:repeat(2,1fr)}
+  .kgrid.c5,.kgrid.c4,.kgrid.c3{grid-template-columns:repeat(2,1fr)}
   .cgrid.c2,.cgrid.c4,.cgrid.ratio{grid-template-columns:1fr}
   .pred-grid{grid-template-columns:1fr}
   .semaf{grid-template-columns:1fr}
@@ -264,7 +265,7 @@ tr:hover td{background:var(--bg)}
   .login-card{padding:28px 24px}
 }
 @media (max-width:520px){
-  .kgrid.c4,.kgrid.c3,.kgrid.c2{grid-template-columns:1fr}
+  .kgrid.c5,.kgrid.c4,.kgrid.c3,.kgrid.c2{grid-template-columns:1fr}
   .topbar{padding:0 10px}
   .topbar-logo{padding-right:10px;margin-right:4px}
   .topbar-logo img{height:22px}
@@ -479,10 +480,11 @@ tr:hover td{background:var(--bg)}
 <!-- COBRANZAS -->
 <div class="page" id="page-cobranzas">
   <div class="ph"><div><h1>Cobranzas <span>& DSO</span></h1><p>Estado de cobros</p></div><span class="area-badge all">Consolidado</span></div>
-  <div class="kgrid c4">
+  <div class="kgrid c5">
     <div class="kcard" style="--ka:var(--danger)"><div class="k-lbl">Monto vencido</div><div class="k-val d" id="cob-vencido">—</div><div class="k-sub" id="cob-vencido-sub"></div></div>
     <div class="kcard" style="--ka:var(--warn)"><div class="k-lbl">Por vencer (7d)</div><div class="k-val w" id="cob-7d">—</div><div class="k-sub"><span class="badge eq">próximos 7 días</span></div></div>
     <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Cobros esperados 30d</div><div class="k-val" id="cob-30d">—</div><div class="k-sub"><span class="badge up">ingresos proyectados</span></div></div>
+    <div class="kcard" id="cob-dso-card" style="--ka:var(--warn)"><div class="k-lbl">DSO (90d)</div><div class="k-val" id="cob-dso">—</div><div class="k-sub" id="cob-dso-sub">días promedio de cobro</div></div>
     <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Total movimientos</div><div class="k-val" id="cob-total">—</div><div class="k-sub">registros</div></div>
   </div>
   <div class="card"><div class="card-ttl">Detalle de cobros pendientes</div><div class="card-sub">facturas emitidas con saldo + cheques recibidos en cartera, por fecha</div>
@@ -1709,16 +1711,23 @@ async function cargarTodo() {
     DATA.chequesRecibidos = chqRecibidos || [];
 
     setMsg('Leyendo facturas y facturas de compra pendientes...');
-    const [facPendR, facCompraPendR, ocProvR, pagosSinCompR] = await Promise.all([
+    const noventaAtras = new Date(); noventaAtras.setDate(noventaAtras.getDate() - 90);
+    const noventaAtrasStr = noventaAtras.toISOString().slice(0,10);
+    const [facPendR, facCompraPendR, ocProvR, pagosSinCompR, ventasPeriodoR] = await Promise.all([
       sb.from('facturas_saldo_pendiente').select('*').gt('saldo_pendiente', 0),
       sb.from('facturas_compra_saldo_pendiente').select('*').gt('saldo_pendiente', 0),
       sb.from('ordenes_compra_provision').select('*'),
       sb.from('pagos_sin_comprobante').select('*'),
+      sb.from('facturas').select('monto').gte('fecha_emision', noventaAtrasStr).neq('estado', 'Anulada').neq('estado', 'Pendiente de emitir'),
     ]);
     DATA.facturasPendientes = facPendR.data || [];
     DATA.facturasCompraPendientes = facCompraPendR.data || [];
     DATA.ocProvision = ocProvR.data || [];
     DATA.pagosSinComprobante = pagosSinCompR.data || [];
+    // DSO (Days Sales Outstanding): AR pendiente hoy / ventas facturadas en
+    // los ultimos 90 dias * 90 -- ventana de 90d para no quedar a merced de
+    // la facturacion lumpy mes a mes (GS no factura todos los dias).
+    DATA.ventasPeriodo90 = (ventasPeriodoR.data || []).reduce((s,f) => s + parseNum(f.monto), 0);
 
     setMsg('Leyendo costos fijos...');
     const { data: gastos } = await sb.from('costos_fijos').select('*').eq('activo', true);
@@ -1842,6 +1851,13 @@ function calcKPIs() {
   // registrado (Cheque incluido) sale de facturas_saldo_pendiente al
   // instante, asi que nunca se cuenta dos veces por los dos caminos.
   const clienteNombre = DATA.clienteNombre || {};
+  // DSO = cuentas por cobrar de hoy (todo saldo pendiente, tenga o no
+  // fecha de vencimiento cargada) / ventas facturadas en los ultimos 90
+  // dias * 90 -- calculado sobre el total, no solo sobre lo que tiene
+  // vencimiento, porque el saldo se debe igual aunque falte esa fecha.
+  k.arTotal = DATA.facturasPendientes.reduce((s,f) => s + parseNum(f.saldo_pendiente), 0);
+  k.dso = DATA.ventasPeriodo90 > 0 ? (k.arTotal / DATA.ventasPeriodo90) * 90 : null;
+
   DATA.facturasPendientes.forEach(f => {
     const fecha = parseDate(f.fecha_vencimiento);
     if (!fecha) return;
@@ -1857,7 +1873,8 @@ function calcKPIs() {
     // Detalle de Cobranzas: a diferencia de cobrosProgramados (solo futuro,
     // usado en el grafico de prediccion), esta lista incluye tambien lo
     // vencido -- es la que alimenta la tabla "Detalle de cobros pendientes".
-    k.cobrosPendientesDetalle.push({fecha, cliente: clienteNombre[f.cliente_id] || f.cliente_id || '—', concepto: 'Factura ' + f.factura_id, imp, diff});
+    const numFactura = f.numero ? (f.tipo_comprobante ? `${f.numero} (${f.tipo_comprobante})` : f.numero) : f.factura_id;
+    k.cobrosPendientesDetalle.push({fecha, cliente: clienteNombre[f.cliente_id] || f.cliente_id || '—', concepto: 'Factura ' + numFactura, imp, diff});
   });
 
   DATA.chequesRecibidos.forEach(c => {
@@ -2212,6 +2229,17 @@ function renderCobranzas(k) {
   document.getElementById('cob-vencido-sub').innerHTML = `<span class="badge dn">${k.vencidoCount} registros</span>`;
   document.getElementById('cob-7d').textContent  = fmtMoney(k.porVencer7d);
   document.getElementById('cob-30d').textContent = fmtMoney(k.cobros30d);
+  const dsoEl = document.getElementById('cob-dso');
+  const dsoCard = document.getElementById('cob-dso-card');
+  if (k.dso === null) {
+    dsoEl.textContent = '—';
+    document.getElementById('cob-dso-sub').textContent = 'sin ventas en los últimos 90 días';
+    dsoCard.style.setProperty('--ka', 'var(--muted)');
+  } else {
+    dsoEl.textContent = k.dso.toFixed(0) + 'd';
+    document.getElementById('cob-dso-sub').textContent = 'días promedio de cobro';
+    dsoCard.style.setProperty('--ka', k.dso > 60 ? 'var(--danger)' : k.dso > 30 ? 'var(--warn)' : 'var(--good)');
+  }
   document.getElementById('cob-total').textContent = k.movimientos.length;
 
   document.getElementById('tbl-cobros').innerHTML = k.cobrosPendientesDetalle.map(m => {

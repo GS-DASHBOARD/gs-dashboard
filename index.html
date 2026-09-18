@@ -861,6 +861,11 @@ tr:hover td{background:var(--bg)}
 <!-- CUENTA CORRIENTE (solo lectura, calculada) -->
 <div class="page" id="page-cuenta-corriente">
   <div class="ph"><div><h1>Cuenta <span>Corriente</span></h1><p>Saldo calculado — Facturas emitidas/recibidas menos Cobros/Pagos confirmados. No editable a mano.</p></div></div>
+  <div class="kgrid c3">
+    <div class="kcard" style="--ka:var(--good)"><div class="k-lbl">Ingresos totales</div><div class="k-val g" id="cc-ingresos-totales">—</div><div class="k-sub">cobrado neto de clientes</div></div>
+    <div class="kcard" style="--ka:var(--danger)"><div class="k-lbl">Egresos totales</div><div class="k-val d" id="cc-egresos-totales">—</div><div class="k-sub">pagado a proveedores</div></div>
+    <div class="kcard"><div class="k-lbl">Neto</div><div class="k-val" id="cc-neto">—</div><div class="k-sub">ingresos − egresos</div></div>
+  </div>
   <div class="card"><div class="card-ttl">Clientes</div><div class="card-sub">saldo positivo = el cliente nos debe</div>
     <div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Total facturado</th><th>Cobrado neto</th><th>Saldo</th></tr></thead><tbody id="tbl-cuenta-corriente-cliente"></tbody></table></div>
   </div>
@@ -2762,6 +2767,15 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
       <td style="font-family:var(--mono)">${fmtMoney(Number(p.total_pagado))}</td>
       <td style="font-family:var(--mono);font-weight:700">${fmtMoney(Number(p.saldo))}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:20px">Sin movimientos</td></tr>';
+
+  const ingresosTotales = (ccCliente||[]).reduce((s,c) => s + Number(c.total_cobrado_neto || 0), 0);
+  const egresosTotales  = (ccProveedor||[]).reduce((s,p) => s + Number(p.total_pagado || 0), 0);
+  document.getElementById('cc-ingresos-totales').textContent = fmtMoney(ingresosTotales);
+  document.getElementById('cc-egresos-totales').textContent  = fmtMoney(egresosTotales);
+  const ccNetoEl = document.getElementById('cc-neto');
+  const neto = ingresosTotales - egresosTotales;
+  ccNetoEl.textContent = fmtMoney(neto);
+  ccNetoEl.className = 'k-val ' + (neto < 0 ? 'd' : 'g');
 
   // Fase 8: antiguedad de saldos + retenciones a rendir (solo lectura)
   const { data: antCliente } = await sb.from('antiguedad_saldos_cliente').select('*').order('nombre');

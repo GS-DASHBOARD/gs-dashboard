@@ -490,6 +490,9 @@ tr:hover td{background:var(--bg)}
   <div class="card"><div class="card-ttl">Detalle de cobros pendientes</div><div class="card-sub">facturas emitidas con saldo + cheques recibidos en cartera, por fecha</div>
     <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Concepto</th><th>Importe</th><th>Días</th><th>Estado</th></tr></thead><tbody id="tbl-cobros"></tbody></table></div>
   </div>
+  <div class="card"><div class="card-ttl">DSO por Cliente</div><div class="card-sub">pendiente de cobro / facturado en los últimos 90 días × 90 — de peor a mejor</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Pendiente de cobro</th><th>Facturado (90d)</th><th>DSO</th></tr></thead><tbody id="tbl-dso-cliente"></tbody></table></div>
+  </div>
 </div>
 
 <!-- ASISTENTE IA -->
@@ -1718,7 +1721,7 @@ async function cargarTodo() {
       sb.from('facturas_compra_saldo_pendiente').select('*').gt('saldo_pendiente', 0),
       sb.from('ordenes_compra_provision').select('*'),
       sb.from('pagos_sin_comprobante').select('*'),
-      sb.from('facturas').select('monto').gte('fecha_emision', noventaAtrasStr).neq('estado', 'Anulada').neq('estado', 'Pendiente de emitir'),
+      sb.from('facturas').select('monto, cliente_id').gte('fecha_emision', noventaAtrasStr).neq('estado', 'Anulada').neq('estado', 'Pendiente de emitir'),
     ]);
     DATA.facturasPendientes = facPendR.data || [];
     DATA.facturasCompraPendientes = facCompraPendR.data || [];
@@ -1728,6 +1731,11 @@ async function cargarTodo() {
     // los ultimos 90 dias * 90 -- ventana de 90d para no quedar a merced de
     // la facturacion lumpy mes a mes (GS no factura todos los dias).
     DATA.ventasPeriodo90 = (ventasPeriodoR.data || []).reduce((s,f) => s + parseNum(f.monto), 0);
+    DATA.ventasPeriodo90PorCliente = {};
+    (ventasPeriodoR.data || []).forEach(f => {
+      const cid = f.cliente_id || '_SIN_CLIENTE';
+      DATA.ventasPeriodo90PorCliente[cid] = (DATA.ventasPeriodo90PorCliente[cid] || 0) + parseNum(f.monto);
+    });
 
     setMsg('Leyendo costos fijos...');
     const { data: gastos } = await sb.from('costos_fijos').select('*').eq('activo', true);
@@ -1857,6 +1865,26 @@ function calcKPIs() {
   // vencimiento, porque el saldo se debe igual aunque falte esa fecha.
   k.arTotal = DATA.facturasPendientes.reduce((s,f) => s + parseNum(f.saldo_pendiente), 0);
   k.dso = DATA.ventasPeriodo90 > 0 ? (k.arTotal / DATA.ventasPeriodo90) * 90 : null;
+
+  // DSO por cliente -- mismo calculo que el consolidado, pero agrupado por
+  // cliente_id, para ver a quien especificamente se le esta yendo la mano
+  // con el plazo de pago (no alcanza con el numero global).
+  const arPorCliente = {};
+  DATA.facturasPendientes.forEach(f => {
+    const cid = f.cliente_id || '_SIN_CLIENTE';
+    arPorCliente[cid] = (arPorCliente[cid] || 0) + parseNum(f.saldo_pendiente);
+  });
+  const clientesConDso = new Set([...Object.keys(arPorCliente), ...Object.keys(DATA.ventasPeriodo90PorCliente)]);
+  k.dsoPorCliente = Array.from(clientesConDso).map(cid => {
+    const ar = arPorCliente[cid] || 0;
+    const ventas = DATA.ventasPeriodo90PorCliente[cid] || 0;
+    return {
+      cliente: cid === '_SIN_CLIENTE' ? 'Sin cliente asignado' : (clienteNombre[cid] || cid),
+      ar, ventas,
+      dso: ventas > 0 ? (ar / ventas) * 90 : null,
+    };
+  }).filter(c => c.ar > 0 || c.ventas > 0)
+    .sort((a,b) => (b.dso ?? -1) - (a.dso ?? -1));
 
   DATA.facturasPendientes.forEach(f => {
     const fecha = parseDate(f.fecha_vencimiento);
@@ -2257,6 +2285,13 @@ function renderCobranzas(k) {
       <td><span class="tag ${cls}">${estado}</span></td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Sin cobros pendientes</td></tr>';
+
+  document.getElementById('tbl-dso-cliente').innerHTML = k.dsoPorCliente.map(c => `<tr>
+      <td>${c.cliente}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(c.ar)}</td>
+      <td style="font-family:var(--mono)">${fmtMoney(c.ventas)}</td>
+      <td style="font-family:var(--mono);font-weight:700${c.dso!==null && c.dso>60?';color:var(--danger)':c.dso!==null && c.dso>30?';color:var(--warn)':''}">${c.dso===null ? '—' : c.dso.toFixed(0)+'d'}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:20px">Sin datos</td></tr>';
 }
 
 function renderPrediccion(k) {

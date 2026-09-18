@@ -377,7 +377,7 @@ tr:hover td{background:var(--bg)}
     <div class="nav-group" data-modulo="datos-maestros">
       <div class="nav-section">Datos Maestros</div>
       <button class="nav-item" onclick="nav(this,'clientes')"><span class="nav-pip"></span>Clientes</button>
-      <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Proyectos</button>
+      <button class="nav-item" onclick="nav(this,'proyectos')"><span class="nav-pip"></span>Trabajos</button>
       <button class="nav-item" onclick="nav(this,'proveedores')"><span class="nav-pip"></span>Proveedores</button>
       <button class="nav-item" onclick="nav(this,'personal')"><span class="nav-pip"></span>Personal</button>
       <button class="nav-item" onclick="nav(this,'categorias-activo')"><span class="nav-pip"></span>Categorías de Activo</button>
@@ -546,18 +546,24 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="clientes-btn-guardar" onclick="crearCliente()">Guardar</button>
     <button class="btn ghost" id="clientes-btn-cancelar" onclick="cancelarEdicionCliente()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Razón social</th><th>CUIT</th><th>Proyectos activos</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-clientes"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Razón social</th><th>CUIT</th><th>Trabajos activos</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-clientes"></tbody></table></div></div>
 </div>
 
 <!-- PROYECTOS -->
 <div class="page" id="page-proyectos">
-  <div class="ph"><div><h1>Proyectos</h1><p>Obras, mantenimiento y energía</p></div></div>
-  <div class="row-actions" id="proyectos-actions" style="display:none"><button class="btn" onclick="toggleForm('proyectos')">+ Nuevo proyecto</button></div>
+  <div class="ph"><div><h1>Trabajos</h1><p>Obras, mantenimiento y energía</p></div></div>
+  <div class="row-actions" id="proyectos-actions" style="display:none"><button class="btn" onclick="toggleForm('proyectos')">+ Nuevo trabajo</button></div>
   <div class="card" id="proyectos-form" style="display:none">
     <div id="proyectos-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Nombre</label><input id="proy-nombre"></div>
       <div class="field"><label>Cliente</label><select id="proy-cliente"></select></div>
+      <div class="field"><label>Tipo de Trabajo</label><select id="proy-tipo-trabajo">
+        <option value="">—</option>
+        <option>Ingeniería</option><option>Implementación</option><option>Mantenimiento Mayor</option>
+        <option>Obra</option><option>Diagnóstico</option><option>Inspección</option>
+        <option>Mejora</option><option>Puesta en Marcha</option><option>Proyecto Especial</option>
+      </select></div>
       <div class="field"><label>Área</label><select id="proy-area"><option>Obras</option><option>Mantenimiento</option><option>Energía</option></select></div>
       <div class="field"><label>Estado</label><select id="proy-estado"><option>ACTIVO</option><option>EN_PAUSA</option><option>CERRADO</option></select></div>
       <div class="field"><label>Fecha inicio</label><input type="date" id="proy-inicio"></div>
@@ -565,7 +571,7 @@ tr:hover td{background:var(--bg)}
     </div>
     <button class="btn" onclick="crearProyecto()">Guardar</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Proyecto</th><th>Cliente</th><th>Área</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-proyectos"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Trabajo</th><th>Tipo</th><th>Cliente</th><th>Área</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-proyectos"></tbody></table></div></div>
 </div>
 
 <!-- PROVEEDORES -->
@@ -698,7 +704,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Tipo</label><select id="mov-tipo"><option value="INGRESO">Ingreso</option><option value="EGRESO">Egreso</option></select></div>
       <div class="field"><label>Categoría</label><input id="mov-categoria" placeholder="Cobro, Sueldo, Cheque..."></div>
       <div class="field"><label>Cliente</label><select id="mov-cliente"><option value="">—</option></select></div>
-      <div class="field"><label>Proyecto</label><select id="mov-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Trabajo</label><select id="mov-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Medio</label><input id="mov-medio" placeholder="Transferencia, Cheque..."></div>
       <div class="field"><label>Monto</label><input type="number" step="0.01" id="mov-monto"></div>
       <div class="field"><label>Estado</label><select id="mov-estado"><option>CANCELADO</option><option>PENDIENTE</option><option>PROYECTADO</option></select></div>
@@ -707,7 +713,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="mov-btn-guardar" onclick="crearMovimiento()">Guardar</button>
     <button class="btn ghost" id="mov-btn-cancelar" onclick="cancelarEdicionMovimiento()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Concepto</th><th>Estado</th><th>Importe</th><th></th></tr></thead><tbody id="tbl-movimientos"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Trabajo</th><th>Concepto</th><th>Estado</th><th>Importe</th><th></th></tr></thead><tbody id="tbl-movimientos"></tbody></table></div></div>
 </div>
 
 <!-- PRESUPUESTOS -->
@@ -728,7 +734,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Fecha</label><input type="date" id="pre-fecha"></div>
       <div class="field"><label>N° (automático al guardar)</label><input value="—" disabled></div>
       <div class="field"><label>Cliente</label><select id="pre-cliente"><option value="">—</option></select></div>
-      <div class="field"><label>Proyecto</label><input id="pre-proyecto" list="pre-proyecto-list" placeholder="Buscar existente o escribir uno nuevo..."><datalist id="pre-proyecto-list"></datalist></div>
+      <div class="field"><label>Trabajo</label><input id="pre-proyecto" list="pre-proyecto-list" placeholder="Buscar existente o escribir uno nuevo..."><datalist id="pre-proyecto-list"></datalist></div>
       <div class="field"><label>Asunto</label><input id="pre-asunto" placeholder="TABIQUES, CALDERA..."></div>
       <div class="field"><label>Unidad de negocio</label><select id="pre-unidad"><option>Obras</option><option>Mantenimiento</option><option>Energía</option></select></div>
       <div class="field"><label>Destinatario — cargo</label><input id="pre-dest-cargo" placeholder="Arquitecto"></div>
@@ -779,7 +785,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>N° factura</label><input id="fac-numero"></div>
       <div class="field"><label>Tipo de comprobante</label><select id="fac-tipo-comprobante"><option value="A">A</option><option value="B">B</option><option value="FCE A">FCE A</option></select></div>
       <div class="field"><label>Cliente</label><select id="fac-cliente"><option value="">—</option></select></div>
-      <div class="field"><label>Proyecto</label><select id="fac-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Trabajo</label><select id="fac-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Fecha de emisión</label><input type="date" id="fac-emision"></div>
       <div class="field"><label>Fecha de vencimiento</label><input type="date" id="fac-vencimiento"></div>
       <div class="field"><label>Monto</label><input type="number" step="0.01" id="fac-monto"></div>
@@ -789,7 +795,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="fac-btn-guardar" onclick="crearFactura()">Guardar</button>
     <button class="btn ghost" id="fac-btn-cancelar" onclick="cancelarEdicionFactura()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Tipo</th><th>Cliente</th><th>Proyecto</th><th>Presupuesto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Tipo</th><th>Cliente</th><th>Trabajo</th><th>Presupuesto</th><th>Emisión</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th></th></tr></thead><tbody id="tbl-facturas"></tbody></table></div></div>
 </div>
 
 <!-- COBROS -->
@@ -916,7 +922,7 @@ tr:hover td{background:var(--bg)}
         <input type="hidden" id="act-categoria-id">
       </div>
       <div class="field"><label>Cliente</label><select id="act-cliente" onchange="sugerirCodigoActivo()"><option value="">—</option></select></div>
-      <div class="field"><label>Proyecto</label><select id="act-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Trabajo</label><select id="act-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Ubicación (texto libre)</label><input id="act-ubicacion" placeholder="Planta baja, sala de máquinas..."></div>
       <div class="field"><label>Ubicación (árbol, opcional)</label><select id="act-ubicacion-id"></select></div>
       <div class="field"><label>Código (auto, editable)</label><input id="act-codigo" placeholder="Se sugiere solo"></div>
@@ -1154,7 +1160,7 @@ tr:hover td{background:var(--bg)}
       <div class="form-grid">
         <div class="field"><label>N° cheque</label><input id="chq-num"></div>
         <div class="field"><label>Beneficiario</label><input id="chq-benef"></div>
-        <div class="field"><label>Proyecto</label><select id="chq-proyecto"><option value="">—</option></select></div>
+        <div class="field"><label>Trabajo</label><select id="chq-proyecto"><option value="">—</option></select></div>
         <div class="field"><label>Fecha de pago</label><input type="date" id="chq-fecha"></div>
         <div class="field"><label>Importe</label><input type="number" step="0.01" id="chq-importe"></div>
         <div class="field"><label>Estado</label><select id="chq-estado"><option>Emitido</option><option>En cartera</option><option>Debitado</option><option>Rechazado</option></select></div>
@@ -1178,7 +1184,7 @@ tr:hover td{background:var(--bg)}
         <div class="field"><label>N° cheque</label><input id="chqr-num"></div>
         <div class="field"><label>Librador</label><input id="chqr-librador" placeholder="Quien lo entrega"></div>
         <div class="field"><label>Cliente</label><select id="chqr-cliente"><option value="">—</option></select></div>
-        <div class="field"><label>Proyecto</label><select id="chqr-proyecto"><option value="">—</option></select></div>
+        <div class="field"><label>Trabajo</label><select id="chqr-proyecto"><option value="">—</option></select></div>
         <div class="field"><label>Banco</label><input id="chqr-banco"></div>
         <div class="field"><label>Fecha de cobro</label><input type="date" id="chqr-fecha"></div>
         <div class="field"><label>Importe</label><input type="number" step="0.01" id="chqr-importe"></div>
@@ -1222,7 +1228,7 @@ tr:hover td{background:var(--bg)}
     <div id="oc-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Proveedor</label><input id="oc-proveedor" placeholder="Nombre del proveedor"></div>
-      <div class="field"><label>Proyecto</label><select id="oc-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Trabajo</label><select id="oc-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Fecha</label><input type="date" id="oc-fecha"></div>
       <div class="field"><label>Monto estimado</label><input type="number" step="0.01" id="oc-monto"></div>
       <div class="field"><label>Fecha estimada de pago (opcional)</label><input type="date" id="oc-fecha-est-pago"></div>
@@ -1233,7 +1239,7 @@ tr:hover td{background:var(--bg)}
     <button class="btn" id="oc-btn-guardar" onclick="crearOC()">Guardar</button>
     <button class="btn ghost" id="oc-btn-cancelar" onclick="cancelarEdicionOC()" style="display:none">Cancelar edición</button>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Proyecto</th><th>Fecha</th><th>Monto est.</th><th>Prevista pago</th><th>Estado</th><th>OPs</th><th></th></tr></thead><tbody id="tbl-oc"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>N°</th><th>Proveedor</th><th>Trabajo</th><th>Fecha</th><th>Monto est.</th><th>Prevista pago</th><th>Estado</th><th>OPs</th><th></th></tr></thead><tbody id="tbl-oc"></tbody></table></div></div>
   <p id="oc-sin-fecha-info" style="color:var(--muted);font-size:13px;display:none"></p>
 </div>
 
@@ -1247,7 +1253,7 @@ tr:hover td{background:var(--bg)}
       <div class="field"><label>Proveedor</label><input id="op-proveedor" placeholder="Nombre del proveedor"></div>
       <div class="field"><label>Factura de compra (obligatoria para aprobar)</label><select id="op-factura-compra"><option value="">—</option></select></div>
       <div class="field"><label>OC relacionada (opcional)</label><select id="op-oc"><option value="">—</option></select></div>
-      <div class="field"><label>Proyecto</label><select id="op-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Trabajo</label><select id="op-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>Fecha</label><input type="date" id="op-fecha"></div>
       <div class="field"><label>Monto</label><input type="number" step="0.01" id="op-monto"></div>
       <div class="field"><label>Medio</label><select id="op-medio"><option>Transferencia</option><option>Cheque</option><option>Efectivo</option></select></div>
@@ -1268,7 +1274,7 @@ tr:hover td{background:var(--bg)}
     <div id="facturas-compra-err" class="form-err" style="display:none"></div>
     <div class="form-grid">
       <div class="field"><label>Proveedor</label><input id="faccompra-proveedor" placeholder="Nombre del proveedor"></div>
-      <div class="field"><label>Proyecto</label><select id="faccompra-proyecto"><option value="">—</option></select></div>
+      <div class="field"><label>Trabajo</label><select id="faccompra-proyecto"><option value="">—</option></select></div>
       <div class="field"><label>OC relacionada (opcional)</label><select id="faccompra-oc"><option value="">—</option></select></div>
       <div class="field"><label>N° de comprobante</label><input id="faccompra-numero"></div>
       <div class="field"><label>Tipo de comprobante</label><select id="faccompra-tipo-comprobante"><option value="">—</option><option>A</option><option>B</option><option>C</option></select></div>
@@ -2294,17 +2300,20 @@ async function cargarModulosGestion(clientes, proyectos, proyectoInfo, clienteNo
     <td>${puedeEditarCli ? `<button class="btn ghost" onclick="editarCliente(window.CLIENTES_CACHE['${c.id}'])">Editar</button>` : ''}</td>
   </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">Sin clientes</td></tr>';
 
-  // Proyectos
+  // Trabajos (ex-"Proyectos" -- Hito 1 de la hoja de ruta de trazabilidad,
+  // 17-sep-2026: cambio de nombre/metadata, la tabla sigue llamandose
+  // `proyectos` y las FK proyecto_id de Facturas/Movimientos/Compras no
+  // se tocan)
   const puedeEditarProyectos = PUEDE_EDITAR.proyectos(ROL);
   document.getElementById('tbl-proyectos').innerHTML = proyectos.map(p => `<tr>
-    <td>${p.nombre}</td><td>${p.clientes ? p.clientes.nombre : '—'}</td><td>${p.area||'—'}</td>
+    <td>${p.codigo || '—'}</td><td>${p.nombre}</td><td>${p.tipo_trabajo||'—'}</td><td>${p.clientes ? p.clientes.nombre : '—'}</td><td>${p.area||'—'}</td>
     <td><span class="tag ${p.estado==='ACTIVO'?'ok':'muted'}">${p.estado}</span></td>
     <td>${puedeEditarProyectos ? `<select onchange="actualizarEstadoProyecto('${p.id}', this.value)" style="border:1px solid var(--b2);border-radius:5px;padding:4px 6px">
       <option ${p.estado==='ACTIVO'?'selected':''} value="ACTIVO">ACTIVO</option>
       <option ${p.estado==='EN_PAUSA'?'selected':''} value="EN_PAUSA">EN_PAUSA</option>
       <option ${p.estado==='CERRADO'?'selected':''} value="CERRADO">CERRADO</option>
     </select>` : ''}</td>
-  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px">Sin proyectos</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin trabajos</td></tr>';
 
   // Presupuestos
   const { data: presupuestos } = await sb.from('presupuestos').select('*').eq('vigente', true).order('numero',{ascending:false});
@@ -5546,20 +5555,30 @@ function cancelarEdicionRevisionDireccion() {
 async function crearProyecto() {
   const nombre = document.getElementById('proy-nombre').value.trim();
   const cliente_id = document.getElementById('proy-cliente').value || null;
+  const tipo_trabajo = document.getElementById('proy-tipo-trabajo').value || null;
   const area = document.getElementById('proy-area').value;
   const estado = document.getElementById('proy-estado').value;
   const fecha_inicio = document.getElementById('proy-inicio').value || null;
   const fecha_cierre_estimada = document.getElementById('proy-cierre').value || null;
   const id = 'PRO-' + Date.now();
-  const { error } = await sb.from('proyectos').insert({ id, nombre, cliente_id, area, estado, fecha_inicio, fecha_cierre_estimada });
+  // Correlativo por tipo (Hito 1, 17-sep-2026), ej. TR-ING-004 -- mismo
+  // patron que el codigo de Activos: sigla del tipo + conteo de trabajos
+  // ya existentes con esa misma sigla, no un numero global.
+  let codigo = null;
+  if (tipo_trabajo) {
+    const sig = siglas(tipo_trabajo, 3);
+    const yaCount = (window.PROYECTOS || []).filter(p => siglas(p.tipo_trabajo || '', 3) === sig).length + 1;
+    codigo = `TR-${sig}-${String(yaCount).padStart(3, '0')}`;
+  }
+  const { error } = await sb.from('proyectos').insert({ id, nombre, cliente_id, tipo_trabajo, codigo, area, estado, fecha_inicio, fecha_cierre_estimada });
   if (error) return showErr('proyectos', error.message);
   await cargarTodo();
 }
 
 async function actualizarEstadoProyecto(id, estado) {
   const { error } = await sb.from('proyectos').update({ estado }).eq('id', id);
-  if (error) return alert('No se pudo actualizar el proyecto: ' + error.message);
-  if (estado === 'CERRADO') alert('Proyecto cerrado. Se generó la factura a cobrar y su movimiento proyectado en el forecast de caja.');
+  if (error) return alert('No se pudo actualizar el trabajo: ' + error.message);
+  if (estado === 'CERRADO') alert('Trabajo cerrado. Se generó la factura a cobrar y su movimiento proyectado en el forecast de caja.');
   await cargarTodo();
 }
 

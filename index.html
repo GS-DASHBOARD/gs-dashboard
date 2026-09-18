@@ -3378,7 +3378,6 @@ async function mostrarFichaActivo(id) {
         <div class="field"><label>Tipo de instalación</label><div>${a.tipo_instalacion || '—'}</div></div>
         <div class="field"><label>Categoría / familia</label><div>${a.categoria || '—'}</div></div>
         <div class="field"><label>Cliente</label><div>${a.clientes ? a.clientes.nombre : '—'}</div></div>
-        <div class="field"><label>Proyecto</label><div>${a.proyectos ? a.proyectos.nombre : '—'}</div></div>
         <div class="field"><label>Ubicación</label><div>${a.ubicacion_id ? breadcrumbUbicacion(a.ubicacion_id) : (a.ubicacion || '—')}</div></div>
         <div class="field"><label>Criticidad</label><div>${a.criticidad || '—'}</div></div>
         <div class="field"><label>Estado</label><div>${a.estado || '—'}</div></div>
@@ -3474,6 +3473,7 @@ async function mostrarFichaActivo(id) {
     </div>
     <div class="card">
       <div class="card-ttl">Historial de órdenes de trabajo</div>
+      ${a.proyectos ? `<div class="card-sub" style="text-transform:none;letter-spacing:0;font-size:11px">Instalado originalmente en el marco del proyecto <strong style="color:var(--txt)">${a.proyectos.nombre}</strong> — el activo persiste más allá de ese proyecto; este historial cubre todas las OT, sea cual sea su origen.</div>` : ''}
       <div class="tbl-wrap"><table><thead><tr><th>Apertura</th><th>Tipo</th><th>Prioridad</th><th>Técnico</th><th>Estado</th><th>Falla / Certificado por</th><th>Descripción</th></tr></thead><tbody>
         ${(ots||[]).map(o => `<tr><td>${o.fecha_apertura}</td><td>${o.tipo}</td><td>${o.prioridad||'—'}</td><td>${o.tecnico_asignado||'—'}</td><td><span class="tag ${o.estado==='CERRADA'?'ok':'w'}">${o.estado}</span></td><td>${o.codigos_falla ? o.codigos_falla.problema + (o.certificado_por ? ' — ' + o.certificado_por : '') : (o.certificado_por || '—')}</td><td>${o.descripcion||'—'}</td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Sin órdenes de trabajo registradas</td></tr>'}
       </tbody></table></div>
